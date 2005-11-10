@@ -22,6 +22,7 @@
 module Main where
 
 import Core
+import Config
 
 import Control.Monad            ( when )
 import Control.Exception        ( catch )
@@ -33,8 +34,6 @@ import System.Environment       ( getArgs )
 import System.Console.GetOpt
 
 import GHC.Exception            ( Exception(ExitException) )
-
-#include "config.h"
 
 -- ---------------------------------------------------------------------
 -- | Set up the signal handlers
@@ -80,19 +79,8 @@ options = [
 --
 -- usage string.
 --
-usage, versinfo :: IO ()
+usage :: IO ()
 usage = putStr $ usageInfo "Usage: hmp3 [option...] [file]" options
-
-package :: String
-package = "hmp3"
-
-version :: String
-version = "0.0"
-
-versinfo = do 
-        putStrLn $ package++" "++
-                   version++"p"++(show (PATCH_COUNT :: Int))
-        putStrLn $ "darcs get "++ REPO_PATH
 
 --
 -- deal with real options
@@ -100,7 +88,7 @@ versinfo = do
 do_opts :: [Opts] -> IO ()
 do_opts (o:_) = case o of
     Help     -> usage    >> exitWith ExitSuccess
-    Version  -> versinfo >> exitWith ExitSuccess
+    Version  -> putStrLn versinfo >> putStrLn darcsinfo >> exitWith ExitSuccess
 do_opts [] = return ()
 
 --
@@ -112,7 +100,9 @@ do_args args = case (getOpt Permute options args) of
         (o, n, []) -> do
             do_opts o
             return n
-        (_, _, errs) -> error (concat errs)
+        (_, _, errs) -> do mapM_ (hPutStrLn stderr) errs
+                           usage
+                           exitWith (ExitFailure 1)
 
 -- ---------------------------------------------------------------------
 -- | Static main. This is the front end to the statically linked

@@ -20,6 +20,8 @@ module Config where
 
 import Style
 
+#include "config.h"
+
 data Config = Config {
         style  :: UIStyle           -- ^ colours
      }
@@ -27,7 +29,18 @@ data Config = Config {
 -- default instance
 config :: Config
 config = Config {
-       style  = UIStyle { window   = Style Default Default
-                        , selected = Style blue    white
-                        , progress = Style blue    white }
+       style  = UIStyle { window    = Style Default Default
+                        , highlight = Style black   cyan
+                        , progress  = Style cyan    brightWhite  }
    }
+
+package :: String
+package = "hmp3"
+
+versinfo :: String
+versinfo  = package++" "++ version++"p"++(show (PATCH_COUNT :: Int))
+        where version :: String
+              version = "0.0"
+
+darcsinfo :: String
+darcsinfo = "darcs get "++ REPO_PATH

@@ -79,6 +79,7 @@ module Curses (
     -- * Line drawing
     mvWAddStr,      -- :: Window -> Int -> Int -> String -> IO ()
     wAddStr,        -- :: Window -> [Char] -> IO ()
+    wAddChar,       -- :: Window -> Char -> IO ()
     addLn,          -- :: IO ()
     waddnstr,       -- :: Window -> CString -> CInt -> IO CInt
     waddch,         -- :: Window -> (#type chtype) -> IO CInt
@@ -867,9 +868,6 @@ normalise s = map f . filter (/= '\r') s
 foreign import ccall unsafe 
     waddnwstr :: Window -> CWString -> CInt -> IO CInt
 
-foreign import ccall unsafe 
-    waddch :: Window -> (#type chtype) -> IO CInt
-
 wAddStr :: Window -> String -> IO ()
 wAddStr win str = do
     let
@@ -931,6 +929,9 @@ foreign import ccall threadsafe
 
 foreign import ccall threadsafe
     waddch :: Window -> (#type chtype) -> IO CInt
+
+wAddChar :: Window -> Char -> IO ()
+wAddChar w c = throwIfErr_ "waddch" $ waddch w (fromIntegral . ord $ c)
 
 foreign import ccall threadsafe
     vline  :: Char -> Int -> IO ()

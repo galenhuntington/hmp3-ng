@@ -31,11 +31,18 @@ import qualified Curses
 import Control.Exception        ( handle )
 
 data UIStyle = UIStyle { window   :: Style
-                       , selected :: Style
+                       , highlight:: Style
                        , progress :: Style }
 
 -- | Foreground and background color pairs
 data Style = Style Color Color
+
+-- | A List of characters with styles attached
+data CharA = C {-# UNPACK #-} !Char
+           | A {-# UNPACK #-} !Char !Style
+
+-- | A list of such values
+type StringA = [CharA]
 
 --
 -- our representation of colours
@@ -95,9 +102,8 @@ reset = setAttribute (Curses.attr0, Curses.Pair 0)
 --
 -- TODO remember to update this if new fields are added to the ui
 --
-initUiColors :: UIStyle -> IO [((Curses.Color, Curses.Color), Curses.Pair)]
-initUiColors (UIStyle { window=wn, selected=sl, progress=pr }) =
-    mapM (uncurry fn) (zip [wn, sl, pr] [1..])
+initUiColors :: [Style] -> IO [((Curses.Color, Curses.Color), Curses.Pair)]
+initUiColors stys = mapM (uncurry fn) (zip stys [1..])
     where
         fn :: Style -> Int -> IO ((Curses.Color, Curses.Color), Curses.Pair)
         fn sty p = do let (fg,bg) = style2curses sty

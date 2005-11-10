@@ -78,7 +78,10 @@ start = do
 --
 initcolours :: IO ()
 initcolours = do
-    pairs <- initUiColors (style config)
+    let sty = style config
+        ls  = [window sty, highlight sty, progress sty]
+        (Style fg bg) = progress sty -- an extra style
+    pairs <- initUiColors (ls ++ [Style bg bg, Style fg fg])
     writeIORef pairMap pairs
     uiAttr (window (style config)) >>= \(_,p) -> Curses.bkgrndSet nullA p
 
@@ -138,32 +141,43 @@ refreshClock = redrawJustClock >> Curses.refresh
 --
 -- should have a pure state manipulation, really
 --
-renderSt :: IO [String]
+renderSt :: IO [StringA]
 renderSt = do
-    (h,w) <- screenSize
-    s  <- readSt id
-    fr <- readClock id
+    (h,w)    <- screenSize
+    s        <- readSt id
+    fr       <- readClock id
     let songs = music s
         i     = current s
         track = songs !! i
         inf   = info s
         stat  = status s
 
-        hline    = '+' : (replicate (w - 3) '-') ++ ['+']
-        box ss   = hline : (map border ss) ++ [hline]
-        border t = "| "++ t ++ (replicate (w - 5 - length t) ' ') ++" |"
+        hl    = highlight (style config)
+        pr    = progress (style config)
 
-        alignLR l r = l ++ (replicate (w-5-length l - length r) ' ') ++ r 
-        alignR  t   = (replicate (w-5-length t) ' ') ++ t
+        hline = replicate w (A ' ' hl)
+
+        playtime = renderClock w fr
+        prog     = renderProgress pr w fr
+
+        title    = let colorize = map (\c -> A c hl)
+                       l = show stat
+                       r = versinfo
+                   in colorize $ ' ' : l 
+                               ++ (replicate (w-3-length l - length r) ' ') 
+                               ++ r  ++ " "
         
-        playing :: [String]
-        playing = alignLR (basename track) (show stat) 
-                : details
+        playing :: [StringA]
+        playing = title
                 : []
+                : pad (alignL (w-2) (map C $ basename track))
+                : pad details
                 : []
-                : playtime : []
+                : prog
+                : playtime 
+                : [] 
 
-        details = case inf of   -- todo use combinators
+        details = map C $ case inf of   -- todo use combinators
                 Nothing  -> "-"
                 Just inf' ->
                      "(MPEG-" ++ clean (show (version inf'))  ++ " "
@@ -172,31 +186,80 @@ renderSt = do
                   ++ show (sampleRate inf') ++ "Hz"     ++  " "
                   ++ (playMode inf') ++ ")"
 
-        playtime = case fr of
-                Nothing -> "-"
-                Just fr' -> 
-                   let (l,_) = currentTime fr'
-                       (r,_) = timeLeft fr'
-                       (lm,lm') = quotRem l 60
-                       (rm,rm') = quotRem r 60
-                       
-                       str = (printf "%01d:%02d / %01d:%02d" lm lm' rm rm') :: String
+        playlist = let y  = h - (length playing - 2)
+                       ss = map basename (take (y - 6) songs)
+                   in map (pad . map C) $ ss ++ (replicate (y - length ss - 6) [])
 
-                   in alignR str
+    return $ playing ++ [hline] ++ playlist
 
-        playlist = 
-                let y  = h - (length playing - 2)
-                    ss = map basename (take (y - 6) songs)
-                in ss ++ (replicate (y - length ss - 6) [])
+------------------------------------------------------------------------
+--
+-- | Render the clock line
+--
+renderClock :: Int -> Maybe Frame -> StringA
+renderClock w Nothing = []
+renderClock w (Just fr) = 
+   let (l,_)    = currentTime fr
+       (r,_)    = timeLeft fr
+       (lm,lm') = quotRem l 60
+       (rm,rm') = quotRem r 60
+   in C ' ': C ' ' : C ' ' : 
+                alignLR (w-1) (map C ((printf  "%01d:%02d" lm lm') :: String)) 
+                              (map C ((printf "-%01d:%02d" rm rm') :: String))
 
-    return $ (box playing) ++ (box playlist)
+--
+-- | Render the progress bar
+--
+renderProgress :: Style -> Int -> (Maybe Frame) -> StringA
+renderProgress (Style _  bg)  w Nothing  = 
+      C ' ' : C ' ' : C ' ' : replicate (w-6) (A ' ' (Style bg bg))
 
+renderProgress (Style fg bg) w (Just fr) = 
+   let a        = toFloat (currentTime fr)
+       b        = toFloat (timeLeft fr)
+       total    = a + b
+       width    = w - 6
+       distance = round ((a / total) * fromIntegral width)
+   in C ' ' : C ' ' : C ' ' : replicate distance           (A ' ' (Style fg fg)) ++
+                              replicate (width - distance) (A ' ' (Style bg bg))
+
+   where
+       toFloat (x,y) = (fromIntegral x :: Float) + (fromIntegral y / 100)
+
+------------------------------------------------------------------------
+
+-- | Take two strings, and pad them in the middle
+alignLR :: Int -> StringA -> StringA -> StringA
+alignLR w l r = l ++ (replicate (w-5-length l - length r) (C ' ')) ++ r 
+
+-- | Pad a string on the left
+alignR :: Int -> StringA -> StringA
+alignR  w t   = (replicate (w-5-length t) (C ' ')) ++ t
+
+-- | Pad a string on the right
+alignL :: Int -> StringA -> StringA
+alignL w t = t ++ (replicate (w - 5 - length t) (C ' '))
+
+-- | Single char padding 
+padL, padR, pad :: StringA -> StringA
+padL s = C ' ' : s
+padR s = s ++ [C ' ']
+pad = padR . padL
+
+------------------------------------------------------------------------
+--
+-- | Now write out just the clock line
+--
 redrawJustClock :: IO ()
 redrawJustClock = do
-   strs  <- renderSt
    (_,w) <- screenSize
+   fr    <- readClock id
+   let pr    = progress (style config)
    Curses.wMove Curses.stdScr 5 0
-   drawLine (w-1) (strs !! 5)
+   drawLine (w-1) (renderProgress pr w fr)    -- draw the time / remaining line
+
+   Curses.wMove Curses.stdScr 6 0
+   drawLine (w-1) (renderClock w fr)    -- draw the time / remaining line
 
 ------------------------------------------------------------------------
 
@@ -221,8 +284,10 @@ lineDown = do
 --
 -- | lazy version is faster than calculating length of s
 --
-drawLine :: Int -> String -> IO ()
-drawLine w s = Curses.wAddStr Curses.stdScr $! take w (s ++ repeat ' ')
+drawLine :: Int -> StringA -> IO ()
+drawLine w s = flip mapM_ (take w (s ++ repeat (C ' '))) $ \c -> case c of
+                C c     -> Curses.wAddChar Curses.stdScr c
+                A c sty -> withStyle sty (Curses.wAddChar Curses.stdScr c)
 
 --
 -- | Fill to end of line spaces

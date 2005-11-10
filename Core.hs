@@ -25,7 +25,6 @@ module Core (
         shutdown
     ) where
 
-import Config
 import POpen
 import Syntax
 import State
