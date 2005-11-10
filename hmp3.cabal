@@ -1,0 +1,19 @@
+Name:                hmp3
+Version:             0.1
+License:             GPL
+License-file:        LICENSE
+Author:              Don Stewart
+Maintainer:          dons@cse.unsw.edu.au
+Build-Depends:       base, unix
+Exposed-modules:     Curses
+include-dirs:        cbits
+c-sources:           cbits/utils.c
+extensions:          CPP, ForeignFunctionInterface
+ghc-options:         -Wall -fglasgow-exts -Icbits -threaded
+
+Executable:          hmp3
+Main-is:             Main.hs
+extensions:          CPP, ForeignFunctionInterface
+include-dirs:        cbits
+c-sources:           cbits/utils.c
+ghc-options:         -Wall -fglasgow-exts -Icbits -threaded -lncurses
