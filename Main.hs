@@ -90,7 +90,7 @@ package :: String
 package = "hmp3"
 
 version :: String
-version = "0"
+version = "0.0"
 
 versinfo = do 
         putStrLn $ package++" "++
