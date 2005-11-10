@@ -49,6 +49,8 @@ import GHC.Base
 import GHC.Exception
 import GHC.IOBase       ( unsafeInterleaveIO )
 
+#include "config.h"
+
 ------------------------------------------------------------------------
 
 start :: [FilePath] -> IO ()
@@ -57,7 +59,7 @@ start ms =
         (\e -> do print e ; shutdown ; exitWith (ExitFailure 1)) $ do
 
         -- fork process first. could fail. pass handles over to threads
-        (r,w,pid) <- popen (mp3 config) ["-R","-"]
+        (r,w,pid) <- popen (MPG321 :: String) ["-R","-"]
 
         modifyState_ $ \s -> return s { mp3pid    = pid
                                       , music     = ms
