@@ -8,7 +8,7 @@ AC_CONFIG_HEADERS([cbits/config.h])
 # this is arbitrary
 AC_PREREQ([2.52])
 
-AC_PATH_PROG(MPG321,mpg321,/usr/local/bin/mpg321)
+AC_PATH_PROG(MPG321,mpg321)
 if test -z "$MPG321" ; then
 	AC_MSG_ERROR([You need mpg321 installed to run hmp3])
 fi
