@@ -43,7 +43,6 @@ import System.Exit
 import Control.Concurrent
 
 import System.Process           ( waitForProcess )
-import System.Posix.Process     ( exitImmediately )
 import Control.Exception
 
 import GHC.Base
@@ -53,10 +52,9 @@ import GHC.IOBase       ( unsafeInterleaveIO )
 ------------------------------------------------------------------------
 
 start :: [FilePath] -> IO ()
-start ms = Control.Exception.handle (\e -> print e >> shutdown) $ do
-        -- parse file system, build tree.
-
-     -- mapM_ (\m -> hPutStrLn stderr (show m)) ms
+start ms = 
+    Control.Exception.handle 
+        (\e -> do print e ; shutdown ; exitWith (ExitFailure 1)) $ do
 
         -- fork process first. could fail. pass handles over to threads
         (r,w,pid) <- popen (mp3 config) ["-R","-"]
@@ -64,11 +62,11 @@ start ms = Control.Exception.handle (\e -> print e >> shutdown) $ do
         modifyState_ $ \s -> return s { mp3pid    = pid
                                       , music     = ms
                                       , current   = 0
-                                      , pipe      = Just w
-                                      } 
-
+                                      , pipe      = Just w } 
+        -- initialise curses
         UI.start
 
+        -- fork some threads
         t  <- forkIO inputLoop
         t' <- forkIO refreshLoop
         t''<- forkIO clockLoop
@@ -79,51 +77,33 @@ start ms = Control.Exception.handle (\e -> print e >> shutdown) $ do
         modifyState_ $ \s -> unsafeSetCurrent s (head ms)
         modifyState_ $ \s -> return s { status = Playing }
 
-        -- Messages arriving over a pipe from the decoder process
-        let loop = do
-            handle (\_ -> loop) $ do
-                s <- hGetLine r
-             -- hPutStrLn stderr $ "READ " ++ s
-                case parser s of
-                        Right m -> do -- hPutStrLn stderr $ "MSG " ++ (show m)
-                                      handleMsg m
-
-                        Left e  -> do hPutStrLn stderr $ "ERROR no parse"
-                                      mapM_ (hPutStrLn stderr . ("ERROR " ++)) e
-                loop
-        loop
-
+        -- start the main loop
+        run r
         shutdown
 
     where
-        -- | When the editor state isn't being modified, refresh, then wait for
-        -- it to be modified again. Also, check if the window got
-        -- resized, and take the opportunity to refresh.
+        -- | When the editor state has been modified, refresh, then wait
+        -- for it to be modified again.
         refreshLoop :: IO ()
-        refreshLoop = repeatM_ $ do 
+        refreshLoop = {-# SCC "refreshLoop" #-} repeatM_ $ do 
                         takeMVar modified
                         handleJust ioErrors (print) (UI.refresh)
 
-        --
         -- | Once each second, wake up a and redraw the clock
-        --
         clockLoop :: IO ()
-        clockLoop = repeatM_ $ do
+        clockLoop = {-# SCC "clockLoop" #-} repeatM_ $ do
                         threadDelay (1000 * 1000) -- 1 second
                         handleJust ioErrors (print) (UI.refreshClock)
 
-
-        -- Run input handler in a separate thread
-        inputLoop = do let fn = keymap
-                           run' = sequence_ . fn =<< getKeys
-                       repeatM_ $ handle handler run'
+        -- | Handle keystrokes fed to us by curses
+        inputLoop :: IO ()
+        inputLoop = {-# SCC "inputLoop" #-} repeatM_ $ handle handler $ 
+                                                sequence_ . keymap =<< getKeys
             where
-                -- A lazy list of curses keys
                 getKeys = unsafeInterleaveIO $ do
-                        c  <- UI.getKey -- block?
-                        -- hPutStrLn stderr ("INPUT " ++ show c)
+                        c  <- UI.getKey
                         cs <- getKeys
-                        return (c:cs)
+                        return (c:cs) -- A lazy list of curses keys
 
                 handler e | isJust (ioErrors e) = hPutStrLn stderr (show e)
                           | isExitCall e        = throwIO e     -- to main thread?
@@ -132,19 +112,28 @@ start ms = Control.Exception.handle (\e -> print e >> shutdown) $ do
                 isExitCall (ExitException _) = True
                 isExitCall _ = False
 
--- | Quit the application
-shutdown :: IO ()
-shutdown = do
-        Control.Exception.handle (\_ -> return ()) $ do
-                UI.end
-                send Quit
-                pid <- readSt mp3pid    -- wait for the process
-                tds <- readSt threads   -- knock of our threads
-                waitForProcess $ unsafeCoerce# pid
-                mapM_ killThread tds
-                modifyState_ $ \st -> return st { mp3pid = 0, threads = [] }
+-- | Main thread, main loop. Handle messages arriving over a pipe from
+-- the decoder process. When shutdown kills the other end of the pipe,
+-- hGetLine will fail, so we take that chance to exit.
+run :: Handle -> IO ()
+run r = do
+    handle (\_ -> return ()) $ do
+        s <- hGetLine r
+        case parser s of
+            Right m -> handleMsg m
+            Left e  -> mapM_ (hPutStrLn stderr . ("ERROR " ++)) e
+        run r
 
-        exitImmediately ExitSuccess
+-- | Close most things
+shutdown :: IO ()
+shutdown = Control.Exception.handle (\_ -> return ()) $ do
+        UI.end
+        send Quit
+        pid <- readSt mp3pid    -- wait for the process
+        tds <- readSt threads   -- knock of our threads
+        waitForProcess $ unsafeCoerce# pid
+        mapM_ killThread tds
+        modifyState_ $ \st -> return st { mp3pid = 0, threads = [] }
 
 ------------------------------------------------------------------------
 -- 
@@ -203,7 +192,7 @@ pause :: IO ()
 pause = send Pause
 
 quit :: IO ()
-quit = shutdown
+quit = shutdown >> exitWith ExitSuccess
 
 ------------------------------------------------------------------------
 --

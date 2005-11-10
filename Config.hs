@@ -20,12 +20,18 @@ module Config where
 
 #include "config.h"
 
+import Style
+
 data Config = Config {
        mp3    :: FilePath          -- ^ path to mpg123 (or clone)
+      ,style  :: UIStyle           -- ^ colours
      }
 
 -- default instance
 config :: Config
 config = Config {
        mp3    = MPG321 :: String
+      ,style  = UIStyle { window   = Style Default Default
+                        , selected = Style blue    white
+                        , progress = Style blue    white }
    }

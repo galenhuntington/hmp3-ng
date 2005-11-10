@@ -25,7 +25,6 @@
 -- 02111-1307, USA.
 -- 
 -- Derived from: riot/UI.hs
---
 --      Copyright (c) Tuomo Valkonen 2004.
 --
 -- Released under the same license.
@@ -46,15 +45,17 @@ module UI (
 
   )   where
 
+import Style
 import State
-import Utils
+import Config
 import Syntax
+import Utils
 
 import Text.Printf
 
+import Data.IORef
 import System.IO
 
-import Curses hiding ( refresh, Window )
 import qualified Curses
 
 import qualified Control.Exception
@@ -67,22 +68,19 @@ import System.Posix.Signals         ( raiseSignal, sigTSTP )
 start :: IO ()
 start = do
     Curses.initCurses (resizeui >> return ())          -- initialise the screen
---  initcolours
+    initcolours
     Curses.keypad Curses.stdScr True    -- grab the keyboard
-    Control.Exception.catch (Curses.cursSet (fromIntegral 0) >> return ()) 
+    Control.Exception.catch (Curses.cursSet (fromIntegral (0::Int)) >> return ()) 
                             (\_ -> return ())
 
 --
 -- | And turn on the colours
 --
-{-
 initcolours :: IO ()
 initcolours = do
-    sty <- readEditor uistyle
-    pairs <- initUiColors sty
+    pairs <- initUiColors (style config)
     writeIORef pairMap pairs
-    uiAttr (window sty) >>= \(_,p) -> bkgrndSet nullA p
--}
+    uiAttr (window (style config)) >>= \(_,p) -> Curses.bkgrndSet nullA p
 
 --
 -- | Clean up and go home. Refresh is needed on linux. grr.
@@ -153,10 +151,10 @@ renderSt = do
 
         hline    = '+' : (replicate (w - 3) '-') ++ ['+']
         box ss   = hline : (map border ss) ++ [hline]
-        border s = "| "++ s ++ (replicate (w - 5 - length s) ' ') ++" |"
+        border t = "| "++ t ++ (replicate (w - 5 - length t) ' ') ++" |"
 
         alignLR l r = l ++ (replicate (w-5-length l - length r) ' ') ++ r 
-        alignR  s   = (replicate (w-5-length s) ' ') ++ s
+        alignR  t   = (replicate (w-5-length t) ' ') ++ t
         
         playing :: [String]
         playing = alignLR (basename track) (show stat) 
@@ -165,20 +163,20 @@ renderSt = do
                 : []
                 : playtime : []
 
-        details = case inf of
+        details = case inf of   -- todo use combinators
                 Nothing  -> "-"
-                Just inf ->
-                     "(MPEG-" ++ clean (show (version inf))  ++ " "
-                  ++ "Layer " ++ show (layer inf)      ++ " "
-                  ++ show (bitrate inf) ++ "kbit/s"   ++ " "
-                  ++ show (sampleRate inf) ++ "Hz"     ++  " "
-                  ++ (playMode inf) ++ ")"
+                Just inf' ->
+                     "(MPEG-" ++ clean (show (version inf'))  ++ " "
+                  ++ "Layer " ++ show (layer inf')      ++ " "
+                  ++ show (bitrate inf') ++ "kbit/s"   ++ " "
+                  ++ show (sampleRate inf') ++ "Hz"     ++  " "
+                  ++ (playMode inf') ++ ")"
 
         playtime = case fr of
                 Nothing -> "-"
-                Just fr -> 
-                   let (l,_) = currentTime fr
-                       (r,_) = timeLeft fr
+                Just fr' -> 
+                   let (l,_) = currentTime fr'
+                       (r,_) = timeLeft fr'
                        (lm,lm') = quotRem l 60
                        (rm,rm') = quotRem r 60
                        
@@ -195,10 +193,10 @@ renderSt = do
 
 redrawJustClock :: IO ()
 redrawJustClock = do
-   all   <- renderSt
+   strs  <- renderSt
    (_,w) <- screenSize
    Curses.wMove Curses.stdScr 5 0
-   drawLine (w-1) (all !! 5)
+   drawLine (w-1) (strs !! 5)
 
 ------------------------------------------------------------------------
 
@@ -216,8 +214,8 @@ redraw = do
 
 lineDown :: IO ()
 lineDown = do
-    (h,w) <- screenSize
-    (y,_) <- getYX Curses.stdScr
+    (h,_) <- screenSize
+    (y,_) <- Curses.getYX Curses.stdScr
     Curses.wMove Curses.stdScr (min h (y+1)) 0
 
 --
@@ -229,11 +227,12 @@ drawLine w s = Curses.wAddStr Curses.stdScr $! take w (s ++ repeat ' ')
 --
 -- | Fill to end of line spaces
 --
-fillLine :: IO ()
-fillLine = Curses.clrToEol
+-- fillLine :: IO ()
+-- fillLine = Curses.clrToEol
 
 --
 -- | move cursor to origin of stdScr.
 --
 gotoTop :: IO ()
 gotoTop = Curses.wMove Curses.stdScr 0 0
+

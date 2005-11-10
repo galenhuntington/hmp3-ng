@@ -1152,7 +1152,7 @@ foreign import ccall threadsafe ungetch :: CInt -> IO CInt
 --foreign import ccall unsafe reset_prog_mode :: IO CInt
 foreign import ccall unsafe flushinp :: IO CInt
 
-foreign import ccall unsafe "HSCurses.h noqiflush" 
+foreign import ccall unsafe "curses.h noqiflush" 
     noqiflush :: IO ()
 
 withProgram :: IO a -> IO a

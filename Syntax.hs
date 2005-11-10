@@ -152,11 +152,15 @@ instance Parse Info where
 -- Frame decoding status updates (once per frame).
 -- Current-frame and frames-remaining are integers; current-time and
 -- time-remaining floating point numbers with two decimal places.
+--
+-- Only 1 frame a second is actually read, so make sure it's lazy so
+-- there's no need to evaluate all the others. 
+-- 
 data Frame = Frame {
-                currentFrame   :: !Integer,
-                framesLeft     :: !Integer,
-                currentTime    :: !(Integer,Integer),
-                timeLeft       :: !(Integer,Integer)
+                currentFrame   :: Integer,
+                framesLeft     :: Integer,
+                currentTime    :: (Integer,Integer),
+                timeLeft       :: (Integer,Integer)
              }
         deriving Show
 

@@ -22,16 +22,15 @@
 module Main where
 
 import Core
-import qualified UI
 
 import Control.Monad            ( when )
-import Control.Exception        ( catch, throw )
+import Control.Exception        ( catch )
 
-import System.Console.GetOpt
-import System.Environment       ( getArgs )
-import System.Exit
 import System.Posix.Signals
-import System.Posix.Process
+import System.IO
+import System.Exit
+import System.Environment       ( getArgs )
+import System.Console.GetOpt
 
 import GHC.Exception            ( Exception(ExitException) )
 
@@ -56,12 +55,10 @@ initSignals = do
                (\sig -> installHandler sig Ignore Nothing)
 
     -- and exit if we get the following:
-    -- we have to do our own quitE here.
     flip mapM_ [sigINT, sigHUP, sigABRT, sigTERM] $ \sig -> do
-            installHandler sig (CatchOnce $ do
-                    Control.Exception.catch shutdown (\_ -> return ())
-                    Control.Exception.catch UI.end   (\_ -> return ())
-                    (exitImmediately (ExitFailure 1))) Nothing
+            installHandler sig (Catch (do
+                Control.Exception.catch shutdown (\f -> hPutStrLn stderr (show f))
+                exitWith (ExitFailure 1) )) Nothing
 
 releaseSignals :: IO ()
 releaseSignals =
@@ -110,8 +107,8 @@ do_opts [] = return ()
 -- everything that is left over
 --
 do_args :: [String] -> IO [FilePath]
-do_args args =
-    case (getOpt Permute options args) of
+do_args []   = usage    >> exitWith ExitSuccess
+do_args args = case (getOpt Permute options args) of
         (o, n, []) -> do
             do_opts o
             return n
@@ -127,17 +124,16 @@ do_args args =
 --
 main :: IO ()
 main = Control.Exception.catch
-        (do args  <- getArgs
-            files <- do_args args
-            initSignals
-            start files)
+        (      do args  <- getArgs
+                  files <- do_args args
+                  initSignals
+                  start files)
 
     -- catch any exception thrown by the main loop, clean up and quit
-    -- (catching an ExitException)
         (\e -> do releaseSignals
-                  Control.Exception.catch shutdown (\_ -> return ())
-                  when (not $ isExitCall e) $ print e
-                  throw e)
+                  Control.Exception.catch shutdown (\f -> hPutStrLn stderr (show f))
+                  when (not $ isExitCall e) $ hPutStrLn stderr (show e)
+                  exitWith (ExitFailure 1))
 
     where
       isExitCall (ExitException _) = True
