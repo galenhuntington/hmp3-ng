@@ -30,7 +30,8 @@ data Config = Config {
 config :: Config
 config = Config {
        style  = UIStyle { window    = Style Default Default
-                        , highlight = Style black   cyan
+                        , highlight = Style brightWhite green
+                        , selected  = Style brightWhite cyan
                         , progress  = Style cyan    brightWhite  }
    }
 

@@ -38,7 +38,7 @@ import System.Posix.Types   ( ProcessID )
 
 -- | The editor state type
 data State = State {
-        music           :: ![FilePath]                  -- todo, sort on mp3 fields
+        music           :: ![FilePath]                  -- TODO, sort on mp3 fields
        ,current         :: Int                          -- current playing mp3
 
        ,mp3pid          :: ProcessID                    -- pid of decoder

@@ -123,7 +123,7 @@ main = Control.Exception.catch
         (\e -> do releaseSignals
                   Control.Exception.catch shutdown (\f -> hPutStrLn stderr (show f))
                   when (not $ isExitCall e) $ hPutStrLn stderr (show e)
-                  exitWith (ExitFailure 1))
+                  return ())
 
     where
       isExitCall (ExitException _) = True

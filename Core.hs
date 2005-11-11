@@ -30,6 +30,7 @@ import Syntax
 import State
 import Lexers
 import Curses
+import Utils
 import qualified UI
 
 import Data.Maybe
@@ -46,7 +47,7 @@ import Control.Exception
 
 import GHC.Base
 import GHC.Exception
-import GHC.IOBase       ( unsafeInterleaveIO )
+import GHC.IOBase               ( unsafeInterleaveIO )
 
 #include "config.h"
 
@@ -55,7 +56,7 @@ import GHC.IOBase       ( unsafeInterleaveIO )
 start :: [FilePath] -> IO ()
 start ms = 
     Control.Exception.handle 
-        (\e -> do print e ; shutdown ; exitWith (ExitFailure 1)) $ do
+        (\e -> do shutdown ; hPutStrLn stderr (show e) ; exitWith (ExitFailure 1)) $ do
 
         -- fork process first. could fail. pass handles over to threads
         (r,w,pid) <- popen (MPG321 :: String) ["-R","-"]
@@ -132,7 +133,7 @@ shutdown = Control.Exception.handle (\_ -> return ()) $ do
         send Quit
         pid <- readSt mp3pid    -- wait for the process
         tds <- readSt threads   -- knock of our threads
-        waitForProcess $ unsafeCoerce# pid
+        waitForProcess $ unsafeCoerce# pid      -- bit evil
         mapM_ killThread tds
         modifyState_ $ \st -> return st { mp3pid = 0, threads = [] }
 
@@ -243,8 +244,3 @@ command = cmd `action` \[c] -> Just $ case c of
                   | k == ' '      || k == 'p' -> pause
                 _     -> return ()
         where cmd = alt $ "qkjhlp " ++ [keyUp, keyDown, keyLeft, keyRight]
-
-repeatM_ :: forall m a. Monad m => m a -> m ()
-repeatM_ a = a >> repeatM_ a
-{-# SPECIALIZE repeatM_ :: IO a -> IO () #-}
-{-# INLINE repeatM_ #-}

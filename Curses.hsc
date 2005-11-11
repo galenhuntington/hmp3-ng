@@ -220,10 +220,6 @@ import Control.Concurrent       ( yield, threadWaitRead )
 import Foreign
 import Foreign.C
 
-#if GLASGOW_HASKELL < 603
-import Data.Bits
-#endif
-
 #ifdef SIGWINCH
 import System.Posix.Signals
 #endif
@@ -246,6 +242,7 @@ initCurses fn = do
     when b $ startColor >> useDefaultColors
     resetParams
 #ifdef SIGWINCH
+    -- does this still work?
     installHandler (fromJust cursesSigWinch) 
                    (Catch fn) Nothing >> return ()
 #endif

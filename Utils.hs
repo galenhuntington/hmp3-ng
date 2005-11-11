@@ -105,3 +105,10 @@ breakOnGlue glue rest@(x:xs)
     | otherwise = (x:piece, rest')
         where (piece, rest') = breakOnGlue glue xs
 {-# INLINE breakOnGlue #-}
+
+------------------------------------------------------------------------
+-- | Repeat an action
+repeatM_ :: forall m a. Monad m => m a -> m ()
+repeatM_ a = a >> repeatM_ a
+{-# SPECIALIZE repeatM_ :: IO a -> IO () #-}
+{-# INLINE repeatM_ #-}
