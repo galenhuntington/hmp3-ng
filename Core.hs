@@ -131,7 +131,7 @@ run r = do
         s <- hGetLine r
         case parser s of
             Right m -> handleMsg m
-            Left e  -> warnA e
+            Left e  -> warnA e  -- error from pipe
         run r
 
 -- | Close most things
@@ -229,7 +229,6 @@ quit = shutdown {-  >> throwTo main thread exitWith ExitSuccess -}
 --
 -- The keymap
 --
-
 keymap :: [Char] -> [IO ()]
 keymap cs = map (clrmsg >>) actions
     where (actions,_,_) = execLexer mode (cs, ()) 
@@ -266,7 +265,7 @@ mode = command
  
 command :: Lexer () (IO ())
 command = cmd `action` \[c] -> Just $ case c of
-                'q' -> quit
+                'q'  -> quit
                 k | k == keyUp    || k == 'k' -> up
                   | k == keyDown  || k == 'j' -> down
                 k | k == keyLeft  || k == 'h' -> seekLeft
