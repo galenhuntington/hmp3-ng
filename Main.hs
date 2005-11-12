@@ -113,7 +113,8 @@ do_args args = case (getOpt Permute options args) of
 -- handlers, then jump to ui event loop with the state.
 --
 main :: IO ()
-main = Control.Exception.catch
+main = do  
+    Control.Exception.catch
         (      do args  <- getArgs
                   files <- do_args args
                   initSignals
@@ -124,6 +125,8 @@ main = Control.Exception.catch
                   Control.Exception.catch shutdown (\f -> hPutStrLn stderr (show f))
                   when (not $ isExitCall e) $ hPutStrLn stderr (show e)
                   return ())
+
+    return ()
 
     where
       isExitCall (ExitException _) = True
