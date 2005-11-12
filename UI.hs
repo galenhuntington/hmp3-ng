@@ -52,8 +52,6 @@ import Syntax hiding (draw)
 import Utils
 import qualified Curses
 
-import qualified Data.FastPackedString as P
-
 import Control.Monad
 import Data.IORef
 import Data.List
@@ -199,7 +197,7 @@ instance (Element a, Element b) => Element (a,b) where
 ------------------------------------------------------------------------
 
 instance Element PPlaying where
-    draw w@(_,x') x y z = PPlaying $ Plain $! "  " ++ alignLR (x'-4) a b
+    draw w@(_,x') x y z = PPlaying $ Plain $ "  " ++ alignLR (x'-4) a b
         where
             (PTrack a) = draw w x y z :: PTrack
             (PInfo b)  = draw w x y z :: PInfo
@@ -210,7 +208,7 @@ instance Element PTrack where
 
 -- | mp3 information
 instance Element PInfo where
-    draw _ _ st mfr = PInfo $! case info st of
+    draw _ _ st mfr = PInfo $ case info st of
         Nothing  -> []
         Just i   -> concat ["mpeg " ,(clean . show . version $ i)  ," "
                            ,"layer " ,(show . layer $ i) ," "
@@ -229,14 +227,14 @@ instance Element PTimes where
         remaining = (printf "-%01d:%02d" rm rm') :: String
         gap       = replicate distance ' '
         distance  = x - 4{-2 on each end-} - length elapsed - length remaining
-        (lm,lm')  = quotRem (fst $! currentTime fr) 60
-        (rm,rm')  = quotRem (fst $! timeLeft fr) 60
+        (lm,lm')  = quotRem (fst $ currentTime fr) 60
+        (rm,rm')  = quotRem (fst $ timeLeft fr) 60
 
 ------------------------------------------------------------------------
 
 -- | A progress bar
 instance Element ProgressBar where
-    draw (_,w) _ _ Nothing = ProgressBar . Fancy $!
+    draw (_,w) _ _ Nothing = ProgressBar . Fancy $
           A ' ' df : A ' ' df : replicate (w-4) (A ' ' bgs)
 
         where 
@@ -244,7 +242,7 @@ instance Element ProgressBar where
           df           = Style Default Default
           bgs          = Style bg bg
 
-    draw (_,w) _ _ (Just fr) = ProgressBar . Fancy $!
+    draw (_,w) _ _ (Just fr) = ProgressBar . Fancy $
           A ' ' df : A ' ' df :
           replicate distance (A ' ' fgs) ++
           replicate (width - distance) (A ' ' bgs)
@@ -363,19 +361,18 @@ redraw :: IO ()
 redraw = withState $ \s -> do
    sz@(h,w) <- screenSize
    f <- readClock id
-   case {-# SCC "1" #-} printPlayScreen (draw sz (0,0) s f :: PlayScreen) of { x ->
-   case {-# SCC "2" #-} printPlayList   (draw sz (length x,0) s f :: PlayList) of { y -> do
-   let a = {-# SCC "3" #-}  x ++ y -- all lines
+   let x = {-# SCC "1" #-} printPlayScreen (draw sz (0,0) s f :: PlayScreen)
+       y = {-# SCC "2" #-} printPlayList   (draw sz (length x,0) s f :: PlayList)
+       a = {-# SCC "3" #-}  x ++ y -- all lines
    gotoTop
-   {-# SCC "4" #-}mapM_ (\s -> do  drawLine w s 
+   {-# SCC "4" #-}mapM_ (\s -> do  {-# SCC "x" #-}drawLine w s 
                                    fillLine
                                    (y,x) <- Curses.getYX Curses.stdScr
-                                   maybeLineDown s y x )
+                                   maybeLineDown s h y x )
          (take (h-1) (init a))
 
    Curses.wMove Curses.stdScr h 0
    drawLine (w-1) (last a) >> fillLine
-   }}
 
 ------------------------------------------------------------------------
 --
@@ -388,27 +385,20 @@ drawLine w (Fancy s) =
         C c     -> Curses.wAddChar Curses.stdScr c
         A c sty -> withStyle sty $ Curses.wAddChar Curses.stdScr c
 
-drawLine _ (Plain s) = drawStringPacked (P.pack s)
-
--- pack then draw
-drawStringPacked :: P.FastString -> IO ()
-drawStringPacked ps =
-    P.unsafeUseAsCString ps $ \ptr ->
-        Curses.throwIfErr_ "drawLine"# $
-            Curses.waddnstr Curses.stdScr ptr (fromIntegral (P.length ps))
+drawLine _ (Plain s) = Curses.wAddStr Curses.stdScr s
 
 ------------------------------------------------------------------------
 
-maybeLineDown (Plain []) y _ = lineDown y
-maybeLineDown (Fancy []) y _ = lineDown y
-maybeLineDown _ y x
+maybeLineDown (Plain []) h y _ = lineDown h y
+maybeLineDown (Fancy []) h y _ = lineDown h y
+maybeLineDown _ h y x
     | x == 0    = return ()     -- already moved down
-    | otherwise = lineDown y
+    | otherwise = lineDown h y
 
 ------------------------------------------------------------------------
 
-lineDown :: Int -> IO ()
-lineDown y = Curses.wMove Curses.stdScr (y+1) 0
+lineDown :: Int -> Int -> IO ()
+lineDown h y = Curses.wMove Curses.stdScr (min h (y+1)) 0
 
 --
 -- | Fill to end of line spaces

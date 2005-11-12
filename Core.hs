@@ -61,6 +61,9 @@ start ms =
                                     hPutStrLn stderr ("start: " ++ show e)
                                     exitWith (ExitFailure 1)) $ do
 
+        -- initialise curses
+        UI.start
+
         -- fork process first. could fail. pass handles over to threads
         (r,w,pid) <- popen (MPG321 :: String) ["-R","-"]
 
@@ -68,8 +71,7 @@ start ms =
                                       , music     = [ (m, basename m) | m <- ms ]
                                       , current   = 0
                                       , pipe      = Just w } 
-        -- initialise curses
-        UI.start
+        setCurrent (head ms)
 
         -- fork some threads
         t  <- forkIO inputLoop
@@ -77,10 +79,11 @@ start ms =
         t''<- forkIO clockLoop
         modifyState_ $ \s -> return s { threads = [t,t',t''] } 
 
+        -- getting wmove errors for some reason
+
         -- start the first song
             
         send (Just w) (Load (head ms))
-        setCurrent (head ms)
         modifyState_ $ \s -> return s { status = Playing }
 
         -- start the main loop
@@ -94,7 +97,7 @@ start ms =
         -- | When the editor state has been modified, refresh, then wait
         -- for it to be modified again.
         refreshLoop :: IO ()
-        refreshLoop = repeatM_ $ do 
+        refreshLoop = repeatM_ $ do
                         takeMVar modified
                         catchJust ioErrors UI.refresh warnA
 
@@ -102,9 +105,10 @@ start ms =
         clockLoop :: IO ()
         clockLoop = repeatM_ $ do
                         threadDelay delay 
+                    --  hPutStrLn stderr "CLOCK"
                         catchJust ioErrors UI.refreshClock warnA
                 where
-                  delay = 1000 * 1000 -- 0.5 seconds
+                  delay = 1000 * 500 -- 0.5 seconds
 
         -- | Handle keystrokes fed to us by curses
         inputLoop :: IO ()
@@ -112,6 +116,7 @@ start ms =
             where
                 getKeys = unsafeInterleaveIO $ do
                         c  <- UI.getKey
+                   --   hPutStrLn stderr "INPUT"
                         cs <- getKeys
                         return (c:cs) -- A lazy list of curses keys
 
@@ -129,6 +134,7 @@ run :: Handle -> IO ()
 run r = do
     handle (\_ -> return ()) $ do
         s <- hGetLine r
+    --  hPutStrLn stderr "MPG321"
         case parser s of
             Right m -> handleMsg m
             Left e  -> warnA e  -- error from pipe
@@ -165,8 +171,8 @@ handleMsg (R f) = do
     modifyClock $! \_ -> return $ Just f
     b <- isEmptyMVar clockModified
     when (not b) $ do   -- force an immediate update if we've just skipped 
-        catchJust ioErrors UI.refreshClock warnA
         takeMVar clockModified
+        catchJust ioErrors UI.refreshClock warnA
         return ()
 
 ------------------------------------------------------------------------

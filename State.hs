@@ -40,7 +40,7 @@ import System.Posix.Types   ( ProcessID )
 
 -- | The editor state type
 data State = State {
-        music           :: ![(FilePath,FilePath)] -- TODO, sort on mp3 fields
+        music           :: [(FilePath,FilePath)] -- TODO, sort on mp3 fields
        ,current         :: Int              -- currently playing mp3
 
        ,mp3pid          :: ProcessID        -- pid of decoder
@@ -50,7 +50,7 @@ data State = State {
        ,info            :: Maybe Info       -- mp3 info
        ,status          :: Status                  
 
-       ,minibuffer      :: !StringA         -- contents of minibuffer
+       ,minibuffer      :: StringA         -- contents of minibuffer
     }
 
 
@@ -129,6 +129,15 @@ modifyState_ f = modifyMVar_ state $ \r -> do
             v' <- f v
             writeIORef r v'
             tryPutMVar modified ()
+        --  hPutStrLn stderr "MODIFIED"
+            return r
+
+-- | Variation on modifyState_ that won't trigger a refresh
+unsafeModifyState :: (State -> IO State) -> IO ()
+unsafeModifyState f = modifyMVar_ state $ \r -> do
+            v  <- readIORef r
+            v' <- f v
+            writeIORef r v'
             return r
 
 -- | Variation on modifyState_ that lets you return a value
@@ -170,10 +179,12 @@ send mp m = case mp of
 -- Editing the minibuffer
 
 putmsg :: StringA -> IO ()
-putmsg s = modifyState_ $ \st -> return st { minibuffer = s }
+putmsg s = unsafeModifyState $ \st -> return st { minibuffer = s }
 
+-- Modify without triggering a refresh
 clrmsg :: IO ()
-clrmsg = modifyState_ $ \s -> return s { minibuffer = Plain [] }
+clrmsg = unsafeModifyState $ \s -> return s { minibuffer = empty }
+    where empty = Plain []
 
 showA :: Show a => a -> IO ()
 showA = putmsg . Plain . show

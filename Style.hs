@@ -54,7 +54,12 @@ data CharA = C {-# UNPACK #-} !Char
 -- | A list of such values (the representation is optimised)
 data StringA = Fancy ![CharA]   -- lines with colours in them
              | Plain !String    -- plain text, no attributes set
--- our representation of colours
+    deriving Eq
+
+instance Show StringA where
+  show (Fancy cs) = show $ map (\c -> case c of C d -> d ; A d _ -> d) cs
+  show (Plain cs) = show cs
+
 --
 data Color
     = RGB {-# UNPACK #-} !Word8 !Word8 !Word8
@@ -69,6 +74,7 @@ infixr 6 ><
 (Fancy s) >< (Fancy t) = Fancy (s ++ t)
 (Plain s) >< (Plain t) = Plain (s ++ t)
 _ >< _ = error "Attempt to combine fancy and plain strings"
+{-# INLINE (><) #-}
 
 ------------------------------------------------------------------------
 --
