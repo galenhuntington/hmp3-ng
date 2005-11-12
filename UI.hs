@@ -342,9 +342,8 @@ pad = padR . padL
 -- | Now write out just the clock line
 --
 redrawJustClock :: IO ()
-redrawJustClock = do
-   st <- readSt    id
-   fr <- readClock id
+redrawJustClock = withState $ \st -> do
+   fr      <- readClock id
    s@(_,w) <- screenSize
    let (ProgressBar bar) = draw s undefined st fr :: ProgressBar
        (PTimes times)    = draw s undefined st fr :: PTimes
@@ -359,9 +358,8 @@ redrawJustClock = do
 -- | Draw the screen
 --
 redraw :: IO ()
-redraw = do
+redraw = withState $ \s -> do
    sz@(h,w) <- screenSize
-   s <- readSt    id
    f <- readClock id
    let x = printPlayScreen (draw sz (0,0)   s f :: PlayScreen)
        y = printPlayList   (draw sz (y_h,0) s f :: PlayList)

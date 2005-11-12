@@ -117,10 +117,6 @@ clockModified = unsafePerformIO $ newMVar ()
 ------------------------------------------------------------------------
 -- state accessor functions
 
--- | Read the state, with a pure action
-readSt :: (State -> b) -> IO b
-readSt f = withMVar state $ \ref -> return . f =<< readIORef ref
-
 -- | Read the state, with an IO action
 withState :: (State -> IO ()) -> IO ()
 withState f = withMVar state $ \ref -> f =<< readIORef ref

@@ -232,9 +232,6 @@ quit = shutdown >> exitWith ExitSuccess
 putmsg :: StringA -> IO ()
 putmsg s = modifyState_ $ \st -> return st { minibuffer = s }
 
-getmsg :: IO StringA
-getmsg = readSt minibuffer
-
 clrmsg :: IO ()
 clrmsg = modifyState_ $ \s -> return s { minibuffer = [] }
 
