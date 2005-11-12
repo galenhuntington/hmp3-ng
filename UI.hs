@@ -64,6 +64,8 @@ import qualified Control.Exception
 
 import System.Posix.Signals         ( raiseSignal, sigTSTP )
 
+import Debug.Trace
+
 --
 -- | how to initialise the ui
 --
@@ -154,8 +156,7 @@ class Element a where
 --
 data PlayScreen = 
         PlayScreen {
-               ptitle :: !PTitle
-              ,ptrack :: !PPlaying
+               ptrack :: !PPlaying
               ,pbar   :: !ProgressBar
               ,ptime  :: !PTimes
         }
@@ -163,7 +164,6 @@ data PlayScreen =
 newtype PlayList = PlayList [StringA]
 
 newtype PPlaying    = PPlaying    StringA
-newtype PTitle      = PTitle      StringA
 newtype PVersion    = PVersion    StringA
 newtype PMode       = PMode       StringA
 newtype ProgressBar = ProgressBar StringA
@@ -175,50 +175,24 @@ newtype PInfo       = PInfo       String
 ------------------------------------------------------------------------
 
 instance Element PlayScreen where
-    draw w x y z = PlayScreen a b c d
+    draw w x y z = PlayScreen a b c
         where
-            a = draw w x y z :: PTitle
-            b = draw w x y z :: PPlaying
-            c = draw w x y z :: ProgressBar
-            d = draw w x y z :: PTimes
+            a = draw w x y z :: PPlaying
+            b = draw w x y z :: ProgressBar
+            c = draw w x y z :: PTimes
 
 --
 -- | Decode the play screen
 --
 printPlayScreen :: PlayScreen -> [StringA]
-printPlayScreen (PlayScreen (PTitle a) 
-                            (PPlaying b) 
-                            (ProgressBar c) 
-                            (PTimes d)) = [a , b , c , d]
+printPlayScreen (PlayScreen (PPlaying a) 
+                            (ProgressBar b) 
+                            (PTimes c)) = [a , b , c]
 
 ------------------------------------------------------------------------
 
 instance (Element a, Element b) => Element (a,b) where
     draw a b c d = (draw a b c d, draw a b c d)
-
--- | Title of playing element widget
-instance Element PTitle where
-    draw p@(_,w) x y z = PTitle $ 
-        color " " >< mod >< color (replicate gap ' ') >< ver >< color " "
-
-        where (PMode mod@(Fancy m))    = draw p x y z :: PMode
-              (PVersion ver@(Fancy v)) = draw p x y z :: PVersion
-              gap            = w - padding - length m - length v
-              hl             = highlight (style config)
-              color          = Fancy . map (\c -> A c hl)
-              padding        = 2
-
--- | Version info
-instance Element PVersion where
-    draw _ _ _ _ = PVersion . Fancy . map (\c -> A c (highlight . style $ config)) $ versinfo
-
--- | Play mode
-instance Element PMode where
-    draw _ _ st _ = PMode . Fancy . map (\c -> A c (highlight . style $ config)) $ 
-        case status st of
-            Stopped -> "[]"
-            Paused  -> "||"
-            Playing -> ">>"
 
 ------------------------------------------------------------------------
 
@@ -287,29 +261,62 @@ instance Element ProgressBar where
 
 ------------------------------------------------------------------------
 
+-- | Version info
+instance Element PVersion where
+    draw _ _ _ _ = PVersion . Fancy . map (\c -> A c (highlight . style $ config)) $ versinfo
+
+-- | Play mode
+instance Element PMode where
+    draw _ _ st _ = PMode . Fancy . map (\c -> A c (highlight . style $ config)) $ 
+        case status st of
+            Stopped -> "[]"
+            Paused  -> "||"
+            Playing -> ">>"
+
+------------------------------------------------------------------------
+
 -- | Playlist, TODO this should do threading-style rendering of filesystem trees
 -- TODO highlight selected entry. Scroll.
 instance Element PlayList where
-    draw (y,x) (o,_) st _ = 
+    draw p@(y,x) q@(o,_) st z =
         PlayList $ title 
                  : list 
                  ++ (replicate (height - length list - 2) (Plain []))
                  ++ [minibuffer st]
         where
-            title  =  Fancy [space hl]
-                   >< (setOn highlight . show . length $ list)
-                   >< (setOn highlight (" file" ++ if length list == 1 then [] else "s"))
-                   >< Fancy (replicate x (A ' ' hl))
+            (PMode mod@(Fancy m))    = draw p q st z :: PMode
+            (PVersion ver@(Fancy v)) = draw p q st z :: PVersion
+            inf = (show . length $ songs) ++
+                  " file" ++ if length songs == 1 then [] else "s"
+
+            padding        = 2
+
+            gap            = x - padding - length inf - length m - length v
+
+            title  = Fancy [space hl]
+                  >< setOn highlight inf
+                  >< Fancy (replicate (gap `div` 2) (A ' ' hl))
+                  >< mod
+                  >< Fancy (replicate (gap `div` 2) (A ' ' hl))
+                  >< ver
+                  >< Fancy [space hl]
 
             hl     = highlight (style config)
             songs  = music st
             this   = current st
             height = y - o
 
-            list   = [ uncurry color m
-                     | m <- zip (map basename (take y songs)) [0..] ]
+            -- number of screens down, and then offset
+            buflen    = height - 2
+            (screens,off) = quotRem this buflen
 
-            color s i | i == this = setOn selected $ s ++ 
+            visible   = drop (screens*buflen) songs
+    
+            -- no scrolling:
+            list   = [ uncurry color m
+                     | m <- zip (map basename visible) [0..] ]
+
+            color s i | i == off = setOn selected $ s ++ 
                                         replicate (x - length s) ' '
                       | otherwise = Plain s
 
@@ -340,9 +347,9 @@ redrawJustClock = withState $ \st -> do
    s@(_,w) <- screenSize
    let (ProgressBar bar) = draw s undefined st fr :: ProgressBar
        (PTimes times)    = draw s undefined st fr :: PTimes
-   Curses.wMove Curses.stdScr 2 0   -- hardcoded!
+   Curses.wMove Curses.stdScr 1 0   -- hardcoded!
    drawLine w bar
-   Curses.wMove Curses.stdScr 3 0   -- hardcoded!
+   Curses.wMove Curses.stdScr 2 0   -- hardcoded!
    drawLine w times
 
 ------------------------------------------------------------------------
@@ -363,6 +370,8 @@ redraw = withState $ \s -> do
                    (y,x) <- Curses.getYX Curses.stdScr
                    maybeLineDown s y x )
          (take (h-1) (init a))
+
+   Curses.wMove Curses.stdScr h 0
    drawLine (w-1) (last a) >> fillLine
 
 ------------------------------------------------------------------------
@@ -386,9 +395,9 @@ drawLine w (Plain s) =
 
 maybeLineDown (Plain []) y _ = lineDown y
 maybeLineDown (Fancy []) y _ = lineDown y
-maybeLineDown _          y x
-    | x /= 0    = lineDown y
-    | otherwise = return ()     -- already moved down
+maybeLineDown _ y x
+    | x == 0    = return ()     -- already moved down
+    | otherwise = lineDown y
 
 ------------------------------------------------------------------------
 
