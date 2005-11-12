@@ -207,6 +207,8 @@ module Curses (
 # include <signal.h>
 #endif
 
+import qualified Data.FastPackedString as P
+
 import Prelude hiding           ( pi )
 import Data.Char
 import Data.List
@@ -214,11 +216,13 @@ import Data.Ix                  ( Ix )
 import Data.Maybe               ( isJust, fromJust )
 
 import Control.Monad
-import Control.Exception        ( bracket, bracket_ )
+import Control.Exception        ( bracket_, bracket )
 import Control.Concurrent       ( yield, threadWaitRead )
 
 import Foreign
 import Foreign.C
+
+import GHC.Base                 ( Addr## )
 
 #ifdef SIGWINCH
 import System.Posix.Signals
@@ -271,16 +275,34 @@ resetParams = do
 fi :: (Integral a, Num b) => a -> b
 fi = fromIntegral
 
-throwIfErr :: Num a => String -> IO a -> IO a
---throwIfErr name act = do
---    res <- act
---    if res == (#const ERR)
---        then ioError (userError ("Curses: "++name++" failed"))
---        else return res
-throwIfErr s = throwIf (== (#const ERR)) (\a -> "Curses[" ++ show a ++ "]:"  ++ s)
+------------------------------------------------------------------------
+-- 
+-- Error handling, packed to save on all those strings
+--
+
+-- | Like throwIf, but for packed error messages
+throwPackedIf :: (a -> Bool) 
+              -> (a -> P.FastString)
+              -> (IO a)
+              -> (IO a)
+throwPackedIf p msgfn action = do
+    v <- action
+    (if p v then ioError . userError . P.unpack . msgfn $ v else return v)
+
+-- | packed throwIfNull
+throwPackedIfNull :: Addr## -> IO (Ptr a) -> IO (Ptr a)
+throwPackedIfNull str = throwPackedIf (== nullPtr) (const $ P.packAddress str)
+
+-- | Arbitrary test 
+throwIfErr :: Num a => Addr## -> IO a -> IO a
+throwIfErr str = throwPackedIf (== (#const ERR)) msgfn
+    where
+      msg     = "curses exception: "##
+      msgfn _ = (P.packAddress msg) `P.append` (P.packAddress str)
 {-# INLINE throwIfErr #-}
 
-throwIfErr_ :: Num a => String -> IO a -> IO ()
+-- | Discard result
+throwIfErr_ :: Num a => Addr## -> IO a -> IO ()
 throwIfErr_ name act = void $ throwIfErr name act
 
 ------------------------------------------------------------------------
@@ -313,7 +335,7 @@ foreign import ccall "static curses.h &stdscr"
 -- > to stdscr.
 --
 initScr :: IO Window
-initScr = throwIfNull "initscr" initscr
+initScr = throwPackedIfNull "initscr"## initscr
 
 foreign import ccall unsafe "curses.h initscr" 
     initscr :: IO Window
@@ -327,8 +349,8 @@ foreign import ccall unsafe "curses.h initscr"
 -- > the terminal to normal (cooked) mode.
 --
 cBreak :: Bool -> IO ()
-cBreak True  = throwIfErr_ "cbreak"   cbreak
-cBreak False = throwIfErr_ "nocbreak" nocbreak
+cBreak True  = throwIfErr_ "cbreak"##   cbreak
+cBreak False = throwIfErr_ "nocbreak"## nocbreak
 
 foreign import ccall unsafe "curses.h cbreak"     cbreak :: IO CInt
 foreign import ccall unsafe "curses.h nocbreak" nocbreak :: IO CInt
@@ -344,8 +366,8 @@ foreign import ccall unsafe "curses.h nocbreak" nocbreak :: IO CInt
 -- > bits in the tty driver that are not set by curses.
 --
 raw :: Bool -> IO ()
-raw False = throwIfErr_ "noraw" noraw
-raw True  = throwIfErr_ "raw"   raw_c
+raw False = throwIfErr_ "noraw"## noraw
+raw True  = throwIfErr_ "raw"##   raw_c
 
 foreign import ccall unsafe "curses.h noraw" noraw :: IO CInt
 foreign import ccall unsafe "curses.h raw"   raw_c :: IO CInt
@@ -362,8 +384,8 @@ foreign import ccall unsafe "curses.h raw"   raw_c :: IO CInt
 -- > routines interact with cbreak and nocbreak.]
 --
 echo :: Bool -> IO ()
-echo False = throwIfErr_ "noecho" noecho
-echo True  = throwIfErr_ "echo"   echo_c
+echo False = throwIfErr_ "noecho"## noecho
+echo True  = throwIfErr_ "echo"##   echo_c
 
 foreign import ccall unsafe "curses.h noecho" noecho :: IO CInt
 foreign import ccall unsafe "curses.h echo"   echo_c :: IO CInt
@@ -381,8 +403,8 @@ foreign import ccall unsafe "curses.h echo"   echo_c :: IO CInt
 -- > the return key.
 -- > 
 nl :: Bool -> IO ()
-nl True  = throwIfErr_ "nl"   nl_c
-nl False = throwIfErr_ "nonl" nonl
+nl True  = throwIfErr_ "nl"##   nl_c
+nl False = throwIfErr_ "nonl"## nonl
 
 foreign import ccall unsafe "curses.h nl" nl_c :: IO CInt
 foreign import ccall unsafe "curses.h nonl" nonl :: IO CInt
@@ -396,8 +418,8 @@ foreign import ccall unsafe "curses.h nonl" nonl :: IO CInt
 -- > option  prevents the flush.
 -- > 
 intrFlush :: Bool -> IO ()
-intrFlush bf = throwIfErr_ "intrflush" $ 
-    intrflush stdScr (if bf then 1 else 0)
+intrFlush bf = throwIfErr_ "intrflush"## $ 
+                    intrflush stdScr (if bf then 1 else 0)
 
 foreign import ccall unsafe "curses.h intrflush"  
     intrflush :: Window -> (#type bool) -> IO CInt
@@ -406,7 +428,7 @@ foreign import ccall unsafe "curses.h intrflush"
 -- | Enable the keypad of the user's terminal.
 --
 keypad :: Window -> Bool -> IO ()
-keypad win bf = throwIfErr_ "keypad" $ 
+keypad win bf = throwIfErr_ "keypad"## $ 
     keypad_c win (if bf then 1 else 0)
 
 foreign import ccall unsafe "curses.h keypad" 
@@ -417,7 +439,7 @@ foreign import ccall unsafe "curses.h keypad"
 -- > is FALSE), getch waits until a key is pressed.
 --
 noDelay :: Window -> Bool -> IO ()
-noDelay win bf = throwIfErr_ "nodelay" $ 
+noDelay win bf = throwIfErr_ "nodelay"## $ 
     nodelay win (if bf then 1 else 0)
 
 foreign import ccall unsafe "curses.h"
@@ -491,7 +513,7 @@ foreign import ccall unsafe "curses.h define_key"
 -- > exiting from curses.
 --
 endWin :: IO ()
-endWin = throwIfErr_ "endwin" endwin
+endWin = throwIfErr_ "endwin"## endwin
 
 foreign import ccall unsafe "curses.h endwin" 
     endwin :: IO CInt
@@ -514,7 +536,7 @@ foreign import ccall "curses.h &COLS"  colsPtr  :: Ptr CInt
 -- | refresh curses windows and lines. curs_refresh(3)
 --
 refresh :: IO ()
-refresh = throwIfErr_ "refresh" refresh_c
+refresh = throwIfErr_ "refresh"## refresh_c
 
 foreign import ccall unsafe "curses.h refresh" 
     refresh_c :: IO CInt
@@ -523,7 +545,7 @@ foreign import ccall unsafe "curses.h refresh"
 -- | Do an actual update. Used after endWin on linux to restore the terminal
 --
 update :: IO ()
-update = throwIfErr_ "update" update_c
+update = throwIfErr_ "update"## update_c
 
 foreign import ccall unsafe "curses.h doupdate" 
     update_c :: IO CInt
@@ -541,7 +563,7 @@ foreign import ccall unsafe "curses.h has_colors"
 -- default colors (white on black)
 --
 startColor :: IO ()
-startColor = throwIfErr_ "start_color" start_color
+startColor = throwIfErr_ "start_color"## start_color
 
 foreign import ccall unsafe start_color :: IO CInt
 
@@ -632,7 +654,7 @@ parseAttr s = Attribute as fg bg
 --
 initPair :: Pair -> Color -> Color -> IO ()
 initPair (Pair p) (Color f) (Color b) =
-    throwIfErr_ "init_pair" $
+    throwIfErr_ "init_pair"## $
         init_pair (fromIntegral p) (fromIntegral f) (fromIntegral b)
 
 foreign import ccall unsafe 
@@ -642,7 +664,7 @@ pairContent :: Pair -> IO (Color, Color)
 pairContent (Pair p) =
     alloca $ \fPtr ->
     alloca $ \bPtr -> do
-        throwIfErr "pair_content" $ pair_content (fromIntegral p) fPtr bPtr
+        throwIfErr "pair_content"## $ pair_content (fromIntegral p) fPtr bPtr
         f <- peek fPtr
         b <- peek bPtr
         return (Color (fromIntegral f), Color (fromIntegral b))
@@ -657,7 +679,7 @@ foreign import ccall unsafe
     can_change_color :: IO (#type bool)
 
 initColor :: Color -> (Int, Int, Int) -> IO ()
-initColor (Color c) (r, g, b) = throwIfErr_ "init_color" $
+initColor (Color c) (r, g, b) = throwIfErr_ "init_color"## $
         init_color (fi c) (fi r) (fi g) (fi b)
 
 foreign import ccall unsafe 
@@ -668,7 +690,7 @@ colorContent (Color c) =
     alloca $ \rPtr ->
     alloca $ \gPtr ->
     alloca $ \bPtr -> do
-        throwIfErr "color_content" $ color_content (fromIntegral c) rPtr gPtr bPtr
+        throwIfErr "color_content"## $ color_content (fromIntegral c) rPtr gPtr bPtr
         r <- peek rPtr
         g <- peek gPtr
         b <- peek bPtr
@@ -711,7 +733,7 @@ foreign import ccall standend :: IO Int
 -- |
 --
 wAttrSet :: Window -> (Attr,Pair) -> IO ()
-wAttrSet w (a,(Pair p)) = throwIfErr_ "wattr_set" $ 
+wAttrSet w (a,(Pair p)) = throwIfErr_ "wattr_set"## $ 
     wattr_set w a (fromIntegral p) nullPtr
 
 --
@@ -721,7 +743,7 @@ wAttrGet :: Window -> IO (Attr,Pair)
 wAttrGet w =
     alloca $ \pa -> 
         alloca $ \pp -> do
-            throwIfErr_ "wattr_get" $ wattr_get w pa pp nullPtr
+            throwIfErr_ "wattr_get"## $ wattr_get w pa pp nullPtr
             a <- peek pa
             p <- peek pp
             return (a,Pair $ fromIntegral p)
@@ -788,38 +810,38 @@ attrPlus :: Attr -> Attr -> Attr
 attrPlus (Attr a) (Attr b) = Attr (a .|. b)
 
 attrSet :: Attr -> Pair -> IO ()
-attrSet attr (Pair p) = throwIfErr_ "attrset" $
+attrSet attr (Pair p) = throwIfErr_ "attrset"## $
     attr_set attr (fromIntegral p) nullPtr
 
 attrOn :: Attr -> IO ()
-attrOn (Attr attr) = throwIfErr_ "attr_on" $
+attrOn (Attr attr) = throwIfErr_ "attr_on"## $
     attr_on attr nullPtr
 
 
 attrOff :: Attr -> IO ()
-attrOff (Attr attr) = throwIfErr_ "attr_off" $
+attrOff (Attr attr) = throwIfErr_ "attr_off"## $
     attr_off attr nullPtr
 
 wAttrOn :: Window -> Int -> IO ()
-wAttrOn w x = throwIfErr_ "wattron" $ wattron w (fi x)
+wAttrOn w x = throwIfErr_ "wattron"## $ wattron w (fi x)
 
 wAttrOff :: Window -> Int -> IO ()
-wAttrOff w x = throwIfErr_ "wattroff" $ wattroff w (fi x)
+wAttrOff w x = throwIfErr_ "wattroff"## $ wattroff w (fi x)
 
 attrDimOn :: IO ()
-attrDimOn  = throwIfErr_ "attron A_DIM" $
+attrDimOn  = throwIfErr_ "attron A_DIM"## $
     attron (#const A_DIM) 
 
 attrDimOff :: IO ()
-attrDimOff = throwIfErr_ "attroff A_DIM" $
+attrDimOff = throwIfErr_ "attroff A_DIM"## $
     attroff (#const A_DIM) 
 
 attrBoldOn :: IO ()
-attrBoldOn  = throwIfErr_ "attron A_BOLD" $
+attrBoldOn  = throwIfErr_ "attron A_BOLD"## $
     attron (#const A_BOLD) 
 
 attrBoldOff :: IO ()
-attrBoldOff = throwIfErr_ "attroff A_BOLD" $
+attrBoldOff = throwIfErr_ "attroff A_BOLD"## $
     attroff (#const A_BOLD) 
 
 attrDim :: Int
@@ -870,7 +892,7 @@ wAddStr win str = do
     let
         convStr f = case f [] of
             [] -> return ()
-            s  -> throwIfErr_ "waddnstr" $
+            s  -> throwIfErr_ "waddnstr"## $
                 withCWStringLen (s) (\(ws,len) -> (waddnwstr win ws (fi len)))
         loop []        acc = convStr acc
         loop (ch:str') acc = recognize
@@ -878,7 +900,7 @@ wAddStr win str = do
             (loop str' (acc . (ch:)))
             (\ch' -> do
                 convStr acc
-                throwIfErr "waddch" $ waddch win ch'
+                throwIfErr "waddch"## $ waddch win ch'
                 loop str' id)
     loop str id 
 
@@ -898,7 +920,7 @@ wAddStr win str = do
 --
 wAddStr :: Window -> [Char] -> IO ()
 wAddStr _   [] = return ()
-wAddStr win s  = throwIfErr_ "waddnstr" $
+wAddStr win s  = throwIfErr_ "waddnstr"## $
     withCStringLen (s) (\(ws,len) -> waddnstr win ws (fi len))
 
 {-
@@ -916,7 +938,7 @@ wAddStr win str = do
             recognize c 
                 (loop cs $ acc . (c:))
                 (\c' -> do convStr acc                 -- draw accumulated chars
-                           throwIfErr "waddch" $ waddch win c' -- draw this char
+                           throwIfErr "waddch"## $ waddch win c' -- draw this char
                            loop cs id )
     loop str id 
 -}
@@ -928,7 +950,7 @@ foreign import ccall threadsafe
     waddch :: Window -> (#type chtype) -> IO CInt
 
 wAddChar :: Window -> Char -> IO ()
-wAddChar w c = throwIfErr_ "waddch" $ waddch w (fromIntegral . ord $ c)
+wAddChar w c = throwIfErr_ "waddch"## $ waddch w (fromIntegral . ord $ c)
 
 foreign import ccall threadsafe
     vline  :: Char -> Int -> IO ()
@@ -949,7 +971,7 @@ wAddStr win str = do
     let
         convStr f = case f [] of
             [] -> return ()
-            s  -> throwIfErr_ "waddnstr" $
+            s  -> throwIfErr_ "waddnstr"## $
                 withLCString  (normalise s) (\(ws,len) ->  (waddnstr win ws (fi len)))
         loop []        acc = convStr acc
         loop (ch:str') acc = recognize
@@ -957,7 +979,7 @@ wAddStr win str = do
             (loop str' (acc . (ch:)))
             (\ch' -> do
                 convStr acc
-                throwIfErr "waddch" $ waddch win ch'
+                throwIfErr "waddch"## $ waddch win ch'
                 loop str' id)
     loop str id 
 -}
@@ -987,19 +1009,19 @@ bkgrndSet (Attr a) p = bkgdset $
 foreign import ccall unsafe bkgdset :: (#type chtype) -> IO ()
 
 erase :: IO ()
-erase = throwIfErr_ "erase" $ werase_c  stdScr
+erase = throwIfErr_ "erase"## $ werase_c  stdScr
 
 foreign import ccall unsafe "werase" 
     werase_c :: Window -> IO CInt
 
 wclear :: Window -> IO ()
-wclear w = throwIfErr_ "wclear" $ wclear_c  w
+wclear w = throwIfErr_ "wclear"## $ wclear_c  w
 
 foreign import ccall unsafe "wclear" 
     wclear_c :: Window -> IO CInt
 
 clrToEol :: IO ()
-clrToEol = throwIfErr_ "clrtoeol" clrtoeol
+clrToEol = throwIfErr_ "clrtoeol"## clrtoeol
 
 foreign import ccall unsafe clrtoeol :: IO CInt
 
@@ -1013,7 +1035,7 @@ foreign import ccall unsafe clrtoeol :: IO CInt
 -- Note that 'move_c' may be a macro.
 --
 move :: Int -> Int -> IO ()
-move y x = throwIfErr_ "move" $ move_c (fromIntegral y) (fromIntegral x)
+move y x = throwIfErr_ "move"## $ move_c (fromIntegral y) (fromIntegral x)
 
 foreign import ccall unsafe "move" 
     move_c :: CInt -> CInt -> IO CInt
@@ -1026,7 +1048,7 @@ foreign import ccall unsafe "move"
 --   >    corner of the window, which is (0,0).
 --
 wMove :: Window -> Int -> Int -> IO ()
-wMove w y x = throwIfErr_ "wmove" $ wmove w (fi y) (fi x)
+wMove w y x = throwIfErr_ "wmove"## $ wmove w (fi y) (fi x)
 
 foreign import ccall unsafe  
     wmove :: Window -> CInt -> CInt -> IO CInt
@@ -1094,17 +1116,17 @@ foreign import ccall unsafe "utils.h nomacro_getyx"
         nomacro_getyx :: Window -> Ptr CInt -> Ptr CInt -> IO ()
 
 touchWin :: Window -> IO ()
-touchWin w = throwIfErr_ "touchwin" $ touchwin w
+touchWin w = throwIfErr_ "touchwin"## $ touchwin w
 
 foreign import ccall touchwin :: Window -> IO CInt
 
 newPad :: Int -> Int -> IO Window
-newPad nlines ncols = throwIfNull "newpad" $ 
+newPad nlines ncols = throwPackedIfNull "newpad"## $ 
     newpad (fromIntegral nlines) (fromIntegral ncols)
 
 pRefresh :: Window -> Int -> Int -> Int -> Int -> Int -> Int -> IO ()
 pRefresh pad pminrow pmincol sminrow smincol smaxrow smaxcol = 
-    throwIfErr_ "prefresh" $
+    throwIfErr_ "prefresh"## $
         prefresh pad (fromIntegral pminrow) 
                      (fromIntegral pmincol) 
                      (fromIntegral sminrow) 
@@ -1113,7 +1135,7 @@ pRefresh pad pminrow pmincol sminrow smincol smaxrow smaxcol =
                      (fromIntegral smaxcol)
 
 delWin :: Window -> IO ()
-delWin w = throwIfErr_ "delwin" $ delwin w
+delWin w = throwIfErr_ "delwin"## $ delwin w
     
 foreign import ccall unsafe 
     prefresh :: Window -> CInt -> CInt -> CInt -> CInt -> CInt -> CInt -> IO CInt
@@ -1125,14 +1147,14 @@ foreign import ccall unsafe
     delwin :: Window -> IO CInt
 
 newWin :: Int -> Int -> Int -> Int -> IO Window
-newWin nlines ncolumn begin_y begin_x = throwIfNull "newwin" $ 
+newWin nlines ncolumn begin_y begin_x = throwPackedIfNull "newwin"## $ 
     newwin (fi nlines) (fi ncolumn) (fi begin_y) (fi begin_x)
 
 foreign import ccall unsafe 
     newwin :: CInt -> CInt -> CInt -> CInt -> IO Window
 
 wClrToEol :: Window -> IO ()
-wClrToEol w = throwIfErr_ "wclrtoeol" $ wclrtoeol w
+wClrToEol w = throwIfErr_ "wclrtoeol"## $ wclrtoeol w
 
 foreign import ccall unsafe wclrtoeol :: Window -> IO CInt
 
@@ -1416,7 +1438,7 @@ getCh = do
 resizeTerminal :: Int -> Int -> IO ()
 
 #ifdef HAVE_RESIZETERM
-resizeTerminal a b = throwIfErr_ "resizeterm"  $ resizeterm (fi a) (fi b)
+resizeTerminal a b = throwIfErr_ "resizeterm"##  $ resizeterm (fi a) (fi b)
 
 foreign import ccall unsafe "curses.h resizeterm" 
     resizeterm :: CInt -> CInt -> IO CInt
@@ -1660,7 +1682,7 @@ addStrLn str = addStr str >> addLn
 -- curs_addstr(3)
 --
 wAddStr :: Window -> String -> IO ()
-wAddStr w str = throwIfErr_ "waddstr" $
+wAddStr w str = throwIfErr_ "waddstr"## $
     withCStringConv (readIORef cursesOutConv) str (waddstr w)
 
 foreign import ccall unsafe waddstr :: Window -> Ptr CChar -> IO CInt
@@ -1672,7 +1694,7 @@ addGraphStr str = do
     let
         convStr f = case f [] of
             [] -> return ()
-            s  -> throwIfErr_ "addstr" $
+            s  -> throwIfErr_ "addstr"## $
                 withCStringConv (return conv) s addstr
         loop []        acc = convStr acc
         loop (ch:str') acc = recognize
@@ -1680,7 +1702,7 @@ addGraphStr str = do
             (loop str' (acc . (ch:)))
             (\ch' -> do
                 convStr acc
-                throwIfErr "addch" $ addch ch'
+                throwIfErr "addch"## $ addch ch'
                 loop str' id)
     loop str id
 
