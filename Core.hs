@@ -231,7 +231,8 @@ quit = shutdown {-  >> throwTo main thread exitWith ExitSuccess -}
 --
 
 keymap :: [Char] -> [IO ()]
-keymap cs = let (actions,_,_) = execLexer mode (cs, ()) in actions
+keymap cs = map (clrmsg >>) actions
+    where (actions,_,_) = execLexer mode (cs, ()) 
 
 mode :: Lexer () (IO ())
 mode = command

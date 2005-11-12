@@ -287,7 +287,7 @@ throwPackedIf :: (a -> Bool)
               -> (IO a)
 throwPackedIf p msgfn action = do
     v <- action
-    (if p v then ioError . userError . P.unpack . msgfn $ v else return v)
+    (if p v then fail . P.unpack . msgfn $ v else return v)
 
 -- | packed throwIfNull
 throwPackedIfNull :: Addr## -> IO (Ptr a) -> IO (Ptr a)
