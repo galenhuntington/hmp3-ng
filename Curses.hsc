@@ -578,7 +578,7 @@ color "cyan"     = Just $ Color (#const COLOR_CYAN)
 color "white"    = Just $ Color (#const COLOR_WHITE)
 color _ =  Nothing
 
-data Attribute = Attribute [String] String String
+data Attribute = Attribute [String] !String !String
 
 parseAttr :: String -> Attribute 
 parseAttr s = Attribute as fg bg 
@@ -726,7 +726,7 @@ wAttrGet w =
             p <- peek pp
             return (a,Pair $ fromIntegral p)
 
-newtype Attr = Attr (#type attr_t) deriving (Eq,Storable,Bits, Num, Show)
+newtype Attr = Attr (#type attr_t) deriving (Eq, Storable, Bits, Num, Show)
 
 --
 -- | Normal display (no highlight)

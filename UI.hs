@@ -372,6 +372,7 @@ lineDown h = do
 
 --
 -- | lazy version is faster than calculating length of s
+-- Optimise this?
 --
 drawLine :: Int -> StringA -> IO ()
 drawLine w s = flip mapM_ (take w (s ++ repeat (C ' '))) $ \ac -> case ac of

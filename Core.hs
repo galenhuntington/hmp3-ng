@@ -94,8 +94,10 @@ start ms =
         -- | Once each second, wake up a and redraw the clock
         clockLoop :: IO ()
         clockLoop = {-# SCC "clockLoop" #-} repeatM_ $ do
-                        threadDelay (1000 * 1000) -- 1 second
+                        threadDelay delay 
                         handleJust ioErrors (print) (UI.refreshClock)
+                where
+                  delay = 1000 * 500 -- 0.5 seconds
 
         -- | Handle keystrokes fed to us by curses
         inputLoop :: IO ()
@@ -121,7 +123,7 @@ run :: Handle -> IO ()
 run r = do
     handle (\_ -> return ()) $ do
         s <- hGetLine r
-        case parser s of
+        {-# SCC "parser" #-} case parser s of
             Right m -> handleMsg m
             Left e  -> mapM_ (hPutStrLn stderr . ("ERROR " ++)) e
         run r
