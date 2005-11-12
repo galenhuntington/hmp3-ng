@@ -733,8 +733,10 @@ foreign import ccall standend :: IO Int
 -- |
 --
 wAttrSet :: Window -> (Attr,Pair) -> IO ()
-wAttrSet w (a,(Pair p)) = throwIfErr_ "wattr_set"## $ 
-    wattr_set w a (fromIntegral p) nullPtr
+wAttrSet w (a,(Pair p)) = 
+    throwIfErr_ "wattr_set"## $!
+        wattr_set w a (fromIntegral p) nullPtr
+{-# INLINE wAttrSet #-}
 
 --
 -- | manipulate the current attributes of the named window. see curs_attr(3)
