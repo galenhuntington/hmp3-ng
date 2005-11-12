@@ -10,6 +10,7 @@ Main-is:             Main.hs
 extensions:          CPP, ForeignFunctionInterface
 include-dirs:        cbits
 c-sources:           cbits/utils.c
--- ghc-options:         -prof -auto-all -Wall -fglasgow-exts -O -funbox-strict-fields -Icbits -threaded -lncurses
-ghc-options:         -Wall -fglasgow-exts -O -optc-O3 -funbox-strict-fields -Icbits -threaded -lncurses
 other-modules:       Curses
+-- ghc-options:         -prof -auto-all -Wall -fglasgow-exts -O -optc-O3 -funbox-strict-fields -Icbits -threaded -lncurses
+ghc-options:         -Wall -fglasgow-exts -O -optc-O3 -funbox-strict-fields -Icbits -threaded -lncurses
+-- ghc-options:         -Wall -fglasgow-exts -Onot -Icbits -threaded -lncurses
