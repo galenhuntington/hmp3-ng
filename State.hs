@@ -105,6 +105,11 @@ modified :: MVar ()
 modified = unsafePerformIO $ newMVar ()
 {-# NOINLINE modified #-}
 
+-- | When set, we are supposed to update the clock immediately 
+clockModified :: MVar ()
+clockModified = unsafePerformIO $ newMVar ()
+{-# NOINLINE clockModified #-}
+
 ------------------------------------------------------------------------
 -- state accessor functions
 

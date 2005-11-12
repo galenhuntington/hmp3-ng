@@ -55,8 +55,11 @@ import GHC.IOBase               ( unsafeInterleaveIO )
 
 start :: [FilePath] -> IO ()
 start ms = 
-    Control.Exception.handle 
-        (\e -> do shutdown ; hPutStrLn stderr (show e) ; exitWith (ExitFailure 1)) $ do
+    Control.Exception.handle
+        (\e -> do if isOK e then return ()
+                            else do shutdown
+                                    hPutStrLn stderr (show e)
+                                    exitWith (ExitFailure 1)) $ do
 
         -- fork process first. could fail. pass handles over to threads
         (r,w,pid) <- popen (MPG321 :: String) ["-R","-"]
@@ -84,25 +87,27 @@ start ms =
         shutdown
 
     where
+        isOK (ExitException ExitSuccess) = True
+        isOK _ = False
+ 
         -- | When the editor state has been modified, refresh, then wait
         -- for it to be modified again.
         refreshLoop :: IO ()
-        refreshLoop = {-# SCC "refreshLoop" #-} repeatM_ $ do 
+        refreshLoop = repeatM_ $ do 
                         takeMVar modified
-                        handleJust ioErrors (print) (UI.refresh)
+                        catchJust ioErrors UI.refresh print
 
         -- | Once each second, wake up a and redraw the clock
         clockLoop :: IO ()
-        clockLoop = {-# SCC "clockLoop" #-} repeatM_ $ do
+        clockLoop = repeatM_ $ do
                         threadDelay delay 
-                        handleJust ioErrors (print) (UI.refreshClock)
+                        catchJust ioErrors UI.refreshClock print
                 where
                   delay = 1000 * 500 -- 0.5 seconds
 
         -- | Handle keystrokes fed to us by curses
         inputLoop :: IO ()
-        inputLoop = {-# SCC "inputLoop" #-} repeatM_ $ handle handler $ 
-                                                sequence_ . keymap =<< getKeys
+        inputLoop = repeatM_ $ handle handler $ sequence_ . keymap =<< getKeys
             where
                 getKeys = unsafeInterleaveIO $ do
                         c  <- UI.getKey
@@ -123,7 +128,7 @@ run :: Handle -> IO ()
 run r = do
     handle (\_ -> return ()) $ do
         s <- hGetLine r
-        {-# SCC "parser" #-} case parser s of
+        case parser s of
             Right m -> handleMsg m
             Left e  -> mapM_ (hPutStrLn stderr . ("ERROR " ++)) e
         run r
@@ -153,7 +158,13 @@ handleMsg (S t)        = do
         modifyState_ $! \s -> return s { status  = t }
         when (t == Stopped) down -- move to next track
 
-handleMsg (R f) = modifyClock $! \_ -> return $ Just f
+handleMsg (R f) = do
+    modifyClock $! \_ -> return $ Just f
+    b <- isEmptyMVar clockModified
+    when (not b) $ do
+        catchJust ioErrors UI.refreshClock print
+        takeMVar clockModified
+        return ()
 
 ------------------------------------------------------------------------
 --
@@ -164,15 +175,21 @@ seekLeft :: IO ()
 seekLeft        = do
         f <- readClock id
         case f of Nothing -> return ()
-                  Just (Frame { currentFrame = fr }) -> 
-                        send $ Jump (max 0 (fr-400))
+                  Just (Frame { currentFrame = fr }) -> do
+                        send $ Jump (max 0 (fr-100)) -- arbitrary
+                        tryPutMVar clockModified () -- touch the modified MVar
+                        return ()
+                        
+                        
 
 seekRight :: IO ()
 seekRight       = do
         f <- readClock id
         case f of Nothing -> return ()
-                  Just g@(Frame { currentFrame = fr }) -> 
-                        send $ Jump (fr + (min 400 (framesLeft g)))
+                  Just g@(Frame { currentFrame = fr }) -> do
+                        send $ Jump (fr + (min 100 (framesLeft g)))
+                        tryPutMVar clockModified () -- touch the modified MVar
+                        return ()
 
 up :: IO ()
 up   = do i <- readSt current
