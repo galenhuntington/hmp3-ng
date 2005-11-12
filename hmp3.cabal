@@ -3,12 +3,13 @@ Version:             0.1
 License:             GPL
 Author:              Don Stewart
 Maintainer:          dons@cse.unsw.edu.au
-Build-Depends:       base, unix
+Build-Depends:       base, unix, fps
 
 Executable:          hmp3
 Main-is:             Main.hs
 extensions:          CPP, ForeignFunctionInterface
 include-dirs:        cbits
 c-sources:           cbits/utils.c
-ghc-options:         -Wall -fglasgow-exts -O -funbox-strict-fields -Icbits -threaded -lncurses
+-- ghc-options:         -prof -auto-all -Wall -fglasgow-exts -O -funbox-strict-fields -Icbits -threaded -lncurses
+ghc-options:         -Wall -fglasgow-exts -O -optc-O3 -funbox-strict-fields -Icbits -threaded -lncurses
 other-modules:       Curses
