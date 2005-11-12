@@ -32,6 +32,7 @@ config = Config {
        style  = UIStyle { window    = Style Default Default
                         , highlight = Style brightWhite green
                         , selected  = Style brightWhite cyan
+                        , warnings  = Style brightWhite  red
                         , progress  = Style cyan    brightWhite  }
    }
 

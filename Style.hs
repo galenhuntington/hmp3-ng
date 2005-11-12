@@ -39,6 +39,7 @@ import Control.Exception        ( handle )
 data UIStyle = UIStyle { window   :: !Style
                        , highlight:: !Style
                        , selected :: !Style
+                       , warnings :: !Style
                        , progress :: !Style }
 
 -- | Foreground and background color pairs

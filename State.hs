@@ -23,6 +23,7 @@
 module State where
 
 import Syntax
+import Style    (StringA)
 
 import Data.List
 import Data.IORef               ( newIORef, readIORef, writeIORef, IORef )
@@ -38,15 +39,17 @@ import System.Posix.Types   ( ProcessID )
 
 -- | The editor state type
 data State = State {
-        music           :: ![FilePath]                  -- TODO, sort on mp3 fields
-       ,current         :: Int                          -- current playing mp3
+        music           :: ![FilePath]      -- TODO, sort on mp3 fields
+       ,current         :: Int              -- current playing mp3
 
-       ,mp3pid          :: ProcessID                    -- pid of decoder
-       ,pipe            :: Maybe Handle                 -- r/w pipe to mp3
-       ,threads         :: [ThreadId]                   -- all our threads
+       ,mp3pid          :: ProcessID        -- pid of decoder
+       ,pipe            :: Maybe Handle     -- r/w pipe to mp3
+       ,threads         :: [ThreadId]       -- all our threads
 
-       ,info            :: Maybe Info                   -- mp3 info
+       ,info            :: Maybe Info       -- mp3 info
        ,status          :: Status                  
+
+       ,minibuffer      :: !StringA         -- contents of minibuffer
     }
 
 
@@ -65,6 +68,7 @@ emptySt = State {
        ,current      = (-1)
        ,info         = Nothing
        ,status       = Stopped
+       ,minibuffer   = []
     }
 
 --

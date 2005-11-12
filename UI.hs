@@ -79,7 +79,7 @@ start = do
 initcolours :: IO ()
 initcolours = do
     let sty = style config
-        ls  = [window sty, selected sty, highlight sty, progress sty]
+        ls  = [warnings sty, window sty, selected sty, highlight sty, progress sty]
         (Style fg bg) = progress sty -- an extra style
     pairs <- initUiColors (ls ++ [Style bg bg, Style fg fg])
     writeIORef pairMap pairs
@@ -114,7 +114,7 @@ getKey = do
     if k == Curses.keyResize 
         then do
 #ifndef SIGWINCH
-              redraw >> resizeui >> return ()
+              redraw >> resizeui >> return ()   -- XXX ^L doesn't work
 #endif
               getKey
         else return k
@@ -153,14 +153,14 @@ class Element a where
 data PlayScreen = 
         PlayScreen {
                ptitle :: !PTitle
-              ,ptrack :: !PTrack
-              ,pinfo  :: !PInfo
+              ,ptrack :: !PPlaying
               ,pbar   :: !ProgressBar
               ,ptime  :: !PTimes
         }
 
 newtype PlayList = PlayList [StringA]
 
+newtype PPlaying    = PPlaying    StringA
 newtype PTitle      = PTitle      StringA
 newtype PTrack      = PTrack      StringA
 newtype PVersion    = PVersion    StringA
@@ -172,23 +172,21 @@ newtype PInfo       = PInfo       StringA
 ------------------------------------------------------------------------
 
 instance Element PlayScreen where
-    draw w x y z = PlayScreen a b c d e
+    draw w x y z = PlayScreen a b c d
         where
             a = draw w x y z :: PTitle
-            b = draw w x y z :: PTrack
-            c = draw w x y z :: PInfo
-            d = draw w x y z :: ProgressBar
-            e = draw w x y z :: PTimes
+            b = draw w x y z :: PPlaying
+            c = draw w x y z :: ProgressBar
+            d = draw w x y z :: PTimes
 
 --
 -- | Decode the play screen
 --
 printPlayScreen :: PlayScreen -> [StringA]
 printPlayScreen (PlayScreen (PTitle a) 
-                            (PTrack b) 
-                            (PInfo c) 
-                            (ProgressBar d) 
-                            (PTimes e)) = a : [] : b : c : [] : d : e : []
+                            (PPlaying b) 
+                            (ProgressBar c) 
+                            (PTimes d)) = [a , [] , b , c , d , []]
 
 ------------------------------------------------------------------------
 
@@ -219,22 +217,26 @@ instance Element PMode where
             Paused  -> "||"
             Playing -> ">>"
 
+instance Element PPlaying where
+    draw w@(_,x') x y z = PPlaying $ C ' ' : C ' ' : (alignLR (x'-4) a b) ++ [C ' ' , C ' ']
+        where
+            (PTrack a) = draw w x y z :: PTrack
+            (PInfo b)  = draw w x y z :: PInfo
+
 -- | Play mode
 instance Element PTrack where
     draw (y,_) _ st _ = 
-        PTrack $ C ' ' : alignL (y-1) (map C $ basename $ (music st) !! (current st))
+        PTrack $ map C $ basename $ (music st) !! (current st)
 
 -- | mp3 information
 instance Element PInfo where
     draw _ _ st mfr = PInfo $ map C $ case info st of
         Nothing  -> []
-        Just i   -> concat [" ("
-                           ,"MPEG-" ,(clean . show . version $ i)  ," "
-                           ,"Layer " ,(show . layer $ i) ," "
+        Just i   -> concat ["mpeg " ,(clean . show . version $ i)  ," "
+                           ,"layer " ,(show . layer $ i) ," "
                            ,(show . bitrate $ i) ,"kbit/s "
-                           ,(show . sampleRate $ i) ,"Hz "
-                           ,playMode i 
-                           ,")"]
+                           ,(show ((sampleRate i) `div` 1000) ) ,"kHz"
+                            {-playMode i-} ]
 
 -- | The time used and time left
 instance Element PTimes where
@@ -274,7 +276,10 @@ instance Element ProgressBar where
 -- TODO highlight selected entry. Scroll.
 instance Element PlayList where
     draw (y,x) (o,_) st _ = 
-        PlayList $ title : list ++ (replicate (height - length list - 6) [])
+        PlayList $ title 
+                 : list 
+                 ++ (replicate (height - length list - 2) [])
+                 ++ [minibuffer st]
         where
             title  =  space hl
                    :  (setOn highlight . show . length $ list)
@@ -316,7 +321,7 @@ space = A ' '
 
 -- | Take two strings, and pad them in the middle
 alignLR :: Int -> StringA -> StringA -> StringA
-alignLR w l r = l ++ (replicate (w-5-length l - length r) (C ' ')) ++ r 
+alignLR w l r = l ++ (replicate (w-length l - length r) (C ' ')) ++ r 
 
 -- | Pad a string on the left
 alignR :: Int -> StringA -> StringA
@@ -343,9 +348,9 @@ redrawJustClock = do
    s@(_,w) <- screenSize
    let (ProgressBar bar) = draw s undefined st fr :: ProgressBar
        (PTimes times)    = draw s undefined st fr :: PTimes
-   Curses.wMove Curses.stdScr 5 0
+   Curses.wMove Curses.stdScr 3 0   -- hardcoded!
    drawLine w bar
-   Curses.wMove Curses.stdScr 6 0
+   Curses.wMove Curses.stdScr 4 0   -- hardcoded!
    drawLine w times
 
 ------------------------------------------------------------------------

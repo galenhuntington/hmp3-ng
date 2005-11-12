@@ -25,9 +25,11 @@ module Core (
         shutdown
     ) where
 
+import Config
 import POpen
 import Syntax
 import State
+import Style
 import Lexers
 import Curses
 import Utils
@@ -95,13 +97,13 @@ start ms =
         refreshLoop :: IO ()
         refreshLoop = repeatM_ $ do 
                         takeMVar modified
-                        catchJust ioErrors UI.refresh print
+                        catchJust ioErrors UI.refresh warnA
 
         -- | Once each second, wake up a and redraw the clock
         clockLoop :: IO ()
         clockLoop = repeatM_ $ do
                         threadDelay delay 
-                        catchJust ioErrors UI.refreshClock print
+                        catchJust ioErrors UI.refreshClock warnA
                 where
                   delay = 1000 * 500 -- 0.5 seconds
 
@@ -114,9 +116,9 @@ start ms =
                         cs <- getKeys
                         return (c:cs) -- A lazy list of curses keys
 
-                handler e | isJust (ioErrors e) = hPutStrLn stderr (show e)
+                handler e | isJust (ioErrors e) = warnA e
                           | isExitCall e        = throwIO e     -- to main thread?
-                          | otherwise           = hPutStrLn stderr (show e)
+                          | otherwise           = warnA e
           
                 isExitCall (ExitException _) = True
                 isExitCall _ = False
@@ -130,7 +132,7 @@ run r = do
         s <- hGetLine r
         case parser s of
             Right m -> handleMsg m
-            Left e  -> mapM_ (hPutStrLn stderr . ("ERROR " ++)) e
+            Left e  -> warnA e
         run r
 
 -- | Close most things
@@ -162,7 +164,7 @@ handleMsg (R f) = do
     modifyClock $! \_ -> return $ Just f
     b <- isEmptyMVar clockModified
     when (not b) $ do   -- force an immediate update if we've just skipped 
-        catchJust ioErrors UI.refreshClock print
+        catchJust ioErrors UI.refreshClock warnA
         takeMVar clockModified
         return ()
 
@@ -170,6 +172,7 @@ handleMsg (R f) = do
 --
 -- Basic operations
 --
+
 
 seekLeft :: IO ()
 seekLeft        = do
@@ -214,6 +217,24 @@ pause = send Pause
 
 quit :: IO ()
 quit = shutdown >> exitWith ExitSuccess
+
+------------------------------------------------------------------------
+-- Editing the minibuffer
+
+putmsg :: StringA -> IO ()
+putmsg s = modifyState_ $ \st -> return st { minibuffer = s }
+
+getmsg :: IO StringA
+getmsg = readSt minibuffer
+
+clrmsg :: IO ()
+clrmsg = modifyState_ $ \s -> return s { minibuffer = [] }
+
+showA :: Show a => a -> IO ()
+showA = putmsg . map C . show
+
+warnA :: Show a => a -> IO ()
+warnA = putmsg . map (\c -> A c (warnings (style config))) . show
 
 ------------------------------------------------------------------------
 --
