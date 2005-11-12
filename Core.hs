@@ -161,7 +161,7 @@ handleMsg (S t)        = do
 handleMsg (R f) = do
     modifyClock $! \_ -> return $ Just f
     b <- isEmptyMVar clockModified
-    when (not b) $ do
+    when (not b) $ do   -- force an immediate update if we've just skipped 
         catchJust ioErrors UI.refreshClock print
         takeMVar clockModified
         return ()
