@@ -283,7 +283,7 @@ instance Element PlayList where
         where
             title  =  space hl
                    :  (setOn highlight . show . length $ list)
-                   ++ (setOn highlight " files")
+                   ++ (setOn highlight (" file" ++ if length list == 1 then [] else "s"))
                    ++ replicate x (A ' ' hl)
 
             hl     = highlight (style config)
@@ -361,12 +361,13 @@ redraw :: IO ()
 redraw = withState $ \s -> do
    sz@(h,w) <- screenSize
    f <- readClock id
-   let x = printPlayScreen (draw sz (0,0)   s f :: PlayScreen)
-       y = printPlayList   (draw sz (y_h,0) s f :: PlayList)
-       y_h = h - length x
+   let x = printPlayScreen (draw sz (0,0)        s f :: PlayScreen)
+       y = printPlayList   (draw sz (length x,0) s f :: PlayList)
        a = x ++ y -- all lines
    gotoTop
-   mapM_ (drawLine w) (take h a)
+   mapM_ (drawLine w) (take (h-1) (init a))
+   Curses.wMove Curses.stdScr h 0
+   drawLine (w-1) (last a)
 
 lineDown :: Int -> IO ()
 lineDown h = do

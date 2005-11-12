@@ -23,7 +23,8 @@
 module State where
 
 import Syntax
-import Style    (StringA)
+import Style 
+import Config
 
 import Data.List
 import Data.IORef               ( newIORef, readIORef, writeIORef, IORef )
@@ -140,19 +141,21 @@ modifyState f = modifyMVar state $ \r -> do
             return (r,b)
 
 -- | Give the current mp3 from the decoder, update our state
-unsafeSetCurrent  :: State -> FilePath -> IO State
-unsafeSetCurrent s f
-    | Just i <- findIndex (==f) (music s)
-    = return s { current = i }
+setCurrent  :: FilePath -> IO ()
+setCurrent f = modifyState_ $ \s -> do case () of {_
 
-    | Just i <- findIndex (\k -> f `isPrefixOf` k) (music s)
-    = return s { current = i }
+        | Just i <- findIndex (==f) (music s)
+        -> return s { current = i }
 
-    | Just i <- findIndex (\k -> (f ++ ".mp3") `isSuffixOf` k) (music s)
-    = return s { current = i }
+        | Just i <- findIndex (\k -> f `isPrefixOf` k) (music s)
+        -> return s { current = i }
 
-    | otherwise = do hPutStrLn stderr $ "unsafeSetCurrent: unknown track: " ++ show f
-                     return s
+        | Just i <- findIndex (\k -> (f ++ ".mp3") `isSuffixOf` k) (music s)
+        -> return s { current = i }
+
+        | otherwise 
+        -> return $ unsafeWarnA s ("setCurrent: track not found: " ++ show f)
+    }
 
 ------------------------------------------------------------------------
 
@@ -162,3 +165,21 @@ send mp m = case mp of
     Nothing -> hPutStrLn stderr "send: no pipe to send on"
     Just h  -> hPutStrLn h (draw m) >> hFlush h
 
+
+------------------------------------------------------------------------
+-- Editing the minibuffer
+
+putmsg :: StringA -> IO ()
+putmsg s = modifyState_ $ \st -> return st { minibuffer = s }
+
+clrmsg :: IO ()
+clrmsg = modifyState_ $ \s -> return s { minibuffer = [] }
+
+showA :: Show a => a -> IO ()
+showA = putmsg . map C . show
+
+warnA :: Show a => a -> IO ()
+warnA = putmsg . map (\c -> A c (warnings (style config))) . show
+
+unsafeWarnA :: State -> String -> State
+unsafeWarnA st s = st { minibuffer = (map (\c -> A c (warnings (style config))) s) }

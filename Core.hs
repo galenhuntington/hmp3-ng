@@ -25,11 +25,9 @@ module Core (
         shutdown
     ) where
 
-import Config
 import POpen
 import Syntax
 import State
-import Style
 import Lexers
 import Curses
 import Utils
@@ -60,7 +58,7 @@ start ms =
     Control.Exception.handle
         (\e -> do if isOK e then return ()
                             else do shutdown
-                                    hPutStrLn stderr (show e)
+                                    hPutStrLn stderr ("start: " ++ show e)
                                     exitWith (ExitFailure 1)) $ do
 
         -- fork process first. could fail. pass handles over to threads
@@ -82,7 +80,7 @@ start ms =
         -- start the first song
             
         send (Just w) (Load (head ms))
-        modifyState_ $ \s -> unsafeSetCurrent s (head ms)
+        setCurrent (head ms)
         modifyState_ $ \s -> return s { status = Playing }
 
         -- start the main loop
@@ -154,11 +152,12 @@ shutdown = Control.Exception.handle (\_ -> return ()) $
 -- right pigeon hole.
 --
 handleMsg :: Msg -> IO ()
-handleMsg (T _) = return ()
-handleMsg (F (File (Just f))) = modifyState_ $! \s -> unsafeSetCurrent s f
+handleMsg (T _)               = return ()
+handleMsg (F (File (Just f))) = setCurrent f
 handleMsg (F (File Nothing))  = return () -- id3 tag.
-handleMsg (I i)        = modifyState_ $! \s -> return s { info    = Just i }
-handleMsg (S t)        = do
+handleMsg (I i)               = modifyState_ $! \s -> return s { info = Just i }
+
+handleMsg (S t) = do
         modifyState_ $! \s -> return s { status  = t }
         when (t == Stopped) down -- move to next track
 
@@ -224,22 +223,7 @@ pause :: IO ()
 pause = withState $ \st -> send (pipe st) Pause
 
 quit :: IO ()
-quit = shutdown >> exitWith ExitSuccess
-
-------------------------------------------------------------------------
--- Editing the minibuffer
-
-putmsg :: StringA -> IO ()
-putmsg s = modifyState_ $ \st -> return st { minibuffer = s }
-
-clrmsg :: IO ()
-clrmsg = modifyState_ $ \s -> return s { minibuffer = [] }
-
-showA :: Show a => a -> IO ()
-showA = putmsg . map C . show
-
-warnA :: Show a => a -> IO ()
-warnA = putmsg . map (\c -> A c (warnings (style config))) . show
+quit = shutdown {-  >> throwTo main thread exitWith ExitSuccess -}
 
 ------------------------------------------------------------------------
 --
