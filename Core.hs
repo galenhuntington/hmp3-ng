@@ -65,7 +65,7 @@ start ms =
         (r,w,pid) <- popen (MPG321 :: String) ["-R","-"]
 
         modifyState_ $ \s -> return s { mp3pid    = pid
-                                      , music     = ms
+                                      , music     = [ (m, basename m) | m <- ms ]
                                       , current   = 0
                                       , pipe      = Just w } 
         -- initialise curses
@@ -104,7 +104,7 @@ start ms =
                         threadDelay delay 
                         catchJust ioErrors UI.refreshClock warnA
                 where
-                  delay = 1000 * 500 -- 0.5 seconds
+                  delay = 1000 * 1000 -- 0.5 seconds
 
         -- | Handle keystrokes fed to us by curses
         inputLoop :: IO ()
@@ -202,7 +202,7 @@ up = modifyState_ $ \st -> do
     let i = current st
         m = music st
     if i > 0
-        then do let f   = m !! (i - 1)
+        then do let (f,_) = m !! (i - 1)
                     st' = st { current = (i - 1), status  = Playing }
                 send (pipe st) (Load f)
                 return st'
@@ -213,7 +213,7 @@ down = modifyState_ $ \st -> do
     let i = current st
         m = music st
     if i < length m - 1
-        then do let f   = m !! (i + 1)
+        then do let (f,_) = m !! (i + 1)
                     st' = st { current = (i + 1), status  = Playing }
                 send (pipe st) (Load f)
                 return st'

@@ -50,19 +50,21 @@ import State
 import Config
 import Syntax hiding (draw)
 import Utils
+import qualified Curses
 
-import Control.Monad
 import qualified Data.FastPackedString as P
 
-import Text.Printf
-
+import Control.Monad
 import Data.IORef
+import Data.List
+import Data.Char
 import System.IO
-
-import qualified Curses
+import System.Posix.Signals         ( raiseSignal, sigTSTP )
+import Text.Printf
 import qualified Control.Exception
 
-import System.Posix.Signals         ( raiseSignal, sigTSTP )
+import Foreign.Ptr
+import Foreign.Storable
 
 import Debug.Trace
 
@@ -197,18 +199,18 @@ instance (Element a, Element b) => Element (a,b) where
 ------------------------------------------------------------------------
 
 instance Element PPlaying where
-    draw w@(_,x') x y z = PPlaying $ Plain $ "  " ++ alignLR (x'-4) a b
+    draw w@(_,x') x y z = PPlaying $ Plain $! "  " ++ alignLR (x'-4) a b
         where
             (PTrack a) = draw w x y z :: PTrack
             (PInfo b)  = draw w x y z :: PInfo
 
 -- | Play mode
 instance Element PTrack where
-    draw (y,_) _ st _ = PTrack $ basename $ (music st) !! (current st)
+    draw (y,_) _ st _ = PTrack . snd $ (music st) !! (current st)
 
 -- | mp3 information
 instance Element PInfo where
-    draw _ _ st mfr = PInfo $ case info st of
+    draw _ _ st mfr = PInfo $! case info st of
         Nothing  -> []
         Just i   -> concat ["mpeg " ,(clean . show . version $ i)  ," "
                            ,"layer " ,(show . layer $ i) ," "
@@ -221,20 +223,20 @@ instance Element PInfo where
 -- | The time used and time left
 instance Element PTimes where
     draw _ _ _ Nothing       = PTimes . Plain $ []
-    draw (y,x) _ _ (Just fr) = PTimes $ Plain $ "  " ++elapsed++gap++remaining
+    draw (y,x) _ _ (Just fr) = PTimes $ Plain $! "  " ++elapsed++gap++remaining
       where
         elapsed   = (printf  "%01d:%02d" lm lm') :: String
         remaining = (printf "-%01d:%02d" rm rm') :: String
         gap       = replicate distance ' '
         distance  = x - 4{-2 on each end-} - length elapsed - length remaining
-        (lm,lm')  = quotRem (fst $ currentTime fr) 60
-        (rm,rm')  = quotRem (fst $ timeLeft fr) 60
+        (lm,lm')  = quotRem (fst $! currentTime fr) 60
+        (rm,rm')  = quotRem (fst $! timeLeft fr) 60
 
 ------------------------------------------------------------------------
 
 -- | A progress bar
 instance Element ProgressBar where
-    draw (_,w) _ _ Nothing = ProgressBar . Fancy $ 
+    draw (_,w) _ _ Nothing = ProgressBar . Fancy $!
           A ' ' df : A ' ' df : replicate (w-4) (A ' ' bgs)
 
         where 
@@ -242,7 +244,7 @@ instance Element ProgressBar where
           df           = Style Default Default
           bgs          = Style bg bg
 
-    draw (_,w) _ _ (Just fr) = ProgressBar . Fancy $
+    draw (_,w) _ _ (Just fr) = ProgressBar . Fancy $!
           A ' ' df : A ' ' df :
           replicate distance (A ' ' fgs) ++
           replicate (width - distance) (A ' ' bgs)
@@ -279,7 +281,7 @@ instance Element PMode where
 -- TODO highlight selected entry. Scroll.
 instance Element PlayList where
     draw p@(y,x) q@(o,_) st z =
-        PlayList $ title 
+        PlayList $! title 
                  : list 
                  ++ (replicate (height - length list - 2) (Plain []))
                  ++ [minibuffer st]
@@ -314,7 +316,7 @@ instance Element PlayList where
     
             -- no scrolling:
             list   = [ uncurry color m
-                     | m <- zip (map basename visible) [0..] ]
+                     | m <- zip (map snd visible) [0..] ]
 
             color s i | i == off = setOn selected $ s ++ 
                                         replicate (x - length s) ' '
@@ -361,18 +363,19 @@ redraw :: IO ()
 redraw = withState $ \s -> do
    sz@(h,w) <- screenSize
    f <- readClock id
-   let x = printPlayScreen (draw sz (0,0)        s f :: PlayScreen)
-       y = printPlayList   (draw sz (length x,0) s f :: PlayList)
-       a = x ++ y -- all lines
+   case {-# SCC "1" #-} printPlayScreen (draw sz (0,0) s f :: PlayScreen) of { x ->
+   case {-# SCC "2" #-} printPlayList   (draw sz (length x,0) s f :: PlayList) of { y -> do
+   let a = {-# SCC "3" #-}  x ++ y -- all lines
    gotoTop
-   mapM_ (\s -> do drawLine w s 
-                   fillLine
-                   (y,x) <- Curses.getYX Curses.stdScr
-                   maybeLineDown s y x )
+   {-# SCC "4" #-}mapM_ (\s -> do  drawLine w s 
+                                   fillLine
+                                   (y,x) <- Curses.getYX Curses.stdScr
+                                   maybeLineDown s y x )
          (take (h-1) (init a))
 
    Curses.wMove Curses.stdScr h 0
    drawLine (w-1) (last a) >> fillLine
+   }}
 
 ------------------------------------------------------------------------
 --
@@ -380,16 +383,19 @@ redraw = withState $ \s -> do
 --
 drawLine :: Int -> StringA -> IO ()
 
-drawLine w (Fancy s) = do
-    flip mapM_ (take w s) $ \ac -> case ac of
+drawLine w (Fancy s) =
+    flip mapM_ s $ \fs -> case fs of
         C c     -> Curses.wAddChar Curses.stdScr c
-        A c sty -> withStyle sty (Curses.wAddChar Curses.stdScr c)
+        A c sty -> withStyle sty $ Curses.wAddChar Curses.stdScr c
 
-drawLine w (Plain s) = 
-    case P.pack s of
-        ps -> P.unsafeUseAsCString ps $ \ptr ->
-            Curses.throwIfErr_ "drawLine"# $
-                Curses.waddnstr Curses.stdScr ptr (fromIntegral (P.length ps))
+drawLine _ (Plain s) = drawStringPacked (P.pack s)
+
+-- pack then draw
+drawStringPacked :: P.FastString -> IO ()
+drawStringPacked ps =
+    P.unsafeUseAsCString ps $ \ptr ->
+        Curses.throwIfErr_ "drawLine"# $
+            Curses.waddnstr Curses.stdScr ptr (fromIntegral (P.length ps))
 
 ------------------------------------------------------------------------
 

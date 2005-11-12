@@ -40,7 +40,7 @@ import System.Posix.Types   ( ProcessID )
 
 -- | The editor state type
 data State = State {
-        music           :: ![FilePath]      -- TODO, sort on mp3 fields
+        music           :: ![(FilePath,FilePath)] -- TODO, sort on mp3 fields
        ,current         :: Int              -- currently playing mp3
 
        ,mp3pid          :: ProcessID        -- pid of decoder
@@ -144,13 +144,13 @@ modifyState f = modifyMVar state $ \r -> do
 setCurrent  :: FilePath -> IO ()
 setCurrent f = modifyState_ $ \s -> do case () of {_
 
-        | Just i <- findIndex (==f) (music s)
+        | Just i <- findIndex (\(g,_) -> g==f) (music s)
         -> return s { current = i }
 
-        | Just i <- findIndex (\k -> f `isPrefixOf` k) (music s)
+        | Just i <- findIndex (\(k,_) -> f `isPrefixOf` k) (music s)
         -> return s { current = i }
 
-        | Just i <- findIndex (\k -> (f ++ ".mp3") `isSuffixOf` k) (music s)
+        | Just i <- findIndex (\(k,_) -> (f ++ ".mp3") `isSuffixOf` k) (music s)
         -> return s { current = i }
 
         | otherwise 

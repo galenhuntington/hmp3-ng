@@ -44,10 +44,12 @@ data UIStyle = UIStyle { window   :: !Style
 
 -- | Foreground and background color pairs
 data Style = Style Color Color
+    deriving (Show,Eq)
 
 -- | A List of characters with styles attached
 data CharA = C {-# UNPACK #-} !Char
            | A {-# UNPACK #-} !Char !Style
+    deriving (Show,Eq)
 
 -- | A list of such values (the representation is optimised)
 data StringA = Fancy ![CharA]   -- lines with colours in them
@@ -57,6 +59,7 @@ data StringA = Fancy ![CharA]   -- lines with colours in them
 data Color
     = RGB {-# UNPACK #-} !Word8 !Word8 !Word8
     | Default
+    deriving (Show,Eq)
 
 ------------------------------------------------------------------------
 
