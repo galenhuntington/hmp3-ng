@@ -80,7 +80,8 @@ start ms =
         modifyState_ $ \s -> return s { threads = [t,t',t''] } 
 
         -- start the first song
-        send (Load (head ms))
+            
+        send (Just w) (Load (head ms))
         modifyState_ $ \s -> unsafeSetCurrent s (head ms)
         modifyState_ $ \s -> return s { status = Playing }
 
@@ -137,14 +138,15 @@ run r = do
 
 -- | Close most things
 shutdown :: IO ()
-shutdown = Control.Exception.handle (\_ -> return ()) $ do
+shutdown = Control.Exception.handle (\_ -> return ()) $ 
+    modifyState_ $ \st -> do    -- atomic
         UI.end
-        send Quit
-        pid <- readSt mp3pid    -- wait for the process
-        tds <- readSt threads   -- knock of our threads
+        let pid = mp3pid st   -- wait for the process
+            tds = threads st  -- knock of our threads
+        send (pipe st) Quit
         waitForProcess $ unsafeCoerce# pid      -- bit evil
         mapM_ killThread tds
-        modifyState_ $ \st -> return st { mp3pid = 0, threads = [] }
+        return st { mp3pid = 0, threads = [] }
 
 ------------------------------------------------------------------------
 -- 
@@ -173,47 +175,53 @@ handleMsg (R f) = do
 -- Basic operations
 --
 
-
 seekLeft :: IO ()
 seekLeft        = do
-        f <- readClock id
-        case f of Nothing -> return ()
-                  Just (Frame { currentFrame = fr }) -> do
-                        send $ Jump (max 0 (fr-100)) -- arbitrary
-                        tryPutMVar clockModified () -- touch the modified MVar
-                        return ()
-                        
-                        
+    f <- readClock id
+    case f of 
+        Nothing -> return ()
+        Just (Frame { currentFrame = fr }) -> do
+            withState $ \st -> 
+                send (pipe st) $ Jump (max 0 (fr-100))
+            tryPutMVar clockModified () -- touch the modified MVar
+            return ()
 
 seekRight :: IO ()
 seekRight       = do
-        f <- readClock id
-        case f of Nothing -> return ()
-                  Just g@(Frame { currentFrame = fr }) -> do
-                        send $ Jump (fr + (min 100 (framesLeft g)))
-                        tryPutMVar clockModified () -- touch the modified MVar
-                        return ()
+    f <- readClock id
+    case f of 
+        Nothing -> return ()
+        Just g@(Frame { currentFrame = fr }) -> do
+                withState $ \st -> 
+                    send (pipe st) $ Jump (fr + (min 100 (framesLeft g)))
+                tryPutMVar clockModified () -- touch the modified MVar
+                return ()
 
+-- be careful for races:
 up :: IO ()
-up   = do i <- readSt current
-          m <- readSt music
-          when (i > 0) $ do
-                let f = m !! (i - 1)
-                modifyState_ $ \s -> unsafeSetCurrent s f
-                modifyState_ $ \s -> return s { status = Playing }
-                send $ Load f
+up = modifyState_ $ \st -> do
+    let i = current st
+        m = music st
+    if i > 0
+        then do let f   = m !! (i - 1)
+                    st' = st { current = (i - 1), status  = Playing }
+                send (pipe st) (Load f)
+                return st'
+        else return st
 
 down :: IO ()
-down = do i <- readSt current
-          m <- readSt music
-          when (i < length m - 1) $ do
-                let f = m !! (i + 1)
-                modifyState_ $ \s -> unsafeSetCurrent s f
-                modifyState_ $ \s -> return s { status = Playing }
-                send $ Load f
+down = modifyState_ $ \st -> do
+    let i = current st
+        m = music st
+    if i < length m - 1
+        then do let f   = m !! (i + 1)
+                    st' = st { current = (i + 1), status  = Playing }
+                send (pipe st) (Load f)
+                return st'
+        else return st
 
 pause :: IO ()
-pause = send Pause
+pause = withState $ \st -> send (pipe st) Pause
 
 quit :: IO ()
 quit = shutdown >> exitWith ExitSuccess

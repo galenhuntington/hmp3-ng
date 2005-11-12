@@ -40,7 +40,7 @@ import System.Posix.Types   ( ProcessID )
 -- | The editor state type
 data State = State {
         music           :: ![FilePath]      -- TODO, sort on mp3 fields
-       ,current         :: Int              -- current playing mp3
+       ,current         :: Int              -- currently playing mp3
 
        ,mp3pid          :: ProcessID        -- pid of decoder
        ,pipe            :: Maybe Handle     -- r/w pipe to mp3
@@ -143,9 +143,6 @@ modifyState f = modifyMVar state $ \r -> do
             tryPutMVar modified ()
             return (r,b)
 
-------------------------------------------------------------------------
--- manipulating specific parts of the state
-
 -- | Give the current mp3 from the decoder, update our state
 unsafeSetCurrent  :: State -> FilePath -> IO State
 unsafeSetCurrent s f
@@ -164,12 +161,8 @@ unsafeSetCurrent s f
 ------------------------------------------------------------------------
 
 -- | Send a msg over the channel to the decoder
-send :: Pretty a => a -> IO ()
-send m = do w <- readSt pipe
-            case w of
-                Nothing -> hPutStrLn stderr "send. no pipe to send on"
-                Just x -> do
-                    let s = draw m
-                    hPutStrLn x s
-                    hFlush x
+send :: Pretty a => Maybe Handle -> a -> IO ()
+send mp m = case mp of
+    Nothing -> hPutStrLn stderr "send: no pipe to send on"
+    Just h  -> hPutStrLn h (draw m) >> hFlush h
 
