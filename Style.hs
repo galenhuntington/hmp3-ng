@@ -49,13 +49,23 @@ data Style = Style Color Color
 data CharA = C {-# UNPACK #-} !Char
            | A {-# UNPACK #-} !Char !Style
 
--- | A list of such values
-type StringA = [CharA]
+-- | A list of such values (the representation is optimised)
+data StringA = Fancy ![CharA]   -- lines with colours in them
+             | Plain !String    -- plain text, no attributes set
 -- our representation of colours
 --
 data Color
     = RGB {-# UNPACK #-} !Word8 !Word8 !Word8
     | Default
+
+------------------------------------------------------------------------
+
+infixr 6 ><
+
+(><) :: StringA -> StringA -> StringA
+(Fancy s) >< (Fancy t) = Fancy (s ++ t)
+(Plain s) >< (Plain t) = Plain (s ++ t)
+_ >< _ = error "Attempt to combine fancy and plain strings"
 
 ------------------------------------------------------------------------
 --

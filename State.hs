@@ -69,7 +69,7 @@ emptySt = State {
        ,current      = (-1)
        ,info         = Nothing
        ,status       = Stopped
-       ,minibuffer   = []
+       ,minibuffer   = Plain []
     }
 
 --
@@ -173,13 +173,13 @@ putmsg :: StringA -> IO ()
 putmsg s = modifyState_ $ \st -> return st { minibuffer = s }
 
 clrmsg :: IO ()
-clrmsg = modifyState_ $ \s -> return s { minibuffer = [] }
+clrmsg = modifyState_ $ \s -> return s { minibuffer = Plain [] }
 
 showA :: Show a => a -> IO ()
-showA = putmsg . map C . show
+showA = putmsg . Plain . show
 
 warnA :: Show a => a -> IO ()
-warnA = putmsg . map (\c -> A c (warnings (style config))) . show
+warnA = putmsg . Fancy . map (\c -> A c (warnings (style config))) . show
 
 unsafeWarnA :: State -> String -> State
-unsafeWarnA st s = st { minibuffer = (map (\c -> A c (warnings (style config))) s) }
+unsafeWarnA st s = st { minibuffer = Fancy (map (\c -> A c (warnings (style config))) s) }
