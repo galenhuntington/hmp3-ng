@@ -335,7 +335,9 @@ space = A ' '
 
 -- | Take two strings, and pad them in the middle
 alignLR :: Int -> String -> String -> String
-alignLR w l r = l ++ (replicate (w-length l - length r) ' ') ++ r 
+alignLR w l r | padding >= 0 = l ++ (replicate padding ' ') ++ r 
+              | otherwise    = take (w - length r - 4) l ++ "... " ++ r
+    where padding = w-length l - length r
 
 ------------------------------------------------------------------------
 --
