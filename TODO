@@ -9,3 +9,9 @@ Could use mpg123
 
 mpd backend. slightly different protocol, but not too different.
     - lots more users
+
+  -r, --random               start in random play mode (0/1, default=1)
+  -l, --loop                 start in loop play mode (0/1, default=1)
+  -t, --title                set xterm title (0/1, default=1)
+  -d, --delay                delay between songs (in seconds)
+

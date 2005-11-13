@@ -287,11 +287,15 @@ instance Element PlayList where
         where
             (PMode mod@(Fancy m))    = draw p q st z :: PMode
             (PVersion ver@(Fancy v)) = draw p q st z :: PVersion
-            inf =  show percent ++ "% " ++ "(" ++ (show . length $ songs) ++
-                  " file" ++ if length songs == 1 then [] else "s" ++ ")"
+            inf = percent ++ " (" ++ (show . length $ songs) ++
+                          " file" ++ (if length songs == 1 then [] else "s") ++ ")"
+
+            percent | percent' == 0   = "Top"
+                    | percent' == 100 = "All"
+                    | otherwise       = show percent' ++ "%"
   
-            percent        = round $ 
-                ((fromIntegral this) / (fromIntegral . length $ songs) * 100.0 :: Float)
+            percent' :: Int= round $ ((fromIntegral this) / 
+                                     ((fromIntegral . length $ songs) - 1) * 100.0 :: Float)
             padding        = 2
 
             gap            = x - padding - length inf - length m - length v

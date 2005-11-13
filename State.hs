@@ -23,10 +23,9 @@
 module State where
 
 import Syntax
-import Config
 import Style 
+import qualified Data.FastPackedString as P
 
-import Data.List
 import Data.IORef               ( newIORef, readIORef, writeIORef, IORef )
 import System.IO.Unsafe         ( unsafePerformIO )
 

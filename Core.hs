@@ -79,10 +79,7 @@ start ms =
         t''<- forkIO clockLoop
         modifyState_ $ \s -> return s { threads = [t,t',t''] } 
 
-        -- getting wmove errors for some reason
-
         -- start the first song
-            
         send (Just w) (Load (head ms))
         modifyState_ $ \s -> return s { status = Playing }
 
@@ -108,7 +105,7 @@ start ms =
                     --  hPutStrLn stderr "CLOCK"
                         catchJust ioErrors UI.refreshClock warnA
                 where
-                  delay = 1000 * 1000 -- 0.5 seconds
+                  delay = 1000 * 1000 -- 1 second
 
         -- | Handle keystrokes fed to us by curses
         inputLoop :: IO ()
@@ -147,11 +144,12 @@ shutdown = Control.Exception.handle (\_ -> return ()) $
     modifyState_ $ \st -> do    -- atomic
         UI.end
         let pid = mp3pid st   -- wait for the process
-            tds = threads st  -- knock of our threads
+            tds = threads st  -- knock off our threads
         send (pipe st) Quit
         waitForProcess $ unsafeCoerce# pid      -- bit evil
+        -- send sigKILL?
         mapM_ killThread tds
-        return st { mp3pid = 0, threads = [] }
+        return st { mp3pid = (-1){-?-}, threads = [] }
 
 ------------------------------------------------------------------------
 -- 
@@ -236,9 +234,7 @@ quit = shutdown {-  >> throwTo main thread exitWith ExitSuccess -}
 -- Editing the minibuffer
 
 putmsg :: StringA -> IO ()
-putmsg s = do
-    hPutStrLn stderr $ "PUTMSG" ++ show s
-    unsafeModifyState $ \st -> return st { minibuffer = s }
+putmsg s = unsafeModifyState $ \st -> return st { minibuffer = s }
 
 -- Modify without triggering a refresh
 clrmsg :: IO ()
@@ -249,7 +245,7 @@ clrmsg = unsafeModifyState $ \s -> return s { minibuffer = empty }
 -- showA = putmsg . Plain . show
 
 warnA :: Show a => a -> IO ()
-warnA = putmsg . Fancy . map (\c -> A c (warnings (style config))) . show
+warnA = putmsg . Fancy . map (\c -> A c (warnings (style config))) . concat . take 1 . lines . show
 
 -- unsafeWarnA :: State -> String -> State
 -- unsafeWarnA st s = st { minibuffer = Fancy (map (\c -> A c (warnings (style config))) s) }

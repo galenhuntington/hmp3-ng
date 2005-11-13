@@ -232,7 +232,7 @@ parser cs = case err of
                         ms  -> Right (head ms)   -- weird
                 e  -> Left e
 
-        where (msgs,_,err) = execLexer parseAll (cs, ())
+        where (msgs,_,err) = {-# SCC "parser.exec" #-} execLexer parseAll (cs, ())
 
 --------------------------------------------------------------
 -- some lexer fragments
