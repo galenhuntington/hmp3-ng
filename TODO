@@ -1,5 +1,4 @@
 Help menu.
-Scrolling
 Selection
 Thread-representation or ipod-style treatment of filesystem trees
 Volume
@@ -10,5 +9,3 @@ Could use mpg123
 
 mpd backend. slightly different protocol, but not too different.
     - lots more users
-
-Find out why the wMove errors.
