@@ -355,6 +355,7 @@ redrawJustClock = withState $ \st -> do
    drawLine w bar
    Curses.wMove Curses.stdScr 2 0   -- hardcoded!
    drawLine w times
+   return ()
 
 ------------------------------------------------------------------------
 
@@ -365,17 +366,17 @@ redraw :: IO ()
 redraw = withState $ \s -> do
    sz@(h,w) <- screenSize
    f <- readClock id
-   let x = {-# SCC "1" #-} printPlayScreen (draw sz (0,0) s f :: PlayScreen)
-       y = {-# SCC "2" #-} printPlayList   (draw sz (length x,0) s f :: PlayList)
-       a = {-# SCC "3" #-}  x ++ y -- all lines
+   let x = {-# SCC "redraw.playscreen" #-} printPlayScreen (draw sz (0,0) s f :: PlayScreen)
+       y = {-# SCC "redraw.playlist" #-} printPlayList   (draw sz (length x,0) s f :: PlayList)
+       a = x ++ y
    gotoTop
-   {-# SCC "4" #-}mapM_ (\s -> do  {-# SCC "x" #-}drawLine w s 
-                                   fillLine
-                                   (y,x) <- Curses.getYX Curses.stdScr
-                                   maybeLineDown s h y x )
+   {-# SCC "redraw.draw" #-}mapM_ (\s -> do drawLine w s 
+                                            fillLine
+                                            (y,x) <- Curses.getYX Curses.stdScr
+                                            maybeLineDown s h y x )
          (take (h-1) (init a))
 
-   Curses.wMove Curses.stdScr h 0
+   Curses.wMove Curses.stdScr (h-1) 0
    drawLine (w-1) (last a) >> fillLine
 
 ------------------------------------------------------------------------
