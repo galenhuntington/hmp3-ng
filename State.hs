@@ -23,8 +23,8 @@
 module State where
 
 import Syntax
-import Style 
 import Config
+import Style 
 
 import Data.List
 import Data.IORef               ( newIORef, readIORef, writeIORef, IORef )
@@ -34,7 +34,7 @@ import Control.Concurrent       ( ThreadId )
 import Control.Concurrent.MVar
 
 import System.IO
-import System.Posix.Types   ( ProcessID )
+import System.Posix.Types       ( ProcessID )
 
 ------------------------------------------------------------------------
 
@@ -157,23 +157,3 @@ send mp m = case mp of
     Nothing -> hPutStrLn stderr "send: no pipe to send on"
     Just h  -> hPutStrLn h (draw m) >> hFlush h
 
-
-------------------------------------------------------------------------
--- Editing the minibuffer
-
-putmsg :: StringA -> IO ()
-putmsg s = unsafeModifyState $ \st -> return st { minibuffer = s }
-
--- Modify without triggering a refresh
-clrmsg :: IO ()
-clrmsg = unsafeModifyState $ \s -> return s { minibuffer = empty }
-    where empty = Plain []
-
-showA :: Show a => a -> IO ()
-showA = putmsg . Plain . show
-
-warnA :: Show a => a -> IO ()
-warnA = putmsg . Fancy . map (\c -> A c (warnings (style config))) . show
-
-unsafeWarnA :: State -> String -> State
-unsafeWarnA st s = st { minibuffer = Fancy (map (\c -> A c (warnings (style config))) s) }

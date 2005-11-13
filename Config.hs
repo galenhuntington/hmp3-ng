@@ -19,22 +19,27 @@
 module Config where
 
 import Style
+import {-# SOURCE #-} qualified Keymap as Default
 
 #include "config.h"
 
 data Config = Config {
-        style  :: UIStyle           -- ^ colours
+        keymap :: [Char] -> [IO ()],    -- ^ user-configurable keymap
+        style  :: UIStyle               -- ^ colours
      }
 
 -- default instance
 config :: Config
 config = Config {
+       keymap = Default.keymap,
        style  = UIStyle { window    = Style Default Default
                         , highlight = Style brightWhite green
                         , selected  = Style brightWhite cyan
                         , warnings  = Style brightWhite  red
                         , progress  = Style cyan    brightWhite  }
    }
+
+------------------------------------------------------------------------
 
 package :: String
 package = "hmp3"

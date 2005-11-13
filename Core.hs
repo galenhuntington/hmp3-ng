@@ -22,14 +22,15 @@
 --
 module Core (
         start,
-        shutdown
+        shutdown,
+        seekLeft, seekRight, up, down, pause, quit, clrmsg
     ) where
 
 import POpen
 import Syntax
 import State
-import Lexers
-import Curses
+import Style
+import Config
 import Utils
 import qualified UI
 
@@ -111,7 +112,8 @@ start ms =
 
         -- | Handle keystrokes fed to us by curses
         inputLoop :: IO ()
-        inputLoop = repeatM_ $ handle handler $ sequence_ . keymap =<< getKeys
+        inputLoop = repeatM_ $ handle handler $ 
+                        sequence_ . (keymap config) =<< getKeys
             where
                 getKeys = unsafeInterleaveIO $ do
                         c  <- UI.getKey
@@ -164,7 +166,7 @@ handleMsg (I i)               = modifyState_ $! \s -> return s { info = Just i }
 
 handleMsg (S t) = do
         modifyState_ $! \s -> return s { status  = t }
-        when (t == Stopped) down -- move to next track
+        when (t == Stopped) down -- (or random, or loop) move to next track
 
 handleMsg (R f) = do
     modifyClock $! \_ -> return $ Just f
@@ -231,55 +233,24 @@ quit :: IO ()
 quit = shutdown {-  >> throwTo main thread exitWith ExitSuccess -}
 
 ------------------------------------------------------------------------
---
--- The keymap
---
-keymap :: [Char] -> [IO ()]
-keymap cs = map (clrmsg >>) actions
-    where (actions,_,_) = execLexer mode (cs, ()) 
+-- Editing the minibuffer
 
-mode :: Lexer () (IO ())
-mode = command
+putmsg :: StringA -> IO ()
+putmsg s = do
+    hPutStrLn stderr $ "PUTMSG" ++ show s
+    unsafeModifyState $ \st -> return st { minibuffer = s }
 
-------------------------------------------------------------------------
--- 
--- LEFT    Seek left within song
--- RIGHT   Seek right within song
--- UP      Move up
--- DOWN    Move down
--- PGUP    Jump up
--- PGDN    Jump down
--- ENTER   Select song
--- SPACE   Pause/unpause
--- +       Increase volume for current song
--- -       Decrease volume for current song
--- n       Next song
--- /       Search within the playlist
--- A       Sort playlist according to Artist
--- S       Sort playlist according to Song title
--- T       Sort playlist according to Time
--- R       Sort playlist according to Rating
--- 1-9     Set rating of selected song
--- a       Add files to playlist
--- r       Enable/disable random play mode
--- l       Enable/disable loop play mode
--- e       Edit ID3 tags for selected song
--- s       Save playlist
--- c       Jump to currently playing song
--- Use arrows to move up/down and Q to close help screen  
- 
-command :: Lexer () (IO ())
-command = cmd `action` \[c] -> Just $ case c of
-    'q'  -> quit
-    k | k == keyUp    || k == 'k' -> up
-      | k == keyDown  || k == 'j' -> down
-      | k == keyPPage             -> replicateM 20 up   >> return ()
-      | k == keyNPage             -> replicateM 20 down >> return ()
-      | k == keyLeft  || k == 'h' -> seekLeft
-      | k == keyRight || k == 'l' -> seekRight
-      | k == ' '      || k == 'p' -> pause
+-- Modify without triggering a refresh
+clrmsg :: IO ()
+clrmsg = unsafeModifyState $ \s -> return s { minibuffer = empty }
+    where empty = Plain []
 
-    _     -> return ()
+-- showA :: Show a => a -> IO ()
+-- showA = putmsg . Plain . show
 
-    where cmd = alt $ "qkjhlp " 
-                   ++ [keyPPage, keyNPage, keyUp, keyDown, keyLeft, keyRight]
+warnA :: Show a => a -> IO ()
+warnA = putmsg . Fancy . map (\c -> A c (warnings (style config))) . show
+
+-- unsafeWarnA :: State -> String -> State
+-- unsafeWarnA st s = st { minibuffer = Fancy (map (\c -> A c (warnings (style config))) s) }
+

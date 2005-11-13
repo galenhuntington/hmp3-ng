@@ -47,9 +47,9 @@ module UI (
 
 import Style
 import State
-import Config
 import Syntax hiding (draw)
 import Utils
+import Config
 import qualified Curses
 
 import Control.Monad
