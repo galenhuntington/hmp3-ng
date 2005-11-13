@@ -15,3 +15,4 @@ mpd backend. slightly different protocol, but not too different.
   -t, --title                set xterm title (0/1, default=1)
   -d, --delay                delay between songs (in seconds)
 
+pack track list, and add FastString type to StringA

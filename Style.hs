@@ -23,27 +23,31 @@
 
 module Style where
 
+import qualified Curses
+
 import Data.Word
 import Data.Maybe
 import Data.IORef
 import qualified Data.Map as M
 
+import qualified Data.FastPackedString as P
+
 import System.IO.Unsafe
-import qualified Curses
 
 import Control.Exception        ( handle )
 
 ------------------------------------------------------------------------
 
 -- | User-configurable colours
-data UIStyle = UIStyle { window   :: !Style
-                       , highlight:: !Style
-                       , selected :: !Style
-                       , warnings :: !Style
-                       , progress :: !Style }
+data UIStyle = UIStyle { window     :: !Style
+                       , highlight  :: !Style
+                       , selected   :: !Style
+                       , warnings   :: !Style
+                       , helpscreen :: !Style
+                       , progress   :: !Style }
 
 -- | Foreground and background color pairs
-data Style = Style Color Color
+data Style = Style !Color !Color
     deriving (Show,Eq)
 
 -- | A List of characters with styles attached
@@ -52,15 +56,16 @@ data CharA = C {-# UNPACK #-} !Char
     deriving (Show,Eq)
 
 -- | A list of such values (the representation is optimised)
-data StringA = Fancy ![CharA]   -- lines with colours in them
-             | Plain !String    -- plain text, no attributes set
+data StringA = Fancy {-# UNPACK #-} ![CharA]   -- lines with colours in them
+             | Plain {-# UNPACK #-} !String    -- plain text, no attributes set
+             | Fast  {-# UNPACK #-} !P.FastString !Style
     deriving Eq
 
 instance Show StringA where
-  show (Fancy cs) = show $ map (\c -> case c of C d -> d ; A d _ -> d) cs
-  show (Plain cs) = show cs
+  show (Fancy cs)   = show $ map (\c -> case c of C d -> d ; A d _ -> d) cs
+  show (Plain cs)   = show cs
+  show (Fast  cs _) = show cs
 
---
 data Color
     = RGB {-# UNPACK #-} !Word8 !Word8 !Word8
     | Default

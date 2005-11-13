@@ -49,7 +49,9 @@ data State = State {
        ,info            :: Maybe Info       -- mp3 info
        ,status          :: Status                  
 
-       ,minibuffer      :: StringA         -- contents of minibuffer
+       ,minibuffer      :: StringA          -- contents of minibuffer
+
+       ,helpVisible     :: !Bool           -- is the help window shown
     }
 
 
@@ -69,6 +71,7 @@ emptySt = State {
        ,info         = Nothing
        ,status       = Stopped
        ,minibuffer   = Plain []
+       ,helpVisible  = False
     }
 
 --
@@ -156,3 +159,4 @@ send mp m = case mp of
     Nothing -> hPutStrLn stderr "send: no pipe to send on"
     Just h  -> hPutStrLn h (draw m) >> hFlush h
 
+------------------------------------------------------------------------

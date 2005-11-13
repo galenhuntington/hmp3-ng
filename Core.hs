@@ -23,7 +23,7 @@
 module Core (
         start,
         shutdown,
-        seekLeft, seekRight, up, down, pause, quit, clrmsg
+        seekLeft, seekRight, up, down, pause, quit, clrmsg, toggleHelp
     ) where
 
 import POpen
@@ -229,6 +229,10 @@ pause = withState $ \st -> send (pipe st) Pause
 
 quit :: IO ()
 quit = shutdown {-  >> throwTo main thread exitWith ExitSuccess -}
+
+-- show/hide the help window
+toggleHelp :: IO ()
+toggleHelp = modifyState_ $ \st -> return st { helpVisible = not (helpVisible st) }
 
 ------------------------------------------------------------------------
 -- Editing the minibuffer

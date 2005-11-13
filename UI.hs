@@ -52,6 +52,8 @@ import Utils
 import Config
 import qualified Curses
 
+import {-# SOURCE #-} Keymap
+
 import Control.Monad
 import Data.IORef
 import Data.List
@@ -63,6 +65,8 @@ import qualified Control.Exception
 
 import Foreign.Ptr
 import Foreign.Storable
+
+import qualified Data.FastPackedString as P
 
 import Debug.Trace
 
@@ -83,7 +87,8 @@ start = do
 initcolours :: IO ()
 initcolours = do
     let sty = style config
-        ls  = [warnings sty, window sty, selected sty, highlight sty, progress sty]
+        ls  = [helpscreen sty, warnings sty, window sty, 
+               selected sty, highlight sty, progress sty]
         (Style fg bg) = progress sty -- an extra style
     pairs <- initUiColors (ls ++ [Style bg bg, Style fg fg])
     writeIORef pairMap pairs
@@ -215,6 +220,37 @@ instance Element PInfo where
                            ,(show . bitrate $ i) ,"kbit/s "
                            ,(show ((sampleRate i) `div` 1000) ) ,"kHz"
                             {-playMode i-} ]
+
+------------------------------------------------------------------------
+
+newtype HelpScreen = HelpScreen [StringA]
+
+instance Element HelpScreen where
+    draw (_,w) _ _ _ = HelpScreen $ [ Fast (f cs h) sty | (h,cs,_) <- keyTable ]
+        where
+            sty = helpscreen . style $ config 
+
+            f :: [Char] -> P.FastString -> P.FastString
+            f cs ps = 
+                let p = P.pack str `P.append` ps
+                    s = P.pack (take (tot - P.length p) (repeat ' '))
+                in p `P.append` s
+                where
+                    tot = round (fromIntegral w * 0.7)
+                    len = round (fromIntegral tot * 0.4)
+                    str = take len $ ' ' :
+                            (concat . intersperse " " $ (map ppr cs)) ++ repeat ' '
+
+                    ppr c = case c of
+                        k | k == Curses.keyUp    -> "Up"
+                          | k == Curses.keyDown  -> "Down"
+                          | k == Curses.keyPPage -> "PgUp"
+                          | k == Curses.keyNPage -> "PgDn"
+                          | k == Curses.keyLeft  -> "Left"
+                          | k == Curses.keyRight -> "Right"
+                        _ -> show c
+                        
+                            
 
 ------------------------------------------------------------------------
 
@@ -371,6 +407,7 @@ redrawJustClock = withState $ \st -> do
 --
 redraw :: IO ()
 redraw = withState $ \s -> do
+
    sz@(h,w) <- screenSize
    f <- readClock id
    let x = {-# SCC "redraw.playscreen" #-} printPlayScreen (draw sz (0,0) s f :: PlayScreen)
@@ -386,6 +423,15 @@ redraw = withState $ \s -> do
    Curses.wMove Curses.stdScr (h-1) 0
    drawLine (w-1) (last a) >> fillLine
 
+   when (helpVisible s) $ do
+       let (HelpScreen help) = {-# SCC "redraw.help" #-} draw sz (0,0) s f :: HelpScreen
+           (Fast fps _) = head help
+           offset = (w - (P.length fps)) `div` 2
+       Curses.wMove Curses.stdScr ((h - length help) `div` 2) offset
+       mapM_ (\s -> do drawLine w s
+                       (y,_) <- Curses.getYX Curses.stdScr
+                       Curses.wMove Curses.stdScr (y+1) offset) help
+
 ------------------------------------------------------------------------
 --
 -- | Draw a coloured (or not) string to the screen
@@ -398,6 +444,10 @@ drawLine w (Fancy s) =
         A c sty -> withStyle sty $ Curses.wAddChar Curses.stdScr c
 
 drawLine _ (Plain s) = Curses.wAddStr Curses.stdScr s
+
+drawLine _ (Fast ps sty) = withStyle sty $ P.unsafeUseAsCString ps $ \cstr -> 
+    Curses.throwIfErr_ "drawLine"# $
+        Curses.waddnstr Curses.stdScr cstr (fromIntegral . P.length $ ps)
 
 ------------------------------------------------------------------------
 

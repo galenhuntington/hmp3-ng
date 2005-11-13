@@ -32,11 +32,12 @@ data Config = Config {
 config :: Config
 config = Config {
        keymap = Default.keymap,
-       style  = UIStyle { window    = Style Default Default
-                        , highlight = Style brightWhite green
-                        , selected  = Style brightWhite cyan
-                        , warnings  = Style brightWhite  red
-                        , progress  = Style cyan    brightWhite  }
+       style  = UIStyle { window     = Style Default Default
+                        , highlight  = Style brightWhite green
+                        , selected   = Style brightWhite cyan
+                        , warnings   = Style brightWhite  red
+                        , helpscreen = Style Default darkCyan
+                        , progress   = Style cyan    brightWhite  }
    }
 
 ------------------------------------------------------------------------
