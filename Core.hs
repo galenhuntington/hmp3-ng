@@ -158,7 +158,7 @@ shutdown = Control.Exception.handle (\_ -> return ()) $
 --
 handleMsg :: Msg -> IO ()
 handleMsg (T _)               = return ()
-handleMsg (F (File (Just f))) = return () -- ignore, and hope we did the right thing
+handleMsg (F (File (Just _))) = return () -- ignore, and hope we did the right thing
 handleMsg (F (File Nothing))  = return () -- id3 tag.
 handleMsg (I i)               = modifyState_ $! \s -> return s { info = Just i }
 
@@ -270,11 +270,16 @@ mode = command
  
 command :: Lexer () (IO ())
 command = cmd `action` \[c] -> Just $ case c of
-                'q'  -> quit
-                k | k == keyUp    || k == 'k' -> up
-                  | k == keyDown  || k == 'j' -> down
-                k | k == keyLeft  || k == 'h' -> seekLeft
-                  | k == keyRight || k == 'l' -> seekRight
-                  | k == ' '      || k == 'p' -> pause
-                _     -> return ()
-        where cmd = alt $ "qkjhlp " ++ [keyUp, keyDown, keyLeft, keyRight]
+    'q'  -> quit
+    k | k == keyUp    || k == 'k' -> up
+      | k == keyDown  || k == 'j' -> down
+      | k == keyPPage             -> replicateM 20 up   >> return ()
+      | k == keyNPage             -> replicateM 20 down >> return ()
+      | k == keyLeft  || k == 'h' -> seekLeft
+      | k == keyRight || k == 'l' -> seekRight
+      | k == ' '      || k == 'p' -> pause
+
+    _     -> return ()
+
+    where cmd = alt $ "qkjhlp " 
+                   ++ [keyPPage, keyNPage, keyUp, keyDown, keyLeft, keyRight]
