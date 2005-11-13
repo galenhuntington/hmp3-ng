@@ -1,0 +1,14 @@
+Help menu.
+Scrolling
+Selection
+Thread-representation or ipod-style treatment of filesystem trees
+Volume
+Don't run refresh loop when playmode is paused or stopped.
+
+Automated testing.
+Could use mpg123
+
+mpd backend. slightly different protocol, but not too different.
+    - lots more users
+
+Find out why the wMove errors.
