@@ -39,7 +39,7 @@ import System.Posix.Types       ( ProcessID )
 
 -- | The editor state type
 data State = State {
-        music           :: [(FilePath,FilePath)] -- TODO, sort on mp3 fields
+        music           :: [(P.FastString,P.FastString)] -- TODO, sort on mp3 fields
        ,current         :: Int              -- currently playing mp3
 
        ,mp3pid          :: ProcessID        -- pid of decoder
@@ -158,5 +158,3 @@ send :: Pretty a => Maybe Handle -> a -> IO ()
 send mp m = case mp of
     Nothing -> hPutStrLn stderr "send: no pipe to send on"
     Just h  -> hPutStrLn h (draw m) >> hFlush h
-
-------------------------------------------------------------------------

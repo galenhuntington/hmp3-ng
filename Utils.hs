@@ -23,6 +23,7 @@ module Utils where
 
 import Data.Char
 import Data.List
+import qualified Data.FastPackedString as P
 
 ------------------------------------------------------------------------
 
@@ -46,6 +47,9 @@ a  <> b = a ++ b
 
 basename :: FilePath -> FilePath
 basename p = reverse $ takeWhile (/= '/') $ reverse p
+
+basenameP :: P.FastString -> P.FastString
+basenameP = P.reverse . P.takeWhile (/= '/') . P.reverse
 
 dirname :: FilePath -> FilePath
 dirname p  =

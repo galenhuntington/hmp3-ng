@@ -33,17 +33,19 @@ import Data.Char
 import Data.List            ( (\\) )
 import Text.PrettyPrint
 
+import qualified Data.FastPackedString as P
+
 ------------------------------------------------------------------------
 --
 -- Values we may print out:
 
 -- Loads and starts playing <file>
 --
-data Load = Load !FilePath
+data Load = Load !P.FastString
         deriving Show
 
 instance Pretty Load where
-    ppr (Load f) = text "LOAD" <+> text f
+    ppr (Load f) = text "LOAD" <+> (text . P.unpack $ f)  -- todo unbox
 
 -- If '+' or '-' is specified, jumps <frames> frames forward, or backwards,
 -- respectively, in the the mp3 file.  If neither is specifies, jumps to

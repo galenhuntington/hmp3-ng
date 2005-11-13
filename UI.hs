@@ -174,7 +174,7 @@ newtype PMode       = PMode       StringA
 newtype ProgressBar = ProgressBar StringA
 newtype PTimes      = PTimes      StringA
 
-newtype PTrack      = PTrack      String
+newtype PTrack      = PTrack      P.FastString
 newtype PInfo       = PInfo       String
 
 ------------------------------------------------------------------------
@@ -202,8 +202,11 @@ instance (Element a, Element b) => Element (a,b) where
 ------------------------------------------------------------------------
 
 instance Element PPlaying where
-    draw w@(_,x') x y z = PPlaying $ Plain $ "  " ++ alignLR (x'-4) a b
+    draw w@(_,x') x y z = PPlaying $ 
+            Fast (pad `P.append` alignLR (x'-4) a (P.pack b)) sty
         where
+            pad = P.packAddress "  "#
+            sty = Style Default Default
             (PTrack a) = draw w x y z :: PTrack
             (PInfo b)  = draw w x y z :: PInfo
 
@@ -361,9 +364,10 @@ instance Element PlayList where
             list   = [ uncurry color m
                      | m <- zip (map snd visible) [0..] ]
 
-            color s i | i == off = setOn selected $ s ++ 
-                                        replicate (x - length s) ' '
-                      | otherwise = Plain s
+            color s i | i == off  
+                      = Fast (s `P.append` P.pack (replicate (x - P.length s) ' '))
+                             (selected . style $ config)
+                      | otherwise = Fast s (Style Default Default)
 
             setOn f = Fancy . map (\c -> A c (f (style config)))
 
@@ -379,10 +383,12 @@ space :: Style -> CharA
 space = A ' ' 
 
 -- | Take two strings, and pad them in the middle
-alignLR :: Int -> String -> String -> String
-alignLR w l r | padding >= 0 = l ++ (replicate padding ' ') ++ r 
-              | otherwise    = take (w - length r - 4) l ++ "... " ++ r
-    where padding = w-length l - length r
+alignLR :: Int -> P.FastString -> P.FastString -> P.FastString
+alignLR w l r | padding >= 0 = l `P.append` gap `P.append` r 
+              | otherwise    = P.take (w - P.length r - 4) l `P.append` ellipsis `P.append` r
+    where padding = w - P.length l - P.length r
+          gap     = P.pack $ replicate padding ' '
+          ellipsis= P.packAddress "... "#
 
 ------------------------------------------------------------------------
 --

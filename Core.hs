@@ -34,6 +34,8 @@ import Config
 import Utils
 import qualified UI
 
+import qualified Data.FastPackedString as P
+
 import Data.Maybe
 
 import Control.Monad
@@ -68,10 +70,11 @@ start ms =
         -- fork process first. could fail. pass handles over to threads
         (r,w,pid) <- popen (MPG321 :: String) ["-R","-"]
 
-        modifyState_ $ \s -> return s { mp3pid    = pid
-                                      , music     = [ (m, basename m) | m <- ms ]
-                                      , current   = 0
-                                      , pipe      = Just w } 
+        modifyState_ $ \s -> return s 
+            { mp3pid    = pid
+            , music     = [ (p, basenameP p) | m <- ms, let p = P.pack m ]
+            , current   = 0
+            , pipe      = Just w } 
 
         -- fork some threads
         t  <- forkIO inputLoop
@@ -80,7 +83,7 @@ start ms =
         modifyState_ $ \s -> return s { threads = [t,t',t''] } 
 
         -- start the first song
-        send (Just w) (Load (head ms))
+        send (Just w) (Load . P.pack . head $ ms)
         modifyState_ $ \s -> return s { status = Playing }
 
         -- start the main loop
