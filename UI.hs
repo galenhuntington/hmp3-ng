@@ -292,12 +292,14 @@ instance Element PlayList where
             padding        = 2
 
             gap            = x - padding - length inf - length m - length v
+            gapl           = gap `div` 2
+            gapr           = gap - gapl
 
             title  = Fancy [space hl]
                   >< setOn highlight inf
-                  >< Fancy (replicate (gap `div` 2) (A ' ' hl))
+                  >< Fancy (replicate gapl (A ' ' hl))
                   >< mod
-                  >< Fancy (replicate (gap `div` 2) (A ' ' hl))
+                  >< Fancy (replicate gapr (A ' ' hl))
                   >< ver
                   >< Fancy [space hl]
 
