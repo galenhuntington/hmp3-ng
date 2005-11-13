@@ -1,18 +1,17 @@
-Help menu.
-Selection
-Thread-representation or ipod-style treatment of filesystem trees
-Volume
-Don't run refresh loop when playmode is paused or stopped.
+Todo:
+ - Selection. We don't want to do a LOAD on every cursor movement up or down.
+ - Print ID3 info
+ - Solve clrtoeol issue
+ - A basename based on substrs, not copying reverses.
+ - Read directory arguments to populate the list 
+ - Thread-representation or ipod-style treatment of filesystem trees
+ - Volume
+ - Automated testing.
+ - Stress testing
+ - Random mode
+ - Loop mode
+ - More profiling. Less boxed strings
+ - A simpler, more obviously correct UI.hs, based on a Ppr library
 
-Automated testing.
-Could use mpg123
-
-mpd backend. slightly different protocol, but not too different.
-    - lots more users
-
-  -r, --random               start in random play mode (0/1, default=1)
-  -l, --loop                 start in loop play mode (0/1, default=1)
-  -t, --title                set xterm title (0/1, default=1)
-  -d, --delay                delay between songs (in seconds)
-
-pack track list, and add FastString type to StringA
+Possible:
+ - mpd backend. slightly different protocol, but not too different.
