@@ -149,23 +149,6 @@ modifyState f = modifyMVar state $ \r -> do
             tryPutMVar modified ()
             return (r,b)
 
--- | Give the current mp3 from the decoder, update our state
-setCurrent  :: FilePath -> IO ()
-setCurrent f = modifyState_ $ \s -> do case () of {_
-
-        | Just i <- findIndex (\(g,_) -> g==f) (music s)
-        -> return s { current = i }
-
-        | Just i <- findIndex (\(k,_) -> f `isPrefixOf` k) (music s)
-        -> return s { current = i }
-
-        | Just i <- findIndex (\(k,_) -> (f ++ ".mp3") `isSuffixOf` k) (music s)
-        -> return s { current = i }
-
-        | otherwise 
-        -> return $ unsafeWarnA s ("setCurrent: track not found: " ++ show f)
-    }
-
 ------------------------------------------------------------------------
 
 -- | Send a msg over the channel to the decoder

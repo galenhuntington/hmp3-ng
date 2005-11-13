@@ -71,7 +71,6 @@ start ms =
                                       , music     = [ (m, basename m) | m <- ms ]
                                       , current   = 0
                                       , pipe      = Just w } 
-        setCurrent (head ms)
 
         -- fork some threads
         t  <- forkIO inputLoop
@@ -108,7 +107,7 @@ start ms =
                     --  hPutStrLn stderr "CLOCK"
                         catchJust ioErrors UI.refreshClock warnA
                 where
-                  delay = 1000 * 500 -- 0.5 seconds
+                  delay = 1000 * 1000 -- 0.5 seconds
 
         -- | Handle keystrokes fed to us by curses
         inputLoop :: IO ()
@@ -159,7 +158,7 @@ shutdown = Control.Exception.handle (\_ -> return ()) $
 --
 handleMsg :: Msg -> IO ()
 handleMsg (T _)               = return ()
-handleMsg (F (File (Just f))) = setCurrent f
+handleMsg (F (File (Just f))) = return () -- ignore, and hope we did the right thing
 handleMsg (F (File Nothing))  = return () -- id3 tag.
 handleMsg (I i)               = modifyState_ $! \s -> return s { info = Just i }
 
