@@ -277,6 +277,7 @@ instance Element PMode where
 
 -- | Playlist, TODO this should do threading-style rendering of filesystem trees
 -- TODO highlight selected entry. Scroll.
+-- Should simplify this, partitioning on newtyped elements
 instance Element PlayList where
     draw p@(y,x) q@(o,_) st z =
         PlayList $! title 
@@ -286,9 +287,11 @@ instance Element PlayList where
         where
             (PMode mod@(Fancy m))    = draw p q st z :: PMode
             (PVersion ver@(Fancy v)) = draw p q st z :: PVersion
-            inf = (show . length $ songs) ++
-                  " file" ++ if length songs == 1 then [] else "s"
-
+            inf =  show percent ++ "% " ++ "(" ++ (show . length $ songs) ++
+                  " file" ++ if length songs == 1 then [] else "s" ++ ")"
+  
+            percent        = round $ 
+                ((fromIntegral this) / (fromIntegral . length $ songs) * 100.0 :: Float)
             padding        = 2
 
             gap            = x - padding - length inf - length m - length v
