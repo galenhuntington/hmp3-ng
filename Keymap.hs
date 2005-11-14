@@ -72,6 +72,8 @@ keyTable =
         ['c'],   jumpToPlaying)
     ,(p "Quit (or close help screen)"#, 
         ['q'],   do b <- helpIsVisible ; if b then toggleHelp else quit)
+    ,(p "Select and play next track"#, 
+        ['n'],   down >> play)
     ]
     where
         p = P.packAddress
@@ -87,14 +89,6 @@ keys = concat [ cs | (_,cs,_) <- keyTable ]
 
 ------------------------------------------------------------------------
 -- 
--- LEFT    Seek left within song
--- RIGHT   Seek right within song
--- UP      Move up
--- DOWN    Move down
--- PGUP    Jump up
--- PGDN    Jump down
--- ENTER   Select song
--- SPACE   Pause/unpause
 -- +       Increase volume for current song
 -- -       Decrease volume for current song
 -- n       Next song
@@ -109,5 +103,3 @@ keys = concat [ cs | (_,cs,_) <- keyTable ]
 -- l       Enable/disable loop play mode
 -- e       Edit ID3 tags for selected song
 -- s       Save playlist
--- c       Jump to currently playing song
--- Use arrows to move up/down and Q to close help screen  

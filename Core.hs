@@ -23,7 +23,7 @@
 module Core (
         start,
         shutdown,
-        seekLeft, seekRight, up, down, pause, 
+        seekLeft, seekRight, up, down, pause,
         quit, clrmsg, toggleHelp, play, jumpToPlaying
     ) where
 
