@@ -34,9 +34,11 @@ config = Config {
        keymap = Default.keymap,
        style  = UIStyle { window     = Style Default Default
                         , highlight  = Style brightWhite green
-                        , selected   = Style brightWhite cyan
+                        , selected   = Style blue      Default
+                        , cursors    = Style Default      cyan
+                        , combined   = Style brightWhite  cyan
                         , warnings   = Style brightWhite  red
-                        , helpscreen = Style Default darkCyan
+                        , helpscreen = Style Default cyan
                         , progress   = Style cyan    brightWhite  }
    }
 

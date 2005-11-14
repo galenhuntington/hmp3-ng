@@ -88,8 +88,10 @@ initcolours :: IO ()
 initcolours = do
     let sty = style config
         ls  = [helpscreen sty, warnings sty, window sty, 
-               selected sty, highlight sty, progress sty]
-        (Style fg bg) = progress sty -- an extra style
+               selected sty, highlight sty, progress sty,
+               cursors sty, combined sty ]
+        (Style fg bg) = progress sty    -- bonus style
+        
     pairs <- initUiColors (ls ++ [Style bg bg, Style fg fg])
     writeIORef pairMap pairs
     uiAttr (window (style config)) >>= \(_,p) -> Curses.bkgrndSet nullA p
@@ -329,11 +331,11 @@ instance Element PlayList where
             inf = percent ++ " (" ++ (show . length $ songs) ++
                           " file" ++ (if length songs == 1 then [] else "s") ++ ")"
 
-            percent | percent' == 0   = "Top"
+            percent | percent' == 0  && curr == 0 = "Top"
                     | percent' == 100 = "All"
                     | otherwise       = show percent' ++ "%"
   
-            percent' :: Int= round $ ((fromIntegral this) / 
+            percent' :: Int= round $ ((fromIntegral curr) / 
                                      ((fromIntegral . length $ songs) - 1) * 100.0 :: Float)
             padding        = 2
 
@@ -352,22 +354,40 @@ instance Element PlayList where
             hl     = highlight (style config)
             songs  = music st
             this   = current st
+            curr   = cursor  st
             height = y - o
 
             -- number of screens down, and then offset
             buflen    = height - 2
-            (screens,off) = quotRem this buflen
+            (screens,select) = quotRem curr buflen -- keep cursor in screen
 
-            visible   = drop (screens*buflen) songs
+            playing  = let top = screens * buflen
+                           bot = (screens + 1) * buflen
+                       in if this >= top && this < bot
+                            then this - top -- playing song is visible
+                            else (-1)
+
+            visible   = drop (screens*buflen) songs -- take the visible songs
     
             -- no scrolling:
             list   = [ uncurry color m
                      | m <- zip (map snd visible) [0..] ]
 
-            color s i | i == off  
-                      = Fast (s `P.append` P.pack (replicate (x - P.length s) ' '))
-                             (selected . style $ config)
-                      | otherwise = Fast s (Style Default Default)
+            color s i 
+                | i == select && i == playing
+                = Fast (s `P.append` P.pack (replicate (x - P.length s) ' ')) sty3
+
+                | i == select
+                = Fast (s `P.append` P.pack (replicate (x - P.length s) ' ')) sty2
+
+                | i == playing
+                = Fast (s `P.append` P.pack (replicate (x - P.length s) ' ')) sty1
+
+                | otherwise = Fast s (Style Default Default)
+                where
+                    sty1 = selected . style $ config
+                    sty2 = cursors  . style  $ config
+                    sty3 = combined . style $ config
 
             setOn f = Fancy . map (\c -> A c (f (style config)))
 

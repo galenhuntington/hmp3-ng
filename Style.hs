@@ -42,6 +42,8 @@ import Control.Exception        ( handle )
 data UIStyle = UIStyle { window     :: !Style
                        , highlight  :: !Style
                        , selected   :: !Style
+                       , cursors    :: !Style
+                       , combined   :: !Style
                        , warnings   :: !Style
                        , helpscreen :: !Style
                        , progress   :: !Style }

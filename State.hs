@@ -41,6 +41,7 @@ import System.Posix.Types       ( ProcessID )
 data State = State {
         music           :: [(P.FastString,P.FastString)] -- TODO, sort on mp3 fields
        ,current         :: Int              -- currently playing mp3
+       ,cursor          :: Int              -- mp3 under the cursor
 
        ,mp3pid          :: ProcessID        -- pid of decoder
        ,pipe            :: Maybe Handle     -- r/w pipe to mp3
@@ -62,12 +63,11 @@ data State = State {
 emptySt :: State
 emptySt = State {
         music        = []
-
        ,mp3pid       = 0
        ,pipe         = Nothing
        ,threads      = []
-
-       ,current      = (-1)
+       ,current      = 0
+       ,cursor       = 0
        ,info         = Nothing
        ,status       = Stopped
        ,minibuffer   = Plain []

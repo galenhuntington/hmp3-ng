@@ -23,7 +23,7 @@
 module Core (
         start,
         shutdown,
-        seekLeft, seekRight, up, down, pause, quit, clrmsg, toggleHelp
+        seekLeft, seekRight, up, down, pause, quit, clrmsg, toggleHelp, play
     ) where
 
 import POpen
@@ -74,6 +74,7 @@ start ms =
             { mp3pid    = pid
             , music     = [ (p, basenameP p) | m <- ms, let p = P.pack m ]
             , current   = 0
+            , cursor    = 0
             , pipe      = Just w } 
 
         -- fork some threads
@@ -83,8 +84,7 @@ start ms =
         modifyState_ $ \s -> return s { threads = [t,t',t''] } 
 
         -- start the first song
-        send (Just w) (Load . P.pack . head $ ms)
-        modifyState_ $ \s -> return s { status = Playing }
+        play
 
         -- start the main loop
         run r
@@ -167,7 +167,7 @@ handleMsg (I i)               = modifyState_ $! \s -> return s { info = Just i }
 
 handleMsg (S t) = do
         modifyState_ $! \s -> return s { status  = t }
-        when (t == Stopped) down -- (or random, or loop) move to next track
+        when (t == Stopped) (down >> play) -- (or random, or loop) move to next track
 
 handleMsg (R f) = do
     modifyClock $! \_ -> return $ Just f
@@ -204,36 +204,39 @@ seekRight       = do
                 tryPutMVar clockModified () -- touch the modified MVar
                 return ()
 
--- be careful for races:
+-- | Move cursor up
 up :: IO ()
 up = modifyState_ $ \st -> do
-    let i = current st
+    let i = cursor st
         m = music st
-    if i > 0
-        then do let (f,_) = m !! (i - 1)
-                    st' = st { current = (i - 1), status  = Playing }
-                send (pipe st) (Load f)
-                return st'
-        else return st
+    return $ if i > 0 then st { cursor = (i - 1) } else st
 
+-- | Move cursor down list
 down :: IO ()
 down = modifyState_ $ \st -> do
-    let i = current st
+    let i = cursor st
         m = music st
-    if i < length m - 1
-        then do let (f,_) = m !! (i + 1)
-                    st' = st { current = (i + 1), status  = Playing }
-                send (pipe st) (Load f)
-                return st'
-        else return st
+    return $ if i < length m - 1 then st { cursor = (i + 1) } else st
 
+-- | Pause current song
 pause :: IO ()
 pause = withState $ \st -> send (pipe st) Pause
 
-quit :: IO ()
-quit = shutdown {-  >> throwTo main thread exitWith ExitSuccess -}
+-- | Load and play the song under the cursor
+play :: IO ()
+play = modifyState_ $ \st -> do
+    let i     = cursor st
+        m     = music st
+        (f,_) = m !! (i + 1)
+        st'   = st { current = i, status = Playing }
+    send (pipe st) (Load f)
+    return st'
 
--- show/hide the help window
+-- | Shutdown and exit
+quit :: IO ()
+quit = shutdown
+
+-- | Show/hide the help window
 toggleHelp :: IO ()
 toggleHelp = modifyState_ $ \st -> return st { helpVisible = not (helpVisible st) }
 
