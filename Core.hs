@@ -23,7 +23,7 @@
 module Core (
         start,
         shutdown,
-        seekLeft, seekRight, up, down, pause, toggleRandom,
+        seekLeft, seekRight, up, down, pause, nextMode, playNext,
         quit, clrmsg, toggleHelp, play, jumpToPlaying
     ) where
 
@@ -170,8 +170,8 @@ handleMsg (I i)               = modifyState_ $! \s -> return s { info = Just i }
 handleMsg (S t) = do
         modifyState_ $! \s -> return s { status  = t }
         when (t == Stopped) $ do   -- transition to next song
-            r <- modifyState $ \st -> return (st, random st) -- race
-            if r then playRandom else playNext
+            r <- modifyState $ \st -> return (st, mode st) -- race
+            if r == Random then playRandom else playNext
 
 handleMsg (R f) = do
     modifyClock $! \_ -> return $ Just f
@@ -227,7 +227,7 @@ down = modifyState_ $ \st -> do
 pause :: IO ()
 pause = withState $ \st -> send (pipe st) Pause
 
--- | Load and play the song under the cursor (should this reset 'random'?)
+-- | Load and play the song under the cursor
 play :: IO ()
 play = modifyState_ $ \st -> do
     let i     = cursor st
@@ -238,15 +238,24 @@ play = modifyState_ $ \st -> do
     return st'
 
 -- | Play the song following the current song, if we're not at the end
+-- If we're at the end, and loop mode is on, then loop to the start
 playNext :: IO ()
 playNext = modifyState_ $ \st -> do
     let i   = current st
         m   = music st
-    if i < length m - 1 
-        then let (f,_) = m !! (i + 1)
-                 st'   = st { current = i + 1, status = Playing } 
-             in send (pipe st) (Load f) >> return st'
-        else return st -- else loop?
+    case () of {_ 
+        | i < length m - 1          -- successor
+        -> let (f,_) = m !! (i + 1)
+               st'   = st { current = i + 1, status = Playing } 
+           in send (pipe st) (Load f) >> return st'
+
+        | mode st == Loop           -- else loop
+        -> let (f,_) = m !! 0
+               st'   = st { current = i + 1, status = Playing } 
+           in send (pipe st) (Load f) >> return st'
+
+        | otherwise -> return st    -- else stop
+    }
 
 -- | Play a random song
 playRandom :: IO ()
@@ -270,16 +279,11 @@ jumpToPlaying = modifyState_ $ \st -> return st { cursor = (current st) }
 toggleHelp :: IO ()
 toggleHelp = modifyState_ $ \st -> return st { helpVisible = not (helpVisible st) }
 
--- | Toggle the random flag
-toggleRandom :: IO ()
-toggleRandom = do   
-    modifyState_ $ \st -> do
-        let v    = not (random st)
-        return st { minibuffer = (if v then msg1 else msg2) , random = v }
-    where
-        msg1 = Fast (P.packAddress "-- RANDOM --"#) sty
-        msg2 = Fast (P.packAddress "-- NORMAL --"#) sty
-        sty  = Style Default Default
+-- | Toggle the mode flag
+nextMode :: IO ()
+nextMode = modifyState_ $ \st -> return st { mode = next (mode st) }
+    where 
+        next v = if v == maxBound then minBound else succ v
 
 ------------------------------------------------------------------------
 -- Editing the minibuffer

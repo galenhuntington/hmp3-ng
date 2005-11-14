@@ -79,7 +79,6 @@ start :: IO ()
 start = do
     Control.Exception.handle (const $ return ()) $ do -- tweak for OpenBSD console
         term <- getEnv "TERM"
-        hPutStrLn stderr (show term)
         case term of Just "vt220" -> putEnv "TERM=xterm-color"
                      _            -> return ()
 
@@ -182,6 +181,7 @@ newtype PlayList = PlayList [StringA]
 newtype PPlaying    = PPlaying    StringA
 newtype PVersion    = PVersion    StringA
 newtype PMode       = PMode       StringA
+newtype PMode2      = PMode2      StringA
 newtype ProgressBar = ProgressBar StringA
 newtype PTimes      = PTimes      StringA
 
@@ -252,6 +252,8 @@ instance Element HelpScreen where
                 where
                     tot = round (fromIntegral w * 0.7)
                     len = round (fromIntegral tot * 0.4)
+
+                    -- faststringify
                     str = take len $ ' ' :
                             (concat . intersperse " " $ (map ppr cs)) ++ repeat ' '
 
@@ -262,6 +264,7 @@ instance Element HelpScreen where
                           | k == Curses.keyNPage -> "PgDn"
                           | k == Curses.keyLeft  -> "Left"
                           | k == Curses.keyRight -> "Right"
+                          | k == '\n'            -> "Enter"
                         _ -> show c
                         
                             
@@ -313,15 +316,31 @@ instance Element ProgressBar where
 
 -- | Version info
 instance Element PVersion where
-    draw _ _ _ _ = PVersion . Fancy . map (\c -> A c (highlight . style $ config)) $ versinfo
+    draw _ _ _ _ = PVersion $ Fast (P.pack versinfo) (highlight.style $ config)
 
 -- | Play mode
 instance Element PMode where
-    draw _ _ st _ = PMode . Fancy . map (\c -> A c (highlight . style $ config)) $ 
-        case status st of
-            Stopped -> "[]"
-            Paused  -> "||"
-            Playing -> ">>"
+    draw _ _ st _ = PMode $! flip Fast sty $ case status st of 
+                        Stopped -> a
+                        Paused  -> b
+                        Playing -> c
+
+        where a = P.packAddress "stop"#
+              b = P.packAddress "pause"#
+              c = P.packAddress "play"#
+              sty = highlight . style $ config
+
+-- | Loop, normal or random
+instance Element PMode2 where
+    draw _ _ st _ = PMode2 $ flip Fast sty $
+        case mode st of Random  -> a
+                        Loop    -> b
+                        Normal  -> c
+
+        where a = P.packAddress "random"#
+              b = P.packAddress "loop"#
+              c = P.empty
+              sty = highlight . style $ config
 
 ------------------------------------------------------------------------
 
@@ -329,36 +348,47 @@ instance Element PMode where
 -- TODO highlight selected entry. Scroll.
 -- Should simplify this, partitioning on newtyped elements
 instance Element PlayList where
-    draw p@(y,x) q@(o,_) st z =
+    draw p@(y,x) q@(o,_) st z = trace (show m) $
         PlayList $! title 
                  : list 
                  ++ (replicate (height - length list - 2) (Plain []))
                  ++ [minibuffer st]
         where
-            (PMode mod@(Fancy m))    = draw p q st z :: PMode
-            (PVersion ver@(Fancy v)) = draw p q st z :: PVersion
-            inf = percent ++ " (" ++ (show . length $ songs) ++
-                          " file" ++ (if length songs == 1 then [] else "s") ++ ")"
+            (PMode mod@(Fast m sty))  = draw p q st z :: PMode
+            (PMode2 mod'@(Fast m' _)) = draw p q st z :: PMode2
+            (PVersion (Fast ver _))  = draw p q st z :: PVersion
 
-            percent | percent' == 0  && curr == 0 = "Top"
-                    | percent' == 100 = "All"
-                    | otherwise       = show percent' ++ "%"
+            info =         percent
+                `P.append` P.packAddress " ("# 
+                `P.append` P.pack (show . length $ songs)
+                `P.append` P.packAddress " file"# 
+                `P.append` (if length songs == 1 then P.empty else P.packAddress "s"#) 
+                `P.append` P.packAddress ")"#
+
+            percent | percent' == 0  && curr == 0 = P.packAddress "top"#
+                    | percent' == 100 = P.packAddress "all"#
+                    | otherwise       = P.pack (show percent') `P.append` P.packAddress "%"#
   
-            percent' :: Int= round $ ((fromIntegral curr) / 
-                                     ((fromIntegral . length $ songs) - 1) * 100.0 :: Float)
+            percent' :: Int= round $ 
+                        ((fromIntegral curr) / 
+                        ((fromIntegral . length $ songs) - 1) * 100.0 :: Float)
+
             padding        = 2
 
-            gap            = x - padding - length inf - length m - length v
+            gap            = x - padding - P.length info - modlen - P.length ver
             gapl           = gap `div` 2
             gapr           = gap - gapl
 
-            title  = Fancy [space hl]
-                  >< setOn highlight inf
-                  >< Fancy (replicate gapl (A ' ' hl))
-                  >< mod
-                  >< Fancy (replicate gapr (A ' ' hl))
-                  >< ver
-                  >< Fancy [space hl]
+            title  = flip Fast hl $ P.packAddress " "#
+                         `P.append` info
+                         `P.append` P.pack (replicate gapl ' ')
+                         `P.append` modes
+                         `P.append` P.pack (replicate gapr ' ')
+                         `P.append` ver
+                         `P.append` P.packAddress " "#
+
+            modlen = P.length modes
+            modes  = m `P.append` if m' == P.empty then P.empty else ' ' `P.cons` m'
 
             hl     = highlight (style config)
             songs  = music st
@@ -407,9 +437,6 @@ printPlayList :: PlayList -> [StringA]
 printPlayList (PlayList s) = s
                 
 ------------------------------------------------------------------------
-
-space :: Style -> CharA
-space = A ' ' 
 
 -- | Take two strings, and pad them in the middle
 alignLR :: Int -> P.FastString -> P.FastString -> P.FastString

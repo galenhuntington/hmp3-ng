@@ -73,9 +73,9 @@ keyTable =
     ,(p "Quit (or close help screen)"#, 
         ['q'],   do b <- helpIsVisible ; if b then toggleHelp else quit)
     ,(p "Select and play next track"#, 
-        ['n'],   down >> play)
-    ,(p "Enable/disable random play mode"#,
-        ['r'],   toggleRandom)
+        ['n'],   playNext)
+    ,(p "Cycle through normal, random and loop modes"#,
+        ['m'],   nextMode)
     ]
     where
         p = P.packAddress
@@ -93,7 +93,6 @@ keys = concat [ cs | (_,cs,_) <- keyTable ]
 -- 
 -- +       Increase volume for current song
 -- -       Decrease volume for current song
--- n       Next song
 -- /       Search within the playlist
 -- A       Sort playlist according to Artist
 -- S       Sort playlist according to Song title
@@ -101,6 +100,5 @@ keys = concat [ cs | (_,cs,_) <- keyTable ]
 -- R       Sort playlist according to Rating
 -- 1-9     Set rating of selected song
 -- a       Add files to playlist
--- l       Enable/disable loop play mode
 -- e       Edit ID3 tags for selected song
 -- s       Save playlist
