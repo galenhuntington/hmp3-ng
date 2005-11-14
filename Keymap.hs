@@ -50,18 +50,28 @@ commands = (alt keys) `action` \[c] -> Just $ case M.lookup c keyMap of
 --
 keyTable :: [(P.FastString, [Char], IO ())]
 keyTable =
-    [(p "Previous track"#,         ['k',keyUp],    up)
-    ,(p "Next track"#,             ['j',keyDown],  down)
-    ,(p "Jump up"#,                [keyPPage],     replicateM 20 up   >> return ())
-    ,(p "Jump down"#,              [keyNPage],     replicateM 20 down >> return ())
-    ,(p "Seek left within song"#,  ['h',keyLeft],  seekLeft)
-    ,(p "Seek right within song"#, ['l',keyRight], seekRight)
-    ,(p "Toggle pause"#,           ['p'],          pause)
-    ,(p "Play song under cursor"#, ['\n',' '],     play)
-    ,(p "Toggle the help screen"#, ['h'],          toggleHelp)
-    ,(p "Quit (or close help screen)"#, ['q'],     do b <- helpIsVisible
-                                                      if b then toggleHelp 
-                                                           else quit)
+    [(p "Previous track"#,         
+        ['k',keyUp],    up)
+    ,(p "Next track"#,             
+        ['j',keyDown],  down)
+    ,(p "Jump up"#,                
+        [keyPPage],     replicateM 20 up   >> return ())
+    ,(p "Jump down"#,              
+        [keyNPage],     replicateM 20 down >> return ())
+    ,(p "Seek left within song"#,  
+        ['h',keyLeft],  seekLeft)
+    ,(p "Seek right within song"#, 
+        ['l',keyRight], seekRight)
+    ,(p "Toggle pause"#,           
+        ['p'],          pause)
+    ,(p "Play song under cursor"#, 
+        ['\n',' '],     play)
+    ,(p "Toggle the help screen"#, 
+        ['h'],          toggleHelp)
+    ,(p "Jump to currently playing song"#, 
+        ['c'],   jumpToPlaying)
+    ,(p "Quit (or close help screen)"#, 
+        ['q'],   do b <- helpIsVisible ; if b then toggleHelp else quit)
     ]
     where
         p = P.packAddress

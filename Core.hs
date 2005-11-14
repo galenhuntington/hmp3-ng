@@ -23,7 +23,8 @@
 module Core (
         start,
         shutdown,
-        seekLeft, seekRight, up, down, pause, quit, clrmsg, toggleHelp, play
+        seekLeft, seekRight, up, down, pause, 
+        quit, clrmsg, toggleHelp, play, jumpToPlaying
     ) where
 
 import POpen
@@ -208,8 +209,7 @@ seekRight       = do
 up :: IO ()
 up = modifyState_ $ \st -> do
     let i = cursor st
-        m = music st
-    return $ if i > 0 then st { cursor = (i - 1) } else st
+    return $ if i > 0 then st { cursor = i - 1 } else st
 
 -- | Move cursor down list
 down :: IO ()
@@ -235,6 +235,10 @@ play = modifyState_ $ \st -> do
 -- | Shutdown and exit
 quit :: IO ()
 quit = shutdown
+
+-- | Move cursor to currently playing song
+jumpToPlaying :: IO ()
+jumpToPlaying = modifyState_ $ \st -> return st { cursor = (current st) }
 
 -- | Show/hide the help window
 toggleHelp :: IO ()
