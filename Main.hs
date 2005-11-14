@@ -28,7 +28,7 @@ import Keymap ({-# bogus import to work around 6.4 rec modules bug #-})
 
 import qualified Data.FastPackedString as P
 
-import Control.Monad            ( when )
+import Control.Monad
 import Control.Exception        ( catch )
 
 import System.IO
@@ -71,7 +71,7 @@ releaseSignals =
 
 -- usage string.
 usage :: [String]
-usage = ["Usage: hmp3 [option...] [file]"
+usage = ["Usage: hmp3 [option...] [file|dir]"
         ,"-V  --version  Show version information"
         ,"-h  --help     Show this help"]
 
@@ -83,6 +83,26 @@ do_args [s] | s == P.pack "-V"
             | s == P.pack "-h" 
             = do mapM_ putStrLn usage; exitWith ExitSuccess
 do_args xs = return xs
+
+-- ---------------------------------------------------------------------
+-- Expand directory arguments into their contents
+--
+expand :: [P.FastString] -> IO [P.FastString]
+expand []     = return []
+expand (f:fs) = do
+        ls  <- expand' f
+        lss <- expand fs
+        return $! ls ++ lss -- hmm
+    where
+      expand' :: P.FastString -> IO [P.FastString]
+      expand' g = do
+            b  <- doesFileExist g
+            if not b
+                then do ls <- liftM (drop 2) $ packedGetDirectoryContents g
+                        filterM doesFileExist (map buildp ls)
+                else return [g]
+
+            where buildp h = g `P.append` P.packAddress "/"# `P.append` h
 
 -- ---------------------------------------------------------------------
 -- | Static main. This is the front end to the statically linked
@@ -97,8 +117,9 @@ main = do
     Control.Exception.catch
         (      do args  <- packedGetArgs
                   files <- do_args args
+                  files'<- expand files
                   initSignals
-                  start files)
+                  start files')
 
     -- catch any exception thrown by the main loop, clean up and quit
         (\e -> do releaseSignals
