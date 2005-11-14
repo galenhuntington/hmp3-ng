@@ -23,7 +23,7 @@
 module Core (
         start,
         shutdown,
-        seekLeft, seekRight, up, down, pause,
+        seekLeft, seekRight, up, down, pause, toggleRandom,
         quit, clrmsg, toggleHelp, play, jumpToPlaying
     ) where
 
@@ -43,6 +43,7 @@ import Control.Monad
 
 import System.IO
 import System.Exit
+import System.Random            (getStdRandom, randomR)
 
 import Control.Concurrent
 
@@ -168,7 +169,9 @@ handleMsg (I i)               = modifyState_ $! \s -> return s { info = Just i }
 
 handleMsg (S t) = do
         modifyState_ $! \s -> return s { status  = t }
-        when (t == Stopped) playNext -- (or random, or loop) move to next track
+        when (t == Stopped) $ do   -- transition to next song
+            r <- modifyState $ \st -> return (st, random st) -- race
+            if r then playRandom else playNext
 
 handleMsg (R f) = do
     modifyClock $! \_ -> return $ Just f
@@ -183,6 +186,7 @@ handleMsg (R f) = do
 -- Basic operations
 --
 
+-- | Seek backward in song
 seekLeft :: IO ()
 seekLeft        = do
     f <- readClock id
@@ -194,6 +198,7 @@ seekLeft        = do
             tryPutMVar clockModified () -- touch the modified MVar
             return ()
 
+-- | Seek forward in song
 seekRight :: IO ()
 seekRight       = do
     f <- readClock id
@@ -218,11 +223,11 @@ down = modifyState_ $ \st -> do
         m = music st
     return $ if i < length m - 1 then st { cursor = (i + 1) } else st
 
--- | Pause current song
+-- | Toggle pause on the current song
 pause :: IO ()
 pause = withState $ \st -> send (pipe st) Pause
 
--- | Load and play the song under the cursor
+-- | Load and play the song under the cursor (should this reset 'random'?)
 play :: IO ()
 play = modifyState_ $ \st -> do
     let i     = cursor st
@@ -243,6 +248,16 @@ playNext = modifyState_ $ \st -> do
              in send (pipe st) (Load f) >> return st'
         else return st -- else loop?
 
+-- | Play a random song
+playRandom :: IO ()
+playRandom = modifyState_ $ \st -> do
+    let m   = music st
+    i <- getStdRandom (randomR (0, length m - 1)) -- memoise length m?
+    let (f,_) = m !! i
+        st'   = st { current = i, status = Playing } 
+    send (pipe st) (Load f)
+    return st'
+
 -- | Shutdown and exit
 quit :: IO ()
 quit = shutdown
@@ -254,6 +269,17 @@ jumpToPlaying = modifyState_ $ \st -> return st { cursor = (current st) }
 -- | Show/hide the help window
 toggleHelp :: IO ()
 toggleHelp = modifyState_ $ \st -> return st { helpVisible = not (helpVisible st) }
+
+-- | Toggle the random flag
+toggleRandom :: IO ()
+toggleRandom = do   
+    modifyState_ $ \st -> do
+        let v    = not (random st)
+        return st { minibuffer = (if v then msg1 else msg2) , random = v }
+    where
+        msg1 = Fast (P.packAddress "-- RANDOM --"#) sty
+        msg2 = Fast (P.packAddress "-- NORMAL --"#) sty
+        sty  = Style Default Default
 
 ------------------------------------------------------------------------
 -- Editing the minibuffer

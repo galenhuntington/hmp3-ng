@@ -53,6 +53,7 @@ data State = State {
        ,minibuffer      :: StringA          -- contents of minibuffer
 
        ,helpVisible     :: !Bool           -- is the help window shown
+       ,random          :: !Bool           -- random mode
     }
 
 
@@ -72,6 +73,7 @@ emptySt = State {
        ,status       = Stopped
        ,minibuffer   = Plain []
        ,helpVisible  = False
+       ,random       = False
     }
 
 --

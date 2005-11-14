@@ -74,6 +74,8 @@ keyTable =
         ['q'],   do b <- helpIsVisible ; if b then toggleHelp else quit)
     ,(p "Select and play next track"#, 
         ['n'],   down >> play)
+    ,(p "Enable/disable random play mode"#,
+        ['r'],   toggleRandom)
     ]
     where
         p = P.packAddress
@@ -99,7 +101,6 @@ keys = concat [ cs | (_,cs,_) <- keyTable ]
 -- R       Sort playlist according to Rating
 -- 1-9     Set rating of selected song
 -- a       Add files to playlist
--- r       Enable/disable random play mode
 -- l       Enable/disable loop play mode
 -- e       Edit ID3 tags for selected song
 -- s       Save playlist
