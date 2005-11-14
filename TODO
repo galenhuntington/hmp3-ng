@@ -9,7 +9,9 @@ Todo:
  - Only calculate track info on a load, not once each refresh
     (may be other info that doesn't need recalculating)
  - check colours on dark terminals
- - scrolling bug with pgdn, takes us back to top.
+ - search
+ - we do a lot of length, take/drop on the state. Perhaps it should be a
+   type with O(1) substrs.
 
 Possible:
  - Should random mode not repeat itself?
