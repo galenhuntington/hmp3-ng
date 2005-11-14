@@ -48,8 +48,11 @@ a  <> b = a ++ b
 basename :: FilePath -> FilePath
 basename p = reverse $ takeWhile (/= '/') $ reverse p
 
+-- | Packed string version of basename
 basenameP :: P.FastString -> P.FastString
-basenameP = P.reverse . P.takeWhile (/= '/') . P.reverse
+basenameP fps = case P.elemIndexLast '/' fps of
+    Nothing -> fps
+    Just i  -> P.drop (i+1) fps
 
 dirname :: FilePath -> FilePath
 dirname p  =
