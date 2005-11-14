@@ -35,10 +35,10 @@ config = Config {
        style  = UIStyle { window     = Style Default Default
                         , highlight  = Style brightWhite green
                         , selected   = Style blue      Default
-                        , cursors    = Style Default      cyan
+                        , cursors    = Style black        cyan
                         , combined   = Style brightWhite  cyan
                         , warnings   = Style brightWhite  red
-                        , helpscreen = Style Default cyan
+                        , helpscreen = Style black   cyan
                         , progress   = Style cyan    brightWhite  }
    }
 
