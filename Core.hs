@@ -227,7 +227,7 @@ play :: IO ()
 play = modifyState_ $ \st -> do
     let i     = cursor st
         m     = music st
-        (f,_) = m !! (i + 1)
+        (f,_) = m !! i
         st'   = st { current = i, status = Playing }
     send (pipe st) (Load f)
     return st'
