@@ -75,6 +75,7 @@ start ms =
         modifyState_ $ \s -> return s 
             { mp3pid    = pid
             , music     = [ (m, basenameP m) | m <- ms ] -- look ma! no boxes!
+            , size      = length ms
             , current   = 0
             , cursor    = 0
             , pipe      = Just w } 
@@ -219,9 +220,12 @@ up = modifyState_ $ \st -> do
 -- | Move cursor down list
 down :: IO ()
 down = modifyState_ $ \st -> do
-    let i = cursor st
-        m = music st
-    return $ if i == length m - 1 then st else st { cursor = (i + 1) }
+        let i = cursor st
+            m = music st
+            l = size st - 1
+        return $ if i == l
+            then st 
+            else st { cursor = i + 1 }
 
 -- | Toggle pause on the current song
 pause :: IO ()
@@ -244,7 +248,7 @@ playNext = modifyState_ $ \st -> do
     let i   = current st
         m   = music st
     case () of {_ 
-        | i < length m - 1          -- successor
+        | i < size st - 1          -- successor
         -> let (f,_) = m !! (i + 1)
                st'   = st { current = i + 1, status = Playing } 
            in send (pipe st) (Load f) >> return st'
@@ -261,7 +265,7 @@ playNext = modifyState_ $ \st -> do
 playRandom :: IO ()
 playRandom = modifyState_ $ \st -> do
     let m   = music st
-    i <- getStdRandom (randomR (0, length m - 1)) -- memoise length m?
+    i <- getStdRandom (randomR (0, size st - 1)) -- memoise length m?
     let (f,_) = m !! i
         st'   = st { current = i, status = Playing } 
     send (pipe st) (Load f)

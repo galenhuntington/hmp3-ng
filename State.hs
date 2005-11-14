@@ -39,9 +39,10 @@ import System.Posix.Types       ( ProcessID )
 
 -- | The editor state type
 data State = State {
-        music           :: [(P.FastString,P.FastString)] -- TODO, sort on mp3 fields
-       ,current         :: Int              -- currently playing mp3
-       ,cursor          :: Int              -- mp3 under the cursor
+        music           :: ![(P.FastString,P.FastString)] -- TODO, sort on mp3 fields
+       ,size            :: !Int             -- cache size of list
+       ,current         :: !Int             -- currently playing mp3
+       ,cursor          :: !Int             -- mp3 under the cursor
 
        ,mp3pid          :: ProcessID        -- pid of decoder
        ,pipe            :: Maybe Handle     -- r/w pipe to mp3
@@ -67,6 +68,7 @@ data Mode = Normal | Random | Loop
 emptySt :: State
 emptySt = State {
         music        = []
+       ,size         = 0
        ,mp3pid       = 0
        ,pipe         = Nothing
        ,threads      = []

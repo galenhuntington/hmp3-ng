@@ -341,8 +341,9 @@ instance Element PMode2 where
 ------------------------------------------------------------------------
 
 -- | Playlist, TODO this should do threading-style rendering of filesystem trees
--- TODO highlight selected entry. Scroll.
--- Should simplify this, partitioning on newtyped elements
+--
+-- TODO needs to be less memory hungry
+--
 instance Element PlayList where
     draw p@(y,x) q@(o,_) st z =
         PlayList $! title 
@@ -356,9 +357,9 @@ instance Element PlayList where
 
             info =         percent
                 `P.append` P.packAddress " ("# 
-                `P.append` P.pack (show . length $ songs)
+                `P.append` P.pack (show . size $ st)
                 `P.append` P.packAddress " file"# 
-                `P.append` (if length songs == 1 then P.empty else P.packAddress "s"#) 
+                `P.append` (if size st == 1 then P.empty else P.packAddress "s"#) 
                 `P.append` P.packAddress ")"#
 
             percent | percent' == 0  && curr == 0 = P.packAddress "top"#
@@ -369,7 +370,7 @@ instance Element PlayList where
   
             percent' :: Int= round $ 
                         ((fromIntegral curr) / 
-                        ((fromIntegral . length $ songs) - 1) * 100.0 :: Float)
+                        ((fromIntegral . size $ st) - 1) * 100.0 :: Float)
 
             padding        = 2
 
@@ -404,6 +405,7 @@ instance Element PlayList where
                             then this - top -- playing song is visible
                             else (-1)
 
+            -- all this drop stuff is $$
             visible   = drop (screens*buflen) songs -- take the visible songs
     
             -- no scrolling:
