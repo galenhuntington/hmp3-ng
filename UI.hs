@@ -59,9 +59,11 @@ import Data.IORef
 import Data.List
 import Data.Char
 import System.IO
-import System.Posix.Signals         ( raiseSignal, sigTSTP )
 import Text.Printf
 import qualified Control.Exception
+
+import System.Posix.Signals         ( raiseSignal, sigTSTP )
+import System.Posix.Env
 
 import Foreign.Ptr
 import Foreign.Storable
@@ -75,7 +77,13 @@ import Debug.Trace
 --
 start :: IO ()
 start = do
-    Curses.initCurses (resizeui >> redraw >> refresh >> return ())          -- initialise the screen
+    Control.Exception.handle (const $ return ()) $ do -- tweak for OpenBSD console
+        term <- getEnv "TERM"
+        hPutStrLn stderr (show term)
+        case term of Just "vt220" -> putEnv "TERM=xterm-color"
+                     _            -> return ()
+
+    Curses.initCurses refresh
     initcolours
     Curses.keypad Curses.stdScr True    -- grab the keyboard
     Control.Exception.catch (Curses.cursSet (fromIntegral (0::Int)) >> return ()) 
@@ -86,6 +94,7 @@ start = do
 --
 initcolours :: IO ()
 initcolours = do
+
     let sty = style config
         ls  = [helpscreen sty, warnings sty, window sty, 
                selected sty, highlight sty, progress sty,
