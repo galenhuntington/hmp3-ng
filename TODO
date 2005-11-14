@@ -1,19 +1,20 @@
 Todo:
  - Print ID3 info
  - Solve clrtoeol issue
- - A basename based on substrs, not copying reverses.
- - Read directory arguments to populate the list 
+ - Read directory arguments to populate the list,
  - Thread-representation or ipod-style treatment of filesystem trees
- - Volume
- - Automated testing.
- - Stress testing
- - Random mode
- - Loop mode
- - More profiling. Less boxed strings
- - A simpler, more obviously correct UI.hs, based on a Ppr library
- - Dynloaded Config.hs
+ - Get rid of warnings
+ - Automated testing, Stress testing
+ - More profiling.
+ - Only calculate track info on a load, not once each refresh
+    (may be other info that doesn't need recalculating)
+ - check colours on dark terminals
 
 Possible:
+ - Should random mode not repeat itself?
+ - Dynloaded Config.hs
+ - A simpler, more obviously correct UI.hs, based on a Ppr library
+ - Volume?
  - mpd backend. slightly different protocol, but not too different.
  - Igloo's gstreamer binding: http://urchin.earth.li/~ian/minstrel/
 
