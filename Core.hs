@@ -58,7 +58,7 @@ import GHC.IOBase               ( unsafeInterleaveIO )
 
 ------------------------------------------------------------------------
 
-start :: [FilePath] -> IO ()
+start :: [P.FastString] -> IO ()
 start ms = 
     Control.Exception.handle
         (\e -> do if isOK e then return ()
@@ -74,7 +74,7 @@ start ms =
 
         modifyState_ $ \s -> return s 
             { mp3pid    = pid
-            , music     = [ (p, basenameP p) | m <- ms, let p = P.pack m ]
+            , music     = [ (m, basenameP m) | m <- ms ] -- look ma! no boxes!
             , current   = 0
             , cursor    = 0
             , pipe      = Just w } 
@@ -221,7 +221,7 @@ down :: IO ()
 down = modifyState_ $ \st -> do
     let i = cursor st
         m = music st
-    return $ if i < length m - 1 then st { cursor = (i + 1) } else st
+    return $ if i == length m - 1 then st else st { cursor = (i + 1) }
 
 -- | Toggle pause on the current song
 pause :: IO ()

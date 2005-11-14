@@ -25,6 +25,14 @@ import Data.Char
 import Data.List
 import qualified Data.FastPackedString as P
 
+import Foreign.Marshal
+import Foreign.Storable
+import Foreign.C.Types
+import Foreign.C.String
+import Foreign.Ptr
+
+import Control.Monad
+
 ------------------------------------------------------------------------
 
 -- some filename manipulation stuff
@@ -119,3 +127,21 @@ repeatM_ :: forall m a. Monad m => m a -> m ()
 repeatM_ a = a >> repeatM_ a
 {-# SPECIALIZE repeatM_ :: IO a -> IO () #-}
 {-# INLINE repeatM_ #-}
+
+------------------------------------------------------------------------
+
+--
+-- | Packed version of get args.
+--
+packedGetArgs :: IO [P.FastString]
+packedGetArgs = 
+  alloca $ \ p_argc ->  
+  alloca $ \ p_argv -> do
+   getProgArgv p_argc p_argv
+   p    <- fromIntegral `liftM` peek p_argc
+   argv <- peek p_argv
+   peekArray (p - 1) (advancePtr argv 1) >>= return . map P.packCString
+
+foreign import ccall unsafe "RtsAPI.h getProgArgv"
+  getProgArgv :: Ptr CInt -> Ptr (Ptr CString) -> IO ()
+
