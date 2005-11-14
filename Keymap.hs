@@ -69,7 +69,7 @@ keyTable =
     ,(p "Toggle the help screen"#, 
         ['h'],          toggleHelp)
     ,(p "Jump to currently playing song"#, 
-        ['c'],   jumpToPlaying)
+        ['t'],   jumpToPlaying)
     ,(p "Quit (or close help screen)"#, 
         ['q'],   do b <- helpIsVisible ; if b then toggleHelp else quit)
     ,(p "Select and play next track"#, 
