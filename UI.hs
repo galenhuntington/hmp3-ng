@@ -186,7 +186,7 @@ newtype ProgressBar = ProgressBar StringA
 newtype PTimes      = PTimes      StringA
 
 newtype PTrack      = PTrack      P.FastString
-newtype PInfo       = PInfo       String
+newtype PInfo       = PInfo       P.FastString
 
 ------------------------------------------------------------------------
 
@@ -214,7 +214,7 @@ instance (Element a, Element b) => Element (a,b) where
 
 instance Element PPlaying where
     draw w@(_,x') x y z = PPlaying $ 
-            Fast (pad `P.append` alignLR (x'-4) a (P.pack b)) sty
+            Fast (pad `P.append` alignLR (x'-4) a b) sty
         where
             pad = P.packAddress "  "#
             sty = Style Default Default
@@ -228,12 +228,8 @@ instance Element PTrack where
 -- | mp3 information
 instance Element PInfo where
     draw _ _ st mfr = PInfo $ case info st of
-        Nothing  -> []
-        Just i   -> concat ["mpeg " ,(clean . show . version $ i)  ," "
-                           ,"layer " ,(show . layer $ i) ," "
-                           ,(show . bitrate $ i) ,"kbit/s "
-                           ,(show ((sampleRate i) `div` 1000) ) ,"kHz"
-                            {-playMode i-} ]
+        Nothing  -> P.empty
+        Just i   -> userinfo i
 
 ------------------------------------------------------------------------
 
@@ -348,7 +344,7 @@ instance Element PMode2 where
 -- TODO highlight selected entry. Scroll.
 -- Should simplify this, partitioning on newtyped elements
 instance Element PlayList where
-    draw p@(y,x) q@(o,_) st z = trace (show m) $
+    draw p@(y,x) q@(o,_) st z =
         PlayList $! title 
                  : list 
                  ++ (replicate (height - length list - 2) (Plain []))

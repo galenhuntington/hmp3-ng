@@ -117,6 +117,7 @@ instance Parse File where
 -- <k>: Bitrate, in kbps. (i.e., 128.) Integer.
 -- <l>: Extension. Integer.
 data Info = Info {
+                userinfo      :: !P.FastString, -- user friendly string
                 version       :: !String,
                 layer         :: !Int,     -- 1,2 or 3
                 sampleRate    :: !Integer,
@@ -134,8 +135,8 @@ data Info = Info {
 
 instance Parse Info where
     parse _ = string "@S " +> anyChar `plus` epsilon `action` \s ->           -- todo error handling
-        let fs = split " " . drop 3 $ s
-        in Just $ I $ Info { 
+        let fs = split " " . drop 3 $! s
+        in Just $ I $! Info { 
                   version       = fs !! 0
                 , layer         = read $ fs !! 1
                 , sampleRate    = read $ fs !! 2
@@ -148,7 +149,14 @@ instance Parse Info where
                 , emphasis      = read $ fs !! 9
                 , bitrate       = read $ fs !! 10
                 , extension     = read $ fs !! 11
-            }
+                , userinfo      = (P.packAddress "mpeg "#)
+                       `P.append` (P.pack . clean . show $ fs !! 0)
+                       `P.append` (P.packAddress " layer "#)
+                       `P.append` (P.pack . clean . show $ fs !! 10)
+                       `P.append` (P.packAddress "kbit/s "#)
+                       `P.append` (P.pack . show) ((read $ fs !! 2) `div` 1000 :: Int)
+                       `P.append` (P.packAddress "kHz"#)
+                }
 
 -- @F <current-frame> <frames-remaining> <current-time> <time-remaining>
 -- Frame decoding status updates (once per frame).
