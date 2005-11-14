@@ -363,7 +363,9 @@ instance Element PlayList where
 
             percent | percent' == 0  && curr == 0 = P.packAddress "top"#
                     | percent' == 100 = P.packAddress "all"#
-                    | otherwise       = P.pack (show percent') `P.append` P.packAddress "%"#
+                    | otherwise       
+                    = let s = P.pack (show percent') `P.append` P.packAddress "%"#
+                      in if P.length s == 2 then ' ' `P.cons` s else s
   
             percent' :: Int= round $ 
                         ((fromIntegral curr) / 
