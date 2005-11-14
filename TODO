@@ -1,5 +1,4 @@
 Todo:
- - Selection. We don't want to do a LOAD on every cursor movement up or down.
  - Print ID3 info
  - Solve clrtoeol issue
  - A basename based on substrs, not copying reverses.
@@ -12,6 +11,9 @@ Todo:
  - Loop mode
  - More profiling. Less boxed strings
  - A simpler, more obviously correct UI.hs, based on a Ppr library
+ - Dynloaded Config.hs
 
 Possible:
  - mpd backend. slightly different protocol, but not too different.
+ - Igloo's gstreamer binding: http://urchin.earth.li/~ian/minstrel/
+
