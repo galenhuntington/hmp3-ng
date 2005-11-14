@@ -26,6 +26,7 @@ import Utils
 import Config
 import Keymap ({-# bogus import to work around 6.4 rec modules bug #-})
 
+import Data.List ( sort )
 import qualified Data.FastPackedString as P
 
 import Control.Monad
@@ -96,13 +97,19 @@ expand (f:fs) = do
     where
       expand' :: P.FastString -> IO [P.FastString]
       expand' g = do
-            b  <- doesFileExist g
+            b  <- doesFileExist g'
             if not b
-                then do ls <- liftM (drop 2) $ packedGetDirectoryContents g
-                        filterM doesFileExist (map buildp ls)
-                else return [g]
+                then do ls  <- liftM (filter notEdge) $! packedGetDirectoryContents g'
+                        let ls' = map buildp ls
+                        gs  <- filterM doesFileExist ls'
+                        ds  <- filterM doesDirectoryExist ls'
+                        gs' <- expand (sort ds) -- expand in sorted order
+                        return (gs ++ gs')
+                else return [g']
 
-            where buildp h = g `P.append` P.packAddress "/"# `P.append` h
+            where g' = packedFileNameEndClean g
+                  buildp h = g' `P.append` P.packAddress "/"# `P.append` h
+                  notEdge p = p /= P.packAddress "."# && p /= P.packAddress ".."#
 
 -- ---------------------------------------------------------------------
 -- | Static main. This is the front end to the statically linked
@@ -118,8 +125,9 @@ main = do
         (      do args  <- packedGetArgs
                   files <- do_args args
                   files'<- expand files
-                  initSignals
-                  start files')
+                  case files' of
+                    [] -> do mapM_ putStrLn usage; exitWith (ExitFailure 1)
+                    fs -> initSignals >> start fs)
 
     -- catch any exception thrown by the main loop, clean up and quit
         (\e -> do releaseSignals

@@ -34,6 +34,7 @@ import Foreign.C.Error
 import Foreign.Ptr
 
 import System.IO.Error
+import System.IO
 
 import Control.Monad
 import Control.Exception
@@ -160,12 +161,12 @@ packedGetDirectoryContents path = do
   modifyIOError (`ioeSetFileName` (P.unpack path)) $
    alloca $ \ ptr_dEnt ->
      bracket
-    (P.unsafeUseAsCString path $ \s ->
+    (P.useAsCString path $ \s ->
        throwErrnoIfNullRetry desc (c_opendir s))
     (\p -> throwErrnoIfMinus1_ desc (c_closedir p))
     (\p -> loop ptr_dEnt p)
   where
-    desc = "getDirectoryContents"
+    desc = "Utils.packedGetDirectoryContents"
 
     make :: CString -> IO P.FastString
     make cstr = P.generate len $ \ptr -> c_memcpy ptr (castPtr cstr) len >> return len
@@ -196,16 +197,23 @@ packedGetDirectoryContents path = do
 
 -- packed version:
 doesFileExist :: P.FastString -> IO Bool
-doesFileExist name = Control.Exception.catch
-   (packedWithFileStatus "doesFileExist" name $ \st -> do 
-        b <- isDirectory st; return (not b))
+doesFileExist name =
+    Control.Exception.catch
+       (packedWithFileStatus "Utils.doesFileExist" name $ \st -> do 
+            b <- isDirectory st; return (not b))
+       (\ _ -> return False)
+
+doesDirectoryExist :: P.FastString -> IO Bool
+doesDirectoryExist name = Control.Exception.catch
+   (packedWithFileStatus "Utils.doesDirectoryExist" name $ \st -> isDirectory st)
    (\ _ -> return False)
 
 packedWithFileStatus :: String -> P.FastString -> (Ptr CStat -> IO a) -> IO a
 packedWithFileStatus loc name f = do
   modifyIOError (`ioeSetFileName` (P.unpack name)) $
-    allocaBytes sizeof_stat $ \p ->
-      P.unsafeUseAsCString (packedFileNameEndClean name) $ \s -> do
+    allocaBytes sizeof_stat $ \p -> do
+      P.useAsCString (packedFileNameEndClean name) $ \s -> do
+    --  peekCString s >>= hPutStrLn stderr
         throwErrnoIfMinus1Retry_ loc (c_stat s p)
         f p
 
