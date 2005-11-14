@@ -23,6 +23,7 @@ module Main where
 
 import Core
 import Config
+import Keymap ({-# bogus import to work around 6.4 rec modules bug #-})
 
 import Control.Monad            ( when )
 import Control.Exception        ( catch )
