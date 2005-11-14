@@ -255,7 +255,7 @@ playNext = modifyState_ $ \st -> do
 
         | mode st == Loop           -- else loop
         -> let (f,_) = m !! 0
-               st'   = st { current = i + 1, status = Playing } 
+               st'   = st { current = 0, status = Playing } 
            in send (pipe st) (Load f) >> return st'
 
         | otherwise -> return st    -- else stop
@@ -265,7 +265,7 @@ playNext = modifyState_ $ \st -> do
 playRandom :: IO ()
 playRandom = modifyState_ $ \st -> do
     let m   = music st
-    i <- getStdRandom (randomR (0, size st - 1)) -- memoise length m?
+    i <- getStdRandom (randomR (0, size st -1)) -- memoise length m?
     let (f,_) = m !! i
         st'   = st { current = i, status = Playing } 
     send (pipe st) (Load f)
