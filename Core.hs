@@ -168,7 +168,7 @@ handleMsg (I i)               = modifyState_ $! \s -> return s { info = Just i }
 
 handleMsg (S t) = do
         modifyState_ $! \s -> return s { status  = t }
-        when (t == Stopped) (down >> play) -- (or random, or loop) move to next track
+        when (t == Stopped) playNext -- (or random, or loop) move to next track
 
 handleMsg (R f) = do
     modifyClock $! \_ -> return $ Just f
@@ -231,6 +231,17 @@ play = modifyState_ $ \st -> do
         st'   = st { current = i, status = Playing }
     send (pipe st) (Load f)
     return st'
+
+-- | Play the song following the current song, if we're not at the end
+playNext :: IO ()
+playNext = modifyState_ $ \st -> do
+    let i   = current st
+        m   = music st
+    if i < length m - 1 
+        then let (f,_) = m !! (i + 1)
+                 st'   = st { current = i + 1, status = Playing } 
+             in send (pipe st) (Load f) >> return st'
+        else return st -- else loop?
 
 -- | Shutdown and exit
 quit :: IO ()
