@@ -86,7 +86,9 @@ do_args [s] | s == P.pack "-V"
 do_args xs = return xs
 
 -- ---------------------------------------------------------------------
+--
 -- Expand directory arguments into their contents
+-- Recursive descent
 --
 expand :: [P.FastString] -> IO [P.FastString]
 expand []     = return []
@@ -99,11 +101,11 @@ expand (f:fs) = do
       expand' g = do
             b  <- doesFileExist g'
             if not b
-                then do ls  <- liftM (filter notEdge) $! packedGetDirectoryContents g'
+                then do ls  <- liftM (sort . filter notEdge) $! packedGetDirectoryContents g'
                         let ls' = map buildp ls
                         gs  <- filterM doesFileExist ls'
                         ds  <- filterM doesDirectoryExist ls'
-                        gs' <- expand (sort ds) -- expand in sorted order
+                        gs' <- expand ds
                         return (gs ++ gs')
                 else return [g']
 
