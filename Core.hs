@@ -29,6 +29,7 @@ module Core (
 
 import POpen
 import Syntax
+import Lexer
 import State
 import Style
 import Config
@@ -106,13 +107,13 @@ start ms =
         -- | When the editor state has been modified, refresh, then wait
         -- for it to be modified again.
         refreshLoop :: IO ()
-        refreshLoop = repeatM_ $ do
+        refreshLoop = repeatM_ $ handle (\e -> warnA e >> return ()) $ do
                 takeMVar modified
                 catchJust ioErrors UI.refresh warnA
  
         -- | Once a minute read the clock time
         uptimeLoop :: IO ()
-        uptimeLoop = repeatM_ $ do 
+        uptimeLoop = repeatM_ $ handle (\e -> warnA e >> return ()) $ do
                 threadDelay delay 
                 now <- getClockTime 
                 modifyState_ $ \st -> do
@@ -124,7 +125,7 @@ start ms =
 
         -- | Once each second, wake up a and redraw the clock
         clockLoop :: IO ()
-        clockLoop = repeatM_ $ do
+        clockLoop = repeatM_ $ handle (\e -> warnA e >> return ()) $ do
                 threadDelay delay 
             --  hPutStrLn stderr "CLOCK"
                 catchJust ioErrors UI.refreshClock warnA
@@ -156,14 +157,13 @@ start ms =
 -- Expensive. Should use packed strings.
 --
 run :: Handle -> IO ()
-run r = do
-    handle (\_ -> return ()) $ do
-        s <- hGetLine r
-    --  hPutStrLn stderr "MPG321"
-        case parser s of
+run h = do
+    handle (\e -> warnA e >> return ()) $ do
+        res <- parser h
+        case res of
             Right m -> handleMsg m
             Left e  -> warnA e  -- error from pipe
-        run r
+        run h
 
 -- | Close most things
 shutdown :: IO ()

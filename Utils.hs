@@ -88,8 +88,8 @@ dropSpace = let f = reverse . dropWhile isSpace in f . f
 
 -- | Drop suffix and prefix quotes from a `shown' string
 --
-clean :: String -> String
-clean = let f = reverse . dropWhile (== '\"') in f . f 
+clean :: P.FastString -> P.FastString
+clean = P.init . P.tail
 
 -- | Split a list into pieces that were held together by glue.  Example:
 --
