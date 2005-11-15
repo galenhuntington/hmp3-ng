@@ -12,9 +12,9 @@ Todo:
  - not all exceptions are pretty printed
  - more fault tolerant.
  - FIX: memory creeping over time. Not released?
- - FIX: abiliity to use unsafeUseAsCString 
  - check small terminals
  - Add/delete tracks
+ - Use alex lexer
 
 Possible:
  - Should random mode not repeat itself?
