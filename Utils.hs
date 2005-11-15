@@ -176,7 +176,7 @@ packedGetDirectoryContents path = do
   modifyIOError (`ioeSetFileName` (P.unpack path)) $
    alloca $ \ ptr_dEnt ->
      bracket
-    (P.useAsCString path $ \s -> do -- a stupid copy.
+    (P.unsafeUseAsCString path $ \s -> do -- might have been shortened. poke!
        throwErrnoIfNullRetry desc (c_opendir s))
     (\p -> throwErrnoIfMinus1_ desc (c_closedir p))
     (\p -> loop ptr_dEnt p)
@@ -233,12 +233,15 @@ packedWithFileStatus :: String -> P.FastString -> (Ptr CStat -> IO a) -> IO a
 packedWithFileStatus loc name f = do
   modifyIOError (`ioeSetFileName` []) $
     allocaBytes sizeof_stat $ \p -> do
-      P.useAsCString (packedFileNameEndClean name) $ \s -> do
+      P.unsafeUseAsCString (name) $ \s -> do
         throwErrnoIfMinus1Retry_ loc (c_stat s p)
         f p
 
+-- hmm. if the FastString is ever shortened, then we lose the null
+-- terminator property, and can't use it with CStrings.
 packedFileNameEndClean :: P.FastString -> P.FastString
-packedFileNameEndClean name =
+packedFileNameEndClean = id
+{-
   if i > 0 && (ec == '\\' || ec == '/') then
      packedFileNameEndClean (P.take i name)
    else
@@ -246,6 +249,7 @@ packedFileNameEndClean name =
   where
       i  = (P.length name) - 1
       ec = name `P.index` i
+-}
 
 isDirectory :: Ptr CStat -> IO Bool
 isDirectory stat = do
