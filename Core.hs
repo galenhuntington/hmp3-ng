@@ -43,6 +43,7 @@ import Control.Monad
 
 import System.IO
 import System.Exit
+import System.Time
 import System.Random            (getStdRandom, randomR)
 
 import Control.Concurrent
@@ -72,19 +73,24 @@ start ms =
         -- fork process first. could fail. pass handles over to threads
         (r,w,pid) <- popen (MPG321 :: String) ["-R","-"]
 
+        now <- getClockTime
+
         modifyState_ $ \s -> return s 
             { mp3pid    = pid
             , music     = [ (m, basenameP m) | m <- ms ] -- look ma! no boxes!
             , size      = length ms
             , current   = 0
             , cursor    = 0
+            , uptime    = drawUptime now now
+            , boottime  = now
             , pipe      = Just w } 
 
         -- fork some threads
-        t  <- forkIO inputLoop
-        t' <- forkIO refreshLoop
-        t''<- forkIO clockLoop
-        modifyState_ $ \s -> return s { threads = [t,t',t''] } 
+        t   <- forkIO inputLoop
+        t'  <- forkIO refreshLoop
+        t'' <- forkIO clockLoop
+        t'''<- forkIO uptimeLoop
+        modifyState_ $ \s -> return s { threads = [t,t',t'',t'''] } 
 
         -- start the first song
         play
@@ -101,22 +107,34 @@ start ms =
         -- for it to be modified again.
         refreshLoop :: IO ()
         refreshLoop = repeatM_ $ do
-                        takeMVar modified
-                        catchJust ioErrors UI.refresh warnA
+                takeMVar modified
+                catchJust ioErrors UI.refresh warnA
+ 
+        -- | Once a minute read the clock time
+        uptimeLoop :: IO ()
+        uptimeLoop = repeatM_ $ do 
+                threadDelay delay 
+                now <- getClockTime 
+                modifyState_ $ \st -> do
+                    let t = drawUptime (boottime st) now
+                 -- hPutStrLn stderr ("TIME " ++ show t)
+                    return st { uptime = t }
+            where
+                delay = 60 * 1000 * 1000 -- 1 minute
 
         -- | Once each second, wake up a and redraw the clock
         clockLoop :: IO ()
         clockLoop = repeatM_ $ do
-                        threadDelay delay 
-                    --  hPutStrLn stderr "CLOCK"
-                        catchJust ioErrors UI.refreshClock warnA
-                where
-                  delay = 1000 * 1000 -- 1 second
+                threadDelay delay 
+            --  hPutStrLn stderr "CLOCK"
+                catchJust ioErrors UI.refreshClock warnA
+            where
+                delay = 1000 * 1000 -- 1 second
 
         -- | Handle keystrokes fed to us by curses
         inputLoop :: IO ()
         inputLoop = repeatM_ $ handle handler $ 
-                        sequence_ . (keymap config) =<< getKeys
+                sequence_ . (keymap config) =<< getKeys
             where
                 getKeys = unsafeInterleaveIO $ do
                         c  <- UI.getKey
@@ -134,6 +152,9 @@ start ms =
 -- | Main thread, main loop. Handle messages arriving over a pipe from
 -- the decoder process. When shutdown kills the other end of the pipe,
 -- hGetLine will fail, so we take that chance to exit.
+--
+-- Expensive. Should use packed strings.
+--
 run :: Handle -> IO ()
 run r = do
     handle (\_ -> return ()) $ do
