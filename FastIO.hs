@@ -176,7 +176,7 @@ expandDirectory f = do
     b  <- doesFileExist f
     if b then return [f]    -- bad
          else do 
-    ls_raw <- Control.Exception.handle (\e -> {-hPutStrLn stderr (show e) >>-} return []) $ 
+    ls_raw <- Control.Exception.handle (\e -> hPutStrLn stderr (show e) >> return []) $ 
                 packedGetDirectoryContents f
     let ls = map joinPath . sort . filter notEdge $ ls_raw
     ls `seq` return ()
