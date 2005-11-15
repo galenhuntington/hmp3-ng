@@ -2,6 +2,7 @@ hmp3 : an ncurses mp3 frontend written in Haskell
 
 Dependencies:
         The mpg321 program  ( http://mpg321.sourceforge.net/ )
+        The fps library     ( http://www.cse.unsw.edu.au/~dons/fps.html )
 
 Building:
         $ chmod +x configure Setup.lhs
