@@ -32,8 +32,6 @@ import System.IO
 
 import Control.Monad
 
-import System.Posix.Internals
-
 ------------------------------------------------------------------------
 
 -- some filename manipulation stuff
