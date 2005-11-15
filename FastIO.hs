@@ -22,7 +22,7 @@
 module FastIO where
 
 import Data.Char
-import Data.List
+import Data.List hiding (partition)
 import Data.Word
 import qualified Data.FastPackedString as P
 
@@ -72,7 +72,8 @@ packedGetDirectoryContents path = do
   modifyIOError (`ioeSetFileName` (P.unpack path)) $
    alloca $ \ ptr_dEnt ->
      bracket
-    (P.unsafeUseAsCString path $ \s -> do -- might have been shortened. poke!
+    (allocaBytes (P.length path) $ \s -> do
+       copyFP path s
        throwErrnoIfNullRetry desc (c_opendir s))
     (\p -> throwErrnoIfMinus1_ desc (c_closedir p))
     (\p -> loop ptr_dEnt p)
@@ -114,11 +115,10 @@ packedGetDirectoryContents path = do
 
 -- packed version:
 doesFileExist :: P.FastString -> IO Bool
-doesFileExist name =
-    Control.Exception.catch
-       (packedWithFileStatus "Utils.doesFileExist" name $ \st -> do 
-            b <- isDirectory st; return (not b))
-       (\ _ -> return False)
+doesFileExist name = Control.Exception.catch
+   (packedWithFileStatus "Utils.doesFileExist" name $ \st -> do 
+        b <- isDirectory st; return (not b))
+   (\ _ -> return False)
 
 doesDirectoryExist :: P.FastString -> IO Bool
 doesDirectoryExist name = Control.Exception.catch
@@ -129,15 +129,21 @@ packedWithFileStatus :: String -> P.FastString -> (Ptr CStat -> IO a) -> IO a
 packedWithFileStatus loc name f = do
   modifyIOError (`ioeSetFileName` []) $
     allocaBytes sizeof_stat $ \p -> do
-      P.unsafeUseAsCString (name) $ \s -> do
+      allocaBytes (P.length name) $ \s -> do
+        copyFP name s
         throwErrnoIfMinus1Retry_ loc (c_stat s p)
         f p
 
--- hmm. if the FastString is ever shortened, then we lose the null
--- terminator property, and can't use it with CStrings.
+-- | Destructively copy a packedstring into a cstring
+copyFP :: P.FastString -> CString -> IO () -- copy onto stack
+copyFP srcfp destp = do
+    let (fp, _, _) = P.toForeignPtr srcfp
+    withForeignPtr fp $ \ptr -> do
+        c_memcpy (castPtr destp) ptr (P.length srcfp)
+        poke (destp `plusPtr` P.length srcfp) (0 :: Word8)
+
 packedFileNameEndClean :: P.FastString -> P.FastString
-packedFileNameEndClean = id
-{-
+packedFileNameEndClean name =
   if i > 0 && (ec == '\\' || ec == '/') then
      packedFileNameEndClean (P.take i name)
    else
@@ -145,7 +151,6 @@ packedFileNameEndClean = id
   where
       i  = (P.length name) - 1
       ec = name `P.index` i
--}
 
 isDirectory :: Ptr CStat -> IO Bool
 isDirectory stat = do
@@ -164,25 +169,33 @@ expandDirectories []     = return []
 expandDirectories (f:fs) = do
     ls  <- expandDirectory f
     lss <- expandDirectories fs
-    return (ls ++ lss)  -- hmm. append sucks
+    return $! ls ++ lss  -- hmm. append sucks
 
 expandDirectory :: P.FastString -> IO [P.FastString]
 expandDirectory f = do
     b  <- doesFileExist f
     if b then return [f]    -- bad
          else do 
-    ls  <- liftM (map joinPath . sort . filter notEdge) $! packedGetDirectoryContents f
-    fs  <- filterM doesFileExist ls
-    ds  <- filterM doesDirectoryExist ls
-    ds' <- expandDirectories ds
-    return (fs ++ ds')
-
+    ls_raw <- Control.Exception.handle (\e -> {-hPutStrLn stderr (show e) >>-} return []) $ 
+                packedGetDirectoryContents f
+    let ls = map joinPath . sort . filter notEdge $ ls_raw
+    ls `seq` return ()
+    (fs,ds) <- partition ls
+    ds'     <- expandDirectories ds
+    return $! fs ++ ds'
     where
           joinPath g = f `P.append` sep `P.append` g
           notEdge p  = p /= dot && p /= dotdot
           sep        = P.packAddress "/"#
           dot        = P.packAddress "."#
           dotdot     = P.packAddress ".."#
+
+partition :: [P.FastString] -> IO ([P.FastString], [P.FastString]) 
+partition [] = return ([],[]) 
+partition (a:xs) = do
+    (fs,ds) <- partition xs
+    b       <- doesFileExist a
+    return $! if b then (a:fs, ds) else (fs, a:ds)
 
 -- ---------------------------------------------------------------------
 

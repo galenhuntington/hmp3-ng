@@ -1,7 +1,6 @@
--- gla-exts required for unsafeCoerce#
 -- 
+-- Copyright (c) Don Stewart 2004-5.
 -- Copyright (c) Tuomo Valkonen 2004.
--- Copyright (c) Don Stewarti 2004-5.
 --
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -22,11 +21,10 @@
 module Main where
 
 import Core
-import Utils
 import Config
+import FastIO
 import Keymap ({-# bogus import to work around 6.4 rec modules bug #-})
 
-import Data.List ( sort )
 import qualified Data.FastPackedString as P
 
 import Control.Monad
@@ -88,36 +86,6 @@ do_args [s] | s == P.pack "-V"
 do_args xs = return xs
 
 -- ---------------------------------------------------------------------
---
--- Expand directory arguments into their contents
--- Recursive descent
---
--- Do something about memory usage here
---
-expand :: [P.FastString] -> IO [P.FastString]
-expand []     = return []
-expand (f:fs) = do
-        ls  <- expand' f
-        lss <- expand fs
-        return $! ls ++ lss -- hmm
-    where
-      expand' :: P.FastString -> IO [P.FastString]
-      expand' g = do
-            b  <- doesFileExist g'
-            if not b
-                then do ls  <- liftM (sort . filter notEdge) $! packedGetDirectoryContents g'
-                        let ls' = map buildp ls
-                        gs  <- filterM doesFileExist ls'
-                        ds  <- filterM doesDirectoryExist ls'
-                        gs' <- expand ds
-                        return (gs ++ gs')
-                else return [g']
-
-            where g' = packedFileNameEndClean g
-                  buildp h = g' `P.append` P.packAddress "/"# `P.append` h
-                  notEdge p = p /= P.packAddress "."# && p /= P.packAddress ".."#
-
--- ---------------------------------------------------------------------
 -- | Static main. This is the front end to the statically linked
 -- application, and the real front end, in a sense. 'dynamic_main' calls
 -- this after setting preferences passed from the boot loader.
@@ -130,7 +98,7 @@ main = do
     Control.Exception.catch
         (      do args  <- packedGetArgs
                   files <- do_args args
-                  files'<- expand files
+                  files'<- expandDirectories files
                   case files' of
                     [] -> do mapM_ putStrLn usage; exitWith (ExitFailure 1)
                     fs -> performGC >> initSignals >> start fs)
