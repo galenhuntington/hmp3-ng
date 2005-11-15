@@ -32,6 +32,7 @@ import System.IO.Unsafe         ( unsafePerformIO )
 import Control.Concurrent       ( ThreadId )
 import Control.Concurrent.MVar
 
+import System.Time
 import System.IO
 import System.Posix.Types       ( ProcessID )
 
@@ -55,6 +56,9 @@ data State = State {
 
        ,helpVisible     :: !Bool           -- is the help window shown
        ,mode            :: !Mode           -- random mode
+
+       ,uptime          :: !P.FastString
+       ,boottime        :: !ClockTime
     }
 
 data Mode = Normal | Random | Loop
@@ -79,6 +83,8 @@ emptySt = State {
        ,minibuffer   = Plain []
        ,helpVisible  = False
        ,mode         = Normal
+       ,uptime       = P.empty
+       ,boottime     = TOD 0 0
     }
 
 --
