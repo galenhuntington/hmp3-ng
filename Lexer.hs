@@ -22,9 +22,6 @@
 module Lexer ( parser ) where
 
 import Syntax
-import Utils hiding (split)     -- ugly to work around alex import GHC.Exts
-import qualified Utils as U
-
 import qualified Data.FastPackedString as P
 
 import Control.Monad
@@ -71,9 +68,9 @@ doS s = let fs = P.split ' ' . P.drop 3 $ s
                 , bitrate       = read $ P.unpack $ fs !! 10
                 , extension     = read $ P.unpack $ fs !! 11
                 , userinfo      = (p "mpeg "#)
-                       `P.append` (clean $ fs !! 0)
+                       `P.append` (fs !! 0)
                        `P.append` (p " layer "#)
-                       `P.append` (clean $ fs !! 10)
+                       `P.append` (fs !! 10)
                        `P.append` (p "kbit/s "#)
                        `P.append` (P.pack . show) ((read . P.unpack $ fs !! 2) `div` 1000 :: Int)
                        `P.append` (p "kHz"#)
