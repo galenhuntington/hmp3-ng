@@ -70,13 +70,13 @@ doS s = let fs = P.split ' ' . P.drop 3 $ s
                 , emphasis      = read $ P.unpack $ fs !! 9
                 , bitrate       = read $ P.unpack $ fs !! 10
                 , extension     = read $ P.unpack $ fs !! 11
-                , userinfo      = (P.packAddress "mpeg "#)
+                , userinfo      = (p "mpeg "#)
                        `P.append` (clean $ fs !! 0)
-                       `P.append` (P.packAddress " layer "#)
+                       `P.append` (p " layer "#)
                        `P.append` (clean $ fs !! 10)
-                       `P.append` (P.packAddress "kbit/s "#)
+                       `P.append` (p "kbit/s "#)
                        `P.append` (P.pack . show) ((read . P.unpack $ fs !! 2) `div` 1000 :: Int)
-                       `P.append` (P.packAddress "kHz"#)
+                       `P.append` (p "kHz"#)
                 }
 
 -- Track info if ID fields are in the file, otherwise file name.
