@@ -126,8 +126,7 @@ drawUptime :: ClockTime -> ClockTime -> P.FastString
 drawUptime before now =
     let r = diffClockTimes now before
         s = tdSec  r
-        h = quot s (60 * 60)
-        m = quot s 60
+        (h,m) = quotRem s (60 * 60)
     in P.pack $! ((printf "%3d:%02d" (h::Int) (m::Int)) :: String)
         
 ------------------------------------------------------------------------
