@@ -23,25 +23,14 @@ module Utils where
 
 import Data.Char
 import Data.List
-import Data.Word
 import qualified Data.FastPackedString as P
 
 import Text.Printf
 
-import Foreign.Marshal
-import Foreign.Storable
-import Foreign.C.Types
-import Foreign.ForeignPtr
-import Foreign.C.String
-import Foreign.C.Error
-import Foreign.Ptr
-
-import System.IO.Error
 import System.Time
 import System.IO
 
 import Control.Monad
-import Control.Exception
 
 import System.Posix.Internals
 
