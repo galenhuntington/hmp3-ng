@@ -48,7 +48,6 @@ module UI (
 import Style
 import State
 import Syntax hiding (draw)
-import Utils
 import Config
 import qualified Curses
 
@@ -65,12 +64,7 @@ import qualified Control.Exception
 import System.Posix.Signals         ( raiseSignal, sigTSTP )
 import System.Posix.Env
 
-import Foreign.Ptr
-import Foreign.Storable
-
 import qualified Data.FastPackedString as P
-
-import Debug.Trace
 
 --
 -- | how to initialise the ui
@@ -171,9 +165,9 @@ class Element a where
 --
 data PlayScreen = 
         PlayScreen {
-               ptrack :: !PPlaying
-              ,pbar   :: !ProgressBar
-              ,ptime  :: !PTimes
+               _ptrack :: !PPlaying
+              ,_pbar   :: !ProgressBar
+              ,_ptime  :: !PTimes
         }
 
 newtype PlayList = PlayList [StringA]
@@ -187,6 +181,7 @@ newtype PTimes      = PTimes      StringA
 
 newtype PTrack      = PTrack      P.FastString
 newtype PInfo       = PInfo       P.FastString
+newtype PTime       = PTime       P.FastString
 
 ------------------------------------------------------------------------
 
@@ -223,11 +218,11 @@ instance Element PPlaying where
 
 -- | Play mode
 instance Element PTrack where
-    draw (y,_) _ st _ = PTrack . snd $ (music st) !! (current st)
+    draw _ _ st _ = PTrack . snd $ (music st) !! (current st)
 
 -- | mp3 information
 instance Element PInfo where
-    draw _ _ st mfr = PInfo $ case info st of
+    draw _ _ st _ = PInfo $ case info st of
         Nothing  -> P.empty
         Just i   -> userinfo i
 
@@ -238,7 +233,7 @@ newtype HelpScreen = HelpScreen [StringA]
 instance Element HelpScreen where
     draw (_,w) _ _ _ = HelpScreen $ [ Fast (f cs h) sty | (h,cs,_) <- keyTable ]
         where
-            sty = helpscreen . style $ config 
+            sty  = helpscreen . style $ config 
 
             f :: [Char] -> P.FastString -> P.FastString
             f cs ps = 
@@ -246,14 +241,14 @@ instance Element HelpScreen where
                     s = P.pack (take (tot - P.length p) (repeat ' '))
                 in p `P.append` s
                 where
-                    tot = round (fromIntegral w * 0.7)
-                    len = round (fromIntegral tot * 0.4)
+                    tot = round (fromIntegral w * (0.8::Float))
+                    len = round (fromIntegral tot * (0.2::Float))
 
                     -- faststringify
                     str = take len $ ' ' :
-                            (concat . intersperse " " $ (map ppr cs)) ++ repeat ' '
+                            (concat . intersperse " " $ (map pprIt cs)) ++ repeat ' '
 
-                    ppr c = case c of
+                    pprIt c = case c of
                         k | k == Curses.keyUp    -> "Up"
                           | k == Curses.keyDown  -> "Down"
                           | k == Curses.keyPPage -> "PgUp"
@@ -270,7 +265,7 @@ instance Element HelpScreen where
 -- | The time used and time left
 instance Element PTimes where
     draw _ _ _ Nothing       = PTimes . Plain $ []
-    draw (y,x) _ _ (Just fr) = PTimes $ Plain $! "  " ++elapsed++gap++remaining
+    draw (_,x) _ _ (Just fr) = PTimes $ Plain $! "  " ++elapsed++gap++remaining
       where
         elapsed   = (printf  "%01d:%02d" lm lm') :: String
         remaining = (printf "-%01d:%02d" rm rm') :: String
@@ -314,6 +309,10 @@ instance Element ProgressBar where
 instance Element PVersion where
     draw _ _ _ _ = PVersion $ Fast (P.pack versinfo) (highlight.style $ config)
 
+-- | Uptime
+instance Element PTime where
+    draw _ _ st _ = PTime . uptime $ st
+
 -- | Play mode
 instance Element PMode where
     draw _ _ st _ = PMode $! flip Fast sty $ case status st of 
@@ -351,11 +350,12 @@ instance Element PlayList where
                  ++ (replicate (height - length list - 2) (Plain []))
                  ++ [minibuffer st]
         where
-            (PMode mod@(Fast m sty))  = draw p q st z :: PMode
-            (PMode2 mod'@(Fast m' _)) = draw p q st z :: PMode2
-            (PVersion (Fast ver _))  = draw p q st z :: PVersion
+            (PMode (Fast m _))      = draw p q st z :: PMode
+            (PMode2 (Fast m' _))    = draw p q st z :: PMode2
+            (PVersion (Fast ver _)) = draw p q st z :: PVersion
+            (PTime time)            = draw p q st z :: PTime
 
-            info =         percent
+            inf =         percent
                 `P.append` P.packAddress " ("# 
                 `P.append` P.pack (show . size $ st)
                 `P.append` P.packAddress " file"# 
@@ -372,17 +372,19 @@ instance Element PlayList where
                         ((fromIntegral curr) / 
                         ((fromIntegral . size $ st) - 1) * 100.0 :: Float)
 
-            padding        = 2
+            padding        = 3
 
-            gap            = x - padding - P.length info - modlen - P.length ver
+            gap            = x - padding - P.length inf - modlen - P.length time - P.length ver
             gapl           = gap `div` 2
             gapr           = gap - gapl
 
             title  = flip Fast hl $ P.packAddress " "#
-                         `P.append` info
+                         `P.append` inf
                          `P.append` P.pack (replicate gapl ' ')
                          `P.append` modes
                          `P.append` P.pack (replicate gapr ' ')
+                         `P.append` time
+                         `P.append` P.packAddress " "#
                          `P.append` ver
                          `P.append` P.packAddress " "#
 
@@ -409,8 +411,8 @@ instance Element PlayList where
             visible   = drop (screens*buflen) songs -- take the visible songs
     
             -- no scrolling:
-            list   = [ uncurry color m
-                     | m <- zip (map snd visible) [0..] ]
+            list   = [ uncurry color n
+                     | n <- zip (map snd visible) [0..] ]
 
             color s i 
                 | i == select && i == playing
@@ -427,8 +429,6 @@ instance Element PlayList where
                     sty1 = selected . style $ config
                     sty2 = cursors  . style  $ config
                     sty3 = combined . style $ config
-
-            setOn f = Fancy . map (\c -> A c (f (style config)))
 
 --
 -- | Decode the list of current tracks
@@ -476,10 +476,10 @@ redraw = withState $ \s -> do
        y = {-# SCC "redraw.playlist" #-} printPlayList   (draw sz (length x,0) s f :: PlayList)
        a = x ++ y
    gotoTop
-   {-# SCC "redraw.draw" #-}mapM_ (\s -> do drawLine w s 
+   {-# SCC "redraw.draw" #-}mapM_ (\t -> do drawLine w t
                                             fillLine
-                                            (y,x) <- Curses.getYX Curses.stdScr
-                                            maybeLineDown s h y x )
+                                            (y',x') <- Curses.getYX Curses.stdScr
+                                            maybeLineDown t h y' x' )
          (take (h-1) (init a))
 
    Curses.wMove Curses.stdScr (h-1) 0
@@ -490,9 +490,9 @@ redraw = withState $ \s -> do
            (Fast fps _) = head help
            offset = (w - (P.length fps)) `div` 2
        Curses.wMove Curses.stdScr ((h - length help) `div` 2) offset
-       mapM_ (\s -> do drawLine w s
-                       (y,_) <- Curses.getYX Curses.stdScr
-                       Curses.wMove Curses.stdScr (y+1) offset) help
+       mapM_ (\t -> do drawLine w t
+                       (y',_) <- Curses.getYX Curses.stdScr
+                       Curses.wMove Curses.stdScr (y'+1) offset) help
 
 ------------------------------------------------------------------------
 --
@@ -500,7 +500,7 @@ redraw = withState $ \s -> do
 --
 drawLine :: Int -> StringA -> IO ()
 
-drawLine w (Fancy s) =
+drawLine _ (Fancy s) =
     flip mapM_ s $ \fs -> case fs of
         C c     -> Curses.wAddChar Curses.stdScr c
         A c sty -> withStyle sty $ Curses.wAddChar Curses.stdScr c
@@ -513,6 +513,7 @@ drawLine _ (Fast ps sty) = withStyle sty $ P.unsafeUseAsCString ps $ \cstr ->
 
 ------------------------------------------------------------------------
 
+maybeLineDown :: StringA -> Int -> Int -> Int -> IO ()
 maybeLineDown (Plain []) h y _ = lineDown h y
 maybeLineDown (Fancy []) h y _ = lineDown h y
 maybeLineDown _ h y x
