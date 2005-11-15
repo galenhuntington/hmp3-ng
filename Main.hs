@@ -32,6 +32,8 @@ import qualified Data.FastPackedString as P
 import Control.Monad
 import Control.Exception        ( catch )
 
+import System.Mem               (performGC)
+
 import System.IO
 import System.Exit
 import System.Posix.Signals
@@ -90,6 +92,8 @@ do_args xs = return xs
 -- Expand directory arguments into their contents
 -- Recursive descent
 --
+-- Do something about memory usage here
+--
 expand :: [P.FastString] -> IO [P.FastString]
 expand []     = return []
 expand (f:fs) = do
@@ -129,7 +133,7 @@ main = do
                   files'<- expand files
                   case files' of
                     [] -> do mapM_ putStrLn usage; exitWith (ExitFailure 1)
-                    fs -> initSignals >> start fs)
+                    fs -> performGC >> initSignals >> start fs)
 
     -- catch any exception thrown by the main loop, clean up and quit
         (\e -> do releaseSignals
