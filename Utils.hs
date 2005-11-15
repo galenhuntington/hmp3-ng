@@ -26,14 +26,18 @@ import Data.List
 import Data.Word
 import qualified Data.FastPackedString as P
 
+import Text.Printf
+
 import Foreign.Marshal
 import Foreign.Storable
 import Foreign.C.Types
+import Foreign.ForeignPtr
 import Foreign.C.String
 import Foreign.C.Error
 import Foreign.Ptr
 
 import System.IO.Error
+import System.Time
 import System.IO
 
 import Control.Monad
@@ -130,6 +134,16 @@ breakOnGlue glue rest@(x:xs)
 {-# INLINE breakOnGlue #-}
 
 ------------------------------------------------------------------------
+
+drawUptime :: ClockTime -> ClockTime -> P.FastString
+drawUptime before now =
+    let r = diffClockTimes now before
+        s = tdSec  r
+        h = quot s (60 * 60)
+        m = quot s 60
+    in P.pack $! ((printf "%3d:%02d" (h::Int) (m::Int)) :: String)
+        
+------------------------------------------------------------------------
 -- | Repeat an action
 repeatM_ :: forall m a. Monad m => m a -> m ()
 repeatM_ a = a >> repeatM_ a
@@ -155,23 +169,30 @@ foreign import ccall unsafe "RtsAPI.h getProgArgv"
 
 --
 -- | Packed version of get directory contents
+-- Have them just return CStrings, then pack lazily?
 --
 packedGetDirectoryContents :: P.FastString -> IO [P.FastString]
 packedGetDirectoryContents path = do
   modifyIOError (`ioeSetFileName` (P.unpack path)) $
    alloca $ \ ptr_dEnt ->
      bracket
-    (P.useAsCString path $ \s ->
+    (P.useAsCString path $ \s -> do -- a stupid copy.
        throwErrnoIfNullRetry desc (c_opendir s))
     (\p -> throwErrnoIfMinus1_ desc (c_closedir p))
     (\p -> loop ptr_dEnt p)
   where
     desc = "Utils.packedGetDirectoryContents"
 
+    -- | Copy entry out of directory
+    -- Directory entries can be finalised
     make :: CString -> IO P.FastString
-    make cstr = P.generate len $ \ptr -> c_memcpy ptr (castPtr cstr) len >> return len
-        where
-            len = fromIntegral $ c_strlen cstr
+    make cstr = do 
+        let len = fromIntegral $ c_strlen cstr
+        fp <- mallocForeignPtrArray (len+1)
+        withForeignPtr fp $ \p -> do
+            c_memcpy p (castPtr cstr) len
+            poke (p `plusPtr` len) (0 :: Word8)
+        return $ P.PS fp 0 len
 
     loop :: Ptr (Ptr CDirent) -> Ptr CDir -> IO [P.FastString]
     loop ptr_dEnt dir = do
@@ -185,7 +206,7 @@ packedGetDirectoryContents path = do
                         entry   <- (d_name dEnt >>= make)
                         freeDirEnt dEnt
                         entries <- loop ptr_dEnt dir
-                        return (entry:entries)
+                        return $! (entry:entries)
 
         else do errno <- getErrno
                 if (errno == eINTR) 
@@ -210,10 +231,9 @@ doesDirectoryExist name = Control.Exception.catch
 
 packedWithFileStatus :: String -> P.FastString -> (Ptr CStat -> IO a) -> IO a
 packedWithFileStatus loc name f = do
-  modifyIOError (`ioeSetFileName` (P.unpack name)) $
+  modifyIOError (`ioeSetFileName` []) $
     allocaBytes sizeof_stat $ \p -> do
       P.useAsCString (packedFileNameEndClean name) $ \s -> do
-    --  peekCString s >>= hPutStrLn stderr
         throwErrnoIfMinus1Retry_ loc (c_stat s p)
         f p
 
