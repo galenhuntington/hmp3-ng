@@ -221,11 +221,8 @@ up = modifyState_ $ \st -> do
 down :: IO ()
 down = modifyState_ $ \st -> do
         let i = cursor st
-            m = music st
             l = size st - 1
-        return $ if i == l
-            then st 
-            else st { cursor = i + 1 }
+        return $ if i == l then st else st { cursor = i + 1 }
 
 -- | Toggle pause on the current song
 pause :: IO ()
@@ -243,19 +240,24 @@ play = modifyState_ $ \st -> do
 
 -- | Play the song following the current song, if we're not at the end
 -- If we're at the end, and loop mode is on, then loop to the start
+-- If the cursor and current are currently the same, continue that.
 playNext :: IO ()
 playNext = modifyState_ $ \st -> do
     let i   = current st
+        j   = cursor  st
         m   = music st
     case () of {_ 
         | i < size st - 1          -- successor
         -> let (f,_) = m !! (i + 1)
-               st'   = st { current = i + 1, status = Playing } 
+               st'   = st { current = i + 1
+                          , status = Playing
+                          , cursor = if i == j then i + 1 else j } 
            in send (pipe st) (Load f) >> return st'
 
         | mode st == Loop           -- else loop
         -> let (f,_) = m !! 0
-               st'   = st { current = 0, status = Playing } 
+               st'   = st { current = 0, status = Playing
+                          , cursor = if i == j then 0 else j } 
            in send (pipe st) (Load f) >> return st'
 
         | otherwise -> return st    -- else stop
