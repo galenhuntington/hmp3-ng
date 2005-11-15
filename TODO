@@ -2,19 +2,18 @@ Todo:
  - Print ID3 info
  - Solve clrtoeol issue
  - Thread-representation or ipod-style treatment of filesystem trees
- - Get rid of warnings
  - Automated testing, Stress testing
  - More profiling.
- - search
+ - Search
  - we do a lot of length, take/drop on the state. Perhaps it should be a
    type with O(1) substrs.
  - refresh handling
  - not all exceptions are pretty printed
  - more fault tolerant.
- - FIX: memory creeping over time. Not released?
- - check small terminals
+ - Check small terminals
  - Add/delete tracks
  - Use alex lexer
+ - FIX: memory creeping over time. Not released?
 
 Possible:
  - Should random mode not repeat itself?
