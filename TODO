@@ -1,21 +1,17 @@
 Todo:
  - Print ID3 info
  - Solve clrtoeol issue
- - Thread-representation or ipod-style treatment of filesystem trees
- - Automated testing, Stress testing
- - More profiling.
+ - Thread-representation of filesystem trees
  - Search
- - we do a lot of length, take/drop on the state. Perhaps it should be a
-   type with O(1) substrs.
- - refresh handling
- - not all exceptions are pretty printed
- - more fault tolerant.
+ - Tree structure
+ - Refresh handling
  - Check small terminals
  - Add/delete tracks
- - Use alex lexer
  - FIX: memory creeping over time. Not released?
+ - More profiling.
 
 Possible:
+ - Automated testing, Stress testing
  - Should random mode not repeat itself?
  - Dynloaded Config.hs
  - A simpler, more obviously correct UI.hs, based on a Ppr library
