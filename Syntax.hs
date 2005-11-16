@@ -50,7 +50,7 @@ data Jump = Jump !Int
         deriving Show
 
 instance Pretty Jump where
-    ppr (Jump i) = text "JUMP" <+> (text . init . tail . show $ i)
+    ppr (Jump i) = text "JUMP" <+> (text . show $ i)
 
 -- Pauses the playback of the mp3 file; if already paused, restarts playback.
 data Pause = Pause
