@@ -58,6 +58,10 @@ keyTable =
         [keyPPage],     replicateM 20 up   >> return ())
     ,(p "Jump down"#,              
         [keyNPage],     replicateM 20 down >> return ())
+    ,(p "Jump to start of list"#, 
+        [keyHome],  jump 0)
+    ,(p "Jump to end of list"#, 
+        [keyEnd],   jump maxBound)
     ,(p "Seek left within song"#,  
         ['h',keyLeft],  seekLeft)
     ,(p "Seek right within song"#, 

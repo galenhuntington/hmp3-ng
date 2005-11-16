@@ -24,7 +24,7 @@ module Core (
         start,
         shutdown,
         seekLeft, seekRight, up, down, pause, nextMode, playNext,
-        quit, clrmsg, toggleHelp, play, jumpToPlaying
+        quit, clrmsg, toggleHelp, play, jumpToPlaying, jump
     ) where
 
 import Prelude hiding (catch)
@@ -258,9 +258,16 @@ up = modifyState_ $ \st -> do
 -- | Move cursor down list
 down :: IO ()
 down = modifyState_ $ \st -> do
-        let i = cursor st
-            l = size st - 1
-        return $ if i == l then st else st { cursor = i + 1 }
+    let i = cursor st
+        l = size st - 1
+    return $ if i == l then st else st { cursor = i + 1 }
+
+-- | Move cursor to specified index
+jump :: Int -> IO ()
+jump i = modifyState_ $ \st -> do
+    let l = size st - 1
+        n = if i > l then l else if i < 0 then 0 else i
+    return st { cursor = n }
 
 -- | Toggle pause on the current song
 pause :: IO ()
