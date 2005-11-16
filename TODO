@@ -14,6 +14,7 @@ Todo:
         - store curses state in global state  (width,height)
  - when dropping frames, skip behaves weirdly. temporarily force
    collection of the next frame?
+ - clean up properly in cbits/getline
 
 Possible:
  - Automated testing, Stress testing
