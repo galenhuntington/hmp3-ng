@@ -71,7 +71,7 @@ start ms =
     Control.Exception.handle
         (\e -> do if isOK e then return ()
                             else do shutdown
-                                    hPutStrLn stderr ("start: " ++ show e)
+                                    hPutStrLn stderr ("hmp3:start: " ++ show e)
                                     exitWith (ExitFailure 1)) $ do
 
         -- initialise curses
@@ -79,6 +79,7 @@ start ms =
 
         -- fork process first. could fail. pass handles over to threads
         (r,w,pid) <- popen (MPG321 :: String) ["-R","-"]
+
         hw <- fdToHandle (unsafeCoerce# w)  -- so we can use Haskell IO
 
         now <- getClockTime
