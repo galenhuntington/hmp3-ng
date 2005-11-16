@@ -10,7 +10,10 @@ AC_PREREQ([2.52])
 
 AC_PATH_PROG(MPG321,mpg321)
 if test -z "$MPG321" ; then
-	AC_MSG_ERROR([You need mpg321 installed to run hmp3])
+    AC_PATH_PROG(MPG321,mpg123)
+    if test -z "$MPG321" ; then
+	    AC_MSG_ERROR([You need mpg321 or mpg123 installed to run hmp3])
+    fi
 fi
 AC_DEFINE_UNQUOTED(MPG321, "$MPG321", [Path to mpg321])
 
