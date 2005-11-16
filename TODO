@@ -9,6 +9,11 @@ Todo:
  - Add/delete tracks
  - FIX: memory creeping over time. Not released?
  - More profiling.
+ - 1 GC per refresh. Fix this.
+ - optimisations:
+        - store curses state in global state  (width,height)
+ - when dropping frames, skip behaves weirdly. temporarily force
+   collection of the next frame?
 
 Possible:
  - Automated testing, Stress testing

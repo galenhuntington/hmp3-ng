@@ -36,11 +36,15 @@ import Foreign.Ptr
 
 import System.IO.Error
 import System.IO
+import System.Posix.Types       ( Fd )
+import System.Posix.Internals
 
 import Control.Monad
 import Control.Exception
 
-import System.Posix.Internals
+import GHC.IOBase
+
+------------------------------------------------------------------------
 
 -- | Packed string version of basename
 basenameP :: P.FastString -> P.FastString
@@ -80,17 +84,6 @@ packedGetDirectoryContents path = do
   where
     desc = "Utils.packedGetDirectoryContents"
 
-    -- | Copy entry out of directory
-    -- Directory entries can be finalised
-    make :: CString -> IO P.FastString
-    make cstr = do 
-        let len = fromIntegral $ c_strlen cstr
-        fp <- mallocForeignPtrArray (len+1)
-        withForeignPtr fp $ \p -> do
-            c_memcpy p (castPtr cstr) len
-            poke (p `plusPtr` len) (0 :: Word8)
-        return $ P.PS fp 0 len
-
     loop :: Ptr (Ptr CDirent) -> Ptr CDir -> IO [P.FastString]
     loop ptr_dEnt dir = do
       resetErrno
@@ -100,7 +93,7 @@ packedGetDirectoryContents path = do
                 if (dEnt == nullPtr)
                     then return []
                     else do
-                        entry   <- (d_name dEnt >>= make)
+                        entry   <- (d_name dEnt >>= copyCStringToFastString)
                         freeDirEnt dEnt
                         entries <- loop ptr_dEnt dir
                         return $! (entry:entries)
@@ -199,8 +192,37 @@ partition (a:xs) = do
 
 -- ---------------------------------------------------------------------
 
-foreign import ccall unsafe "static string.h strlen" c_strlen
-    :: CString -> CInt
+-- packed hGetLine
+packedHGetLine :: Ptr CFile -> IO P.FastString
+packedHGetLine fp = P.generate 1024{-hardcoded!-} $ flip c_getline fp
 
-foreign import ccall unsafe "static string.h memcpy" c_memcpy
-    :: Ptr Word8 -> Ptr Word8 -> Int -> IO ()
+-- convert a Haskell-side Fd to a FILE*.
+fdToCFile :: Fd -> IO (Ptr CFile)
+fdToCFile = c_openfd
+
+-- ---------------------------------------------------------------------
+
+-- | Copy entry out of directory.
+copyCStringToFastString :: CString -> IO P.FastString
+copyCStringToFastString cstr = do 
+    let len = fromIntegral $ c_strlen cstr
+    fp <- mallocForeignPtrArray (len+1)
+    withForeignPtr fp $ \p -> do
+        c_memcpy p (castPtr cstr) len
+        poke (p `plusPtr` len) (0 :: Word8)
+    return $! P.PS fp 0 len
+
+-- ---------------------------------------------------------------------
+
+foreign import ccall safe "utils.h getline" 
+    c_getline :: Ptr Word8 -> Ptr CFile -> IO Int
+
+foreign import ccall safe "utils.h openfd"
+    c_openfd  :: Fd -> IO (Ptr CFile)
+
+foreign import ccall unsafe "static string.h strlen" 
+    c_strlen  :: CString -> CInt
+
+foreign import ccall unsafe "static string.h memcpy" 
+    c_memcpy  :: Ptr Word8 -> Ptr Word8 -> Int -> IO ()
+

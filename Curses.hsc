@@ -200,6 +200,8 @@ module Curses (
 #ifdef SIGWINCH
     cursesSigWinch,
 #endif
+
+    throwPackedIfNull,
     
   ) where 
 
@@ -221,6 +223,8 @@ import Control.Concurrent       ( yield, threadWaitRead )
 
 import Foreign
 import Foreign.C
+
+import System.IO
 
 import GHC.Base                 ( Addr## )
 
@@ -261,7 +265,7 @@ resetParams = do
     leaveOk False       -- not ok to leave cursor wherever it is
     c_meta stdScr 1       -- ask for 8 bit chars, so we can get Meta
     keypad stdScr True  -- enable the keypad, so things like ^L (refresh) work
-    noDelay stdScr True  -- blocking getCh, no #ERR
+    noDelay stdScr False  -- blocking getCh, no #ERR
     return ()
 
 -- not needed, if keypad is True:
@@ -287,7 +291,9 @@ throwPackedIf :: (a -> Bool)
               -> (IO a)
 throwPackedIf p msgfn action = do
     v <- action
-    (if p v then fail . P.unpack . msgfn $ v else return v)
+    if p v then do let s = (P.unpack . msgfn) v
+                   fail s
+           else return v
 
 -- | packed throwIfNull
 throwPackedIfNull :: Addr## -> IO (Ptr a) -> IO (Ptr a)

@@ -22,10 +22,14 @@
 module Lexer ( parser ) where
 
 import Syntax
+import FastIO   ( packedHGetLine )
+
 import qualified Data.FastPackedString as P
 
-import Control.Monad
 import System.IO
+
+import Foreign.C.Types
+import Foreign.Ptr
 
 import GHC.Base
 
@@ -85,9 +89,13 @@ doI s = let f = P.dropSpaceEnd . P.dropSpace . P.drop 3 $ s
 
 ------------------------------------------------------------------------
 
-parser :: Handle -> IO (Either String Msg)
+--
+-- | This function does the most allocations in the long run.
+-- How can we discard most "@F" input?
+--
+parser :: Ptr CFile -> IO (Either String Msg)
 parser h = do
-    s <- liftM P.pack $! hGetLine h
+    s <- packedHGetLine h
     return $ case P.take 2 s of
         t | t == p "@R"# -> Right $ T Tag
           | t == p "@I"# -> Right $ doI s

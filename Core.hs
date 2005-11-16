@@ -34,6 +34,7 @@ import State
 import Style
 import Config
 import Utils
+import FastIO       ( fdToCFile )
 import qualified UI
 
 import qualified Data.FastPackedString as P
@@ -46,13 +47,16 @@ import System.IO
 import System.Exit
 import System.Time
 import System.Random            (getStdRandom, randomR)
+import System.Process           ( waitForProcess )
 
 import Control.Concurrent
-
-import System.Process           ( waitForProcess )
 import Control.Exception
 
+import Foreign.C.Types          ( CFile )
+import Foreign.Ptr              ( Ptr )
+
 import GHC.Base
+import GHC.Handle
 import GHC.Exception
 import GHC.IOBase               ( unsafeInterleaveIO )
 
@@ -73,6 +77,7 @@ start ms =
 
         -- fork process first. could fail. pass handles over to threads
         (r,w,pid) <- popen (MPG321 :: String) ["-R","-"]
+        hw <- fdToHandle (unsafeCoerce# w)  -- so we can use Haskell IO
 
         now <- getClockTime
 
@@ -84,7 +89,7 @@ start ms =
             , cursor    = 0
             , uptime    = drawUptime now now
             , boottime  = now
-            , pipe      = Just w } 
+            , pipe      = Just hw } 
 
         -- fork some threads
         t   <- forkIO inputLoop
@@ -97,7 +102,8 @@ start ms =
         play
 
         -- start the main loop
-        run r
+        filep <- fdToCFile r
+        run filep
         shutdown
 
     where
@@ -156,14 +162,14 @@ start ms =
 --
 -- Expensive. Should use packed strings.
 --
-run :: Handle -> IO ()
-run h = do
+run :: Ptr CFile -> IO ()
+run p = do
     handle (\e -> warnA e >> return ()) $ do
-        res <- parser h
+        res <- parser p
         case res of
             Right m -> handleMsg m
             Left e  -> warnA e  -- error from pipe
-        run h
+        run p
 
 -- | Close most things
 shutdown :: IO ()
@@ -190,10 +196,10 @@ handleMsg (F (File Nothing))  = return () -- id3 tag.
 handleMsg (I i)               = modifyState_ $! \s -> return s { info = Just i }
 
 handleMsg (S t) = do
-        modifyState_ $! \s -> return s { status  = t }
-        when (t == Stopped) $ do   -- transition to next song
-            r <- modifyState $ \st -> return (st, mode st) -- race
-            if r == Random then playRandom else playNext
+    modifyState_ $! \s -> return s { status  = t }
+    when (t == Stopped) $ do   -- transition to next song
+        r <- modifyState $ \st -> return (st, mode st) -- race
+        if r == Random then playRandom else playNext
 
 handleMsg (R f) = do
     modifyClock $! \_ -> return $ Just f
@@ -216,7 +222,7 @@ seekLeft        = do
         Nothing -> return ()
         Just (Frame { currentFrame = fr }) -> do
             withState $ \st -> 
-                send (pipe st) $ Jump (max 0 (fr-100))
+                send (pipe st) $ Jump (max 0 (fr-400))
             tryPutMVar clockModified () -- touch the modified MVar
             return ()
 
@@ -228,7 +234,7 @@ seekRight       = do
         Nothing -> return ()
         Just g@(Frame { currentFrame = fr }) -> do
                 withState $ \st -> 
-                    send (pipe st) $ Jump (fr + (min 100 (framesLeft g)))
+                    send (pipe st) $ Jump (fr + (min 400 (framesLeft g)))
                 tryPutMVar clockModified () -- touch the modified MVar
                 return ()
 

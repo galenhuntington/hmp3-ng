@@ -31,11 +31,10 @@
 
 module POpen (popen) where
 
-import System.IO            ( Handle )
 import System.Posix.Types   ( ProcessID, Fd )
 import System.Posix.Process ( forkProcess, executeFile )
 import System.Posix.IO      ( createPipe, stdInput, 
-                              stdOutput, fdToHandle, closeFd, dupTo )
+                              stdOutput, closeFd, dupTo )
 
 --
 -- provide similar functionality to popen(3), 
@@ -47,7 +46,7 @@ import System.Posix.IO      ( createPipe, stdInput,
 -- like the Awkward-Squad paper. We provide implementations of popen
 -- using both versions, depending on which GHC the user wants to try.
 -- 
-popen :: FilePath -> [String] -> IO (Handle, Handle, ProcessID)
+popen :: FilePath -> [String] -> IO (Fd, Fd, ProcessID)
 popen cmd args = do
         (pr, pw) <- createPipe
         (cr, cw) <- createPipe    
@@ -71,10 +70,10 @@ popen cmd args = do
                 Nothing  -> child
 #endif
 
-        hcr <- fdToHandle cr
-        hpw <- fdToHandle pw
+   --   hcr <- fdToHandle cr
+   --   hpw <- fdToHandle pw
 
-        return (hcr,hpw,pid)
+        return (cr,pw,pid)
 
 --
 -- execve cmd in the child process, dup'ing the file descriptors passed
