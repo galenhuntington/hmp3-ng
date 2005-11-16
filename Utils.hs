@@ -126,12 +126,13 @@ drawUptime :: ClockTime -> ClockTime -> P.FastString
 drawUptime before now =
     let r = diffClockTimes now before
         s = tdSec  r
-        (h,m) = quotRem s (60 * 60)
+        (h,sr) = quotRem s (60 * 60)
+        m     = quot sr 60
     in P.pack $! ((printf "%3d:%02d" (h::Int) (m::Int)) :: String)
         
 ------------------------------------------------------------------------
 -- | Repeat an action
-repeatM_ :: forall m a. Monad m => m a -> m ()
+repeatM_ :: Monad m => m a -> m ()
 repeatM_ a = a >> repeatM_ a
 {-# SPECIALIZE repeatM_ :: IO a -> IO () #-}
 {-# INLINE repeatM_ #-}
