@@ -27,6 +27,8 @@ module Core (
         quit, clrmsg, toggleHelp, play, jumpToPlaying
     ) where
 
+import Prelude hiding (catch)
+
 import POpen
 import Syntax
 import Lexer
@@ -46,7 +48,7 @@ import Control.Monad
 import System.IO
 import System.Exit
 import System.Time
-import System.Random            (getStdRandom, randomR)
+import System.Random            ( getStdRandom, randomR )
 import System.Process           ( waitForProcess )
 
 import Control.Concurrent
@@ -57,7 +59,7 @@ import Foreign.Ptr              ( Ptr )
 
 import GHC.Base
 import GHC.Handle
-import GHC.Exception
+import GHC.Exception hiding     ( catch )
 import GHC.IOBase               ( unsafeInterleaveIO )
 
 #include "config.h"
@@ -171,17 +173,26 @@ run p = do
             Left e  -> warnA e  -- error from pipe
         run p
 
--- | Close most things
+-- | Close most things. Important to do all the jobs:
 shutdown :: IO ()
-shutdown = Control.Exception.handle (\_ -> return ()) $ 
-    modifyState_ $ \st -> do    -- atomic
+shutdown = handle (\e -> hPutStrLn stderr (show e) >> return ()) $ 
+    modifyState_ $ \st -> do
         UI.end
-        let pid = mp3pid st   -- wait for the process
-            tds = threads st  -- knock off our threads
-        send (pipe st) Quit
-        waitForProcess $ unsafeCoerce# pid      -- bit evil
-        -- send sigKILL?
-        mapM_ killThread tds
+        let pid = mp3pid st
+            tds = threads st
+
+        handle (\_ -> return ()) $ do
+            send (pipe st) Quit                         -- ask politely
+            waitForProcess $ unsafeCoerce# pid          -- wait
+            return ()
+
+--      Should check if it's still running
+--      handle (\_ -> return ()) $
+--          signalProcess sigTERM (unsafeCoerce# pid)   -- just kill it
+
+        flip mapM_ tds $ \t -> 
+            catch (killThread t) (\_ -> return ())      -- and kill threads
+
         return st { mp3pid = (-1){-?-}, threads = [] }
 
 ------------------------------------------------------------------------
