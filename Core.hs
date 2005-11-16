@@ -136,7 +136,7 @@ start ms =
             --  hPutStrLn stderr "CLOCK"
                 catchJust ioErrors UI.refreshClock warnA
             where
-                delay = 1000 * 1000 -- 1 second
+                delay = 500 * 1000 -- 0.5 second
 
         -- | Handle keystrokes fed to us by curses
         inputLoop :: IO ()

@@ -33,7 +33,7 @@ int getline(char *buf, FILE *hdl) {
     c = getc(hdl);
 
     /* drop packet */
-    if (c == 'F' && frame_count < 20) {
+    if (c == 'F' && frame_count < 25) {
         frame_count++;
 
         while (c != '\n') 
