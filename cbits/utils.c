@@ -46,7 +46,7 @@ int getline(char *buf, FILE *hdl) {
 
         p = fgets(buf+2, BUFLEN-2, hdl);  /* read rest of line */
         if (p == NULL) {
-            perror("getline failed\n");
+        //  perror("getline failed\n");
             return (-1);
         }
         buf[0] = '@';                     /* poke back these chars */

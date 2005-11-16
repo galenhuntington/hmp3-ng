@@ -194,7 +194,9 @@ partition (a:xs) = do
 
 -- packed hGetLine
 packedHGetLine :: Ptr CFile -> IO P.FastString
-packedHGetLine fp = P.generate 1024{-hardcoded!-} $ flip c_getline fp
+packedHGetLine fp = P.generate 1024{-hardcoded!-} $ \p -> do 
+    i <- c_getline p fp
+    if i == -1 then error "FastIO.packedHGetLine: EOF" else return i
 
 -- convert a Haskell-side Fd to a FILE*.
 fdToCFile :: Fd -> IO (Ptr CFile)
