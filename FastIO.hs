@@ -26,13 +26,13 @@ import Data.List hiding (partition)
 import Data.Word
 import qualified Data.FastPackedString as P
 
-import Foreign.Marshal
-import Foreign.Storable
+import Foreign.C.Error
+import Foreign.C.String
 import Foreign.C.Types
 import Foreign.ForeignPtr
-import Foreign.C.String
-import Foreign.C.Error
+import Foreign.Marshal
 import Foreign.Ptr
+import Foreign.Storable
 
 import System.IO.Error
 import System.IO
@@ -196,7 +196,9 @@ partition (a:xs) = do
 packedHGetLine :: Ptr CFile -> IO P.FastString
 packedHGetLine fp = P.generate 1024{-hardcoded!-} $ \p -> do 
     i <- c_getline p fp
-    if i == -1 then error "FastIO.packedHGetLine: EOF" else return i
+    if i == -1 
+        then throwErrno "FastIO.packedHGetLine"
+        else return i
 
 -- convert a Haskell-side Fd to a FILE*.
 fdToCFile :: Fd -> IO (Ptr CFile)
