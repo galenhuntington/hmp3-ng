@@ -17,6 +17,7 @@ Todo:
  - clean up properly in cbits/getline
 
 Possible:
+ - If mpg321 dies, restart it
  - Automated testing, Stress testing
  - Should random mode not repeat itself?
  - Dynloaded Config.hs
