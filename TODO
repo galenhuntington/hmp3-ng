@@ -1,6 +1,5 @@
 Todo:
  - Print ID3 info
- - Solve clrtoeol issue
  - Thread-representation of filesystem trees
  - Search
  - Tree structure
