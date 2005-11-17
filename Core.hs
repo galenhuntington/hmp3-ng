@@ -312,10 +312,14 @@ playNext = modifyState_ $ \st -> do
 -- | Play a random song
 playRandom :: IO ()
 playRandom = modifyState_ $ \st -> do
-    let m   = music st
-    i <- getStdRandom (randomR (0, size st -1)) -- memoise length m?
-    let (f,_) = m !! i
-        st'   = st { current = i, status = Playing } 
+    let i   = current st
+        j   = cursor  st
+        m   = music st
+    n <- getStdRandom (randomR (0, size st -1)) -- memoise length m?
+    let (f,_) = m !! n
+        st'   = st { current = n
+                   , status = Playing
+                   , cursor = if i == j then n else j }
     send (pipe st) (Load f)
     return st'
 
