@@ -81,11 +81,46 @@ doS s = let fs = P.split ' ' . P.drop 3 $ s
                 }
 
 -- Track info if ID fields are in the file, otherwise file name.
+-- 30 chars per field?
 doI :: P.FastString -> Msg
 doI s = let f = P.dropSpaceEnd . P.dropSpace . P.drop 3 $ s 
         in case P.take 4 f of
-            cs | cs == p "ID3:"# -> F . File $ Nothing
-               | otherwise       -> F . File $ Just f
+            cs | cs == p "ID3:"# -> F . File . Right . toId id3 . splitUp . P.drop 4 $ f
+               | otherwise       -> F . File . Left $ f
+    where
+        -- a default
+        id3 :: Id3
+        id3 = Id3 P.empty P.empty P.empty P.empty
+
+        -- break the ID3 string up
+        splitUp :: P.FastString -> [P.FastString]
+        splitUp f
+            | f == P.empty  = []
+            | otherwise     
+            = let (a,xs) = P.splitAt 30 f
+                  xs'    = splitUp xs
+              in a : xs'
+
+        -- and some ugly code:
+        toId :: Id3 -> [P.FastString] -> Id3
+        toId i ls = 
+            let j = case length ls of
+                    0   -> i
+
+                    1   -> i { id3title  = normalise $! ls !! 0 }
+
+                    2   -> i { id3title  = normalise $! ls !! 0
+                             , id3artist = normalise $! ls !! 1 }
+
+                    _   -> i { id3title  = normalise $! ls !! 0
+                             , id3artist = normalise $! ls !! 1
+                             , id3album  = normalise $! ls !! 2 }
+
+            in j { id3str = id3artist j `gap` id3album j `gap` id3title j  } 
+
+        gap x y = x `P.append` (p " : "#) `P.append` y
+
+        normalise = P.dropSpace . P.dropSpaceEnd
 
 ------------------------------------------------------------------------
 

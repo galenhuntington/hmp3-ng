@@ -74,32 +74,22 @@ instance Pretty Quit where
 data Tag = Tag
         deriving Show
 
-{-
-instance Parse Tag where
-    parse _ = string "@R MPG123" `action` \_ -> Just $ T Tag
--}
-
 -- Track info if ID fields are in the file, otherwise file name.
-data File = File (Maybe P.FastString)
+data File = File (Either P.FastString Id3)
         deriving Show
-{-
-          | Id   { title  :: Maybe String 
-                 , artist :: Maybe String 
-                 , album  :: Maybe String 
-                 , genre  :: Maybe String }
-        -- ID3:What's Golden                 
-        --     Jurassic 5 Power In Numbers              
-        --     2002 0000178F 0000017D 00018392 00Hip Hop/Rap
--}
 
-{-
-instance Parse File where
-    parse _ = string "@I " +> anyChar `plus` epsilon `action` \s -> 
-        let f = dropSpace . drop 3 $ s 
-        in case f of
-                'I':'D':'3':':':_ -> Just . F . File $ Nothing
-                _                 -> Just . F . File $ Just f
--}
+-- ID3 info 
+data Id3 = Id3 
+        { id3title  :: P.FastString 
+        , id3artist :: P.FastString 
+        , id3album  :: P.FastString 
+        , id3str    :: P.FastString }   -- cache screen string to draw
+
+--      , year   :: Maybe P.FastString
+--      , genre  :: Maybe P.FastString }
+
+        deriving Show
+
 
 -- Outputs information about the mp3 file after loading.
 -- <a>: version of the mp3 file. Currently always 1.0 with madlib, but don't 
@@ -133,33 +123,6 @@ data Info = Info {
             }
         deriving Show
 
-{-
-instance Parse Info where
-    parse _ = string "@S " +> anyChar `plus` epsilon `action` \s ->           -- todo error handling
-        let fs = split " " . drop 3 $! s
-        in Just $ I $! Info { 
-                  version       = fs !! 0
-                , layer         = read $ fs !! 1
-                , sampleRate    = read $ fs !! 2
-                , playMode      = fs !! 3
-                , modeExtns     = read $ fs !! 4
-                , bytesPerFrame = read $ fs !! 5
-                , channelCount  = read $ fs !! 6
-                , copyrighted   = toEnum (read (fs !! 7))
-                , checksummed   = toEnum (read (fs !! 8))
-                , emphasis      = read $ fs !! 9
-                , bitrate       = read $ fs !! 10
-                , extension     = read $ fs !! 11
-                , userinfo      = (P.packAddress "mpeg "#)
-                       `P.append` (P.pack . clean . show $ fs !! 0)
-                       `P.append` (P.packAddress " layer "#)
-                       `P.append` (P.pack . clean . show $ fs !! 10)
-                       `P.append` (P.packAddress "kbit/s "#)
-                       `P.append` (P.pack . show) ((read $ fs !! 2) `div` 1000 :: Int)
-                       `P.append` (P.packAddress "kHz"#)
-                }
--}
-
 -- @F <current-frame> <frames-remaining> <current-time> <time-remaining>
 -- Frame decoding status updates (once per frame).
 -- Current-frame and frames-remaining are integers; current-time and
@@ -176,18 +139,6 @@ data Frame = Frame {
              }
         deriving Show
 
-{-
-instance Parse Frame where
-    parse _ = string "@F " +> anyChar `plus` epsilon `action` \s ->           -- todo error handling
-        let fs = split " " . drop 3 $ s
-        in Just $ R $ Frame {
-                currentFrame = read (fs !! 0),
-                framesLeft   = read (fs !! 1),
-                currentTime  = let [x,y] = split "." (fs !! 2) in (read x, read y),
-                timeLeft     = let [x,y] = split "." (fs !! 3) in (read x, read y)
-           }
--}
-
 -- @P {0, 1, 2}
 -- Stop/pause status.
 -- 0 - playing has stopped. When 'STOP' is entered, or the mp3 file is finished.
@@ -198,16 +149,6 @@ data Status = Stopped
             | Playing
         deriving (Eq, Show)
                 
-{-
-instance Parse Status where
-    parse _ = string "@P " +> anyChar `action` \s ->           -- todo error handling
-        Just $ S $ case read . drop 3 $ s :: Int of
-                0 -> Stopped
-                1 -> Paused
-                2 -> Playing
-                _ -> error "Invalid Status"
--}
-
 ------------------------------------------------------------------------
 
 --
@@ -215,14 +156,6 @@ instance Parse Status where
 --
 class Pretty a where
     ppr :: a -> Doc
-
---
--- and a class for parsing 
---
-{-
-class Parse a where
-    parse :: a -> Lexer () Msg  -- phantom
--}
 
 --
 -- And a wrapper type 
@@ -233,35 +166,6 @@ data Msg = T Tag
          | R Frame
          | S Status
         deriving Show
-
-{-
--- lexer for any mpg321 msg
-parseAll :: Lexer () Msg
-parseAll = parse (undefined :: Tag)
-      >||< parse (undefined :: File)
-      >||< parse (undefined :: Info)
-      >||< parse (undefined :: Frame)
-      >||< parse (undefined :: Status)
-
--- | The top level parser of mpg123 messages
--- Replace with call to alex.lexer
-parser :: [Char] -> Either [Error] Msg
-parser cs = case err of
-                [] -> case msgs of
-                        [m] -> Right m
-                        ms  -> Right (head ms)   -- weird
-                e  -> Left e
-
-        where (msgs,_,err) = {-# SCC "parser.exec" #-} execLexer parseAll (cs, ())
--}
-
---------------------------------------------------------------
--- some lexer fragments
-
-{-
-anyChar :: Regexp () Msg
-anyChar = alt $ ['\0' .. '\255'] \\ ['\n','\r']
--}
 
 draw :: Pretty a => a -> String
 draw = render . ppr 

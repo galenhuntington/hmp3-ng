@@ -179,8 +179,8 @@ newtype PMode2      = PMode2      StringA
 newtype ProgressBar = ProgressBar StringA
 newtype PTimes      = PTimes      StringA
 
-newtype PTrack      = PTrack      P.FastString
 newtype PInfo       = PInfo       P.FastString
+newtype PId3        = PId3        P.FastString
 newtype PTime       = PTime       P.FastString
 
 ------------------------------------------------------------------------
@@ -207,18 +207,22 @@ instance (Element a, Element b) => Element (a,b) where
 
 ------------------------------------------------------------------------
 
+-- Info about the current track
 instance Element PPlaying where
-    draw w@(_,x') x y z = PPlaying $ 
+    draw w@(_,x') x st z = PPlaying $ 
             Fast (pad `P.append` alignLR (x'-4) a b) sty
         where
             pad = P.packAddress "  "#
             sty = Style Default Default
-            (PTrack a) = draw w x y z :: PTrack
-            (PInfo b)  = draw w x y z :: PInfo
 
--- | Play mode
-instance Element PTrack where
-    draw _ _ st _ = PTrack . snd $ (music st) !! (current st)
+            (PId3 a)  = draw w x st z :: PId3 
+            (PInfo b) = draw w x st z :: PInfo
+
+-- | Id3 Info
+instance Element PId3 where
+    draw _ _ st _ = case id3 st of
+        Nothing -> PId3 . snd $! (music st) !! (current st)
+        Just i  -> PId3 $! id3str i
 
 -- | mp3 information
 instance Element PInfo where

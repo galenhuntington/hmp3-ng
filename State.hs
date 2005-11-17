@@ -49,6 +49,7 @@ data State = State {
        ,pipe            :: Maybe Handle     -- r/w pipe to mp3
        ,threads         :: [ThreadId]       -- all our threads
 
+       ,id3             :: Maybe Id3        -- maybe mp3 id3 info
        ,info            :: Maybe Info       -- mp3 info
        ,status          :: Status                  
 
@@ -79,6 +80,7 @@ emptySt = State {
        ,current      = 0
        ,cursor       = 0
        ,info         = Nothing
+       ,id3          = Nothing
        ,status       = Stopped
        ,minibuffer   = Plain []
        ,helpVisible  = False
