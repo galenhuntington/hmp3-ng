@@ -24,7 +24,7 @@ module Core (
         start,
         shutdown,
         seekLeft, seekRight, up, down, pause, nextMode, playNext,
-        quit, clrmsg, toggleHelp, play, jumpToPlaying, jump
+        quit, clrmsg, toggleHelp, play, jumpToPlaying, jump, add
     ) where
 
 import Prelude hiding (catch)
@@ -36,7 +36,7 @@ import State
 import Style
 import Config
 import Utils
-import FastIO       ( fdToCFile )
+import FastIO       ( fdToCFile, expandDirectories )
 import qualified UI
 
 import qualified Data.FastPackedString as P
@@ -345,6 +345,15 @@ nextMode :: IO ()
 nextMode = modifyState_ $ \st -> return st { mode = next (mode st) }
     where 
         next v = if v == maxBound then minBound else succ v
+
+------------------------------------------------------------------------
+
+-- | Add a tree to the playlist
+add :: String -> IO ()
+add f = do 
+    new <- expandDirectories [P.pack f]
+    modifyState_ $ \st -> return st { music = music st ++ [ (n,basenameP n) | n <- new ]
+                                    , size = size st + length new }
 
 ------------------------------------------------------------------------
 -- Editing the minibuffer
