@@ -76,7 +76,7 @@ packedGetDirectoryContents path = do
   modifyIOError (`ioeSetFileName` (P.unpack path)) $
    alloca $ \ ptr_dEnt ->
      bracket
-    (allocaBytes (P.length path) $ \s -> do
+    (allocaBytes (P.length path + 1) $ \s -> do
        copyFP path s
        throwErrnoIfNullRetry desc (c_opendir s))
     (\p -> throwErrnoIfMinus1_ desc (c_closedir p))
