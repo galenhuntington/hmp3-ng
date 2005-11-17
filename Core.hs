@@ -202,10 +202,14 @@ shutdown = handle (\e -> hPutStrLn stderr (show e) >> return ()) $
 -- right pigeon hole.
 --
 handleMsg :: Msg -> IO ()
-handleMsg (T _)               = return ()
-handleMsg (F (File (Just _))) = return () -- ignore, and hope we did the right thing
-handleMsg (F (File Nothing))  = return () -- id3 tag.
-handleMsg (I i)               = modifyState_ $! \s -> return s { info = Just i }
+handleMsg (T _)                = return ()
+
+handleMsg (F (File (Left  _))) =
+    modifyState_ $! \s -> return s { id3 = Nothing }
+handleMsg (F (File (Right i))) =
+    modifyState_ $! \s -> return s { id3 = Just i }
+
+handleMsg (I i) = modifyState_ $! \s -> return s { info = Just i }
 
 handleMsg (S t) = do
     modifyState_ $! \s -> return s { status  = t }
@@ -310,6 +314,7 @@ playNext = modifyState_ $ \st -> do
     }
 
 -- | Play a random song
+-- refactor with the above code.
 playRandom :: IO ()
 playRandom = modifyState_ $ \st -> do
     let i   = current st
