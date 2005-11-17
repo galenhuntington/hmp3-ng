@@ -77,7 +77,11 @@ start = do
                      _            -> return ()
 
     Curses.initCurses refresh
-    initcolours
+
+    -- working out if we can do colours
+    b <- Curses.hasColors
+    initcolours $ if b then style config else {- do something better -} style config
+
     Curses.keypad Curses.stdScr True    -- grab the keyboard
     Control.Exception.catch (Curses.cursSet (fromIntegral (0::Int)) >> return ()) 
                             (\_ -> return ())
@@ -85,11 +89,9 @@ start = do
 --
 -- | And turn on the colours
 --
-initcolours :: IO ()
-initcolours = do
-
-    let sty = style config
-        ls  = [helpscreen sty, warnings sty, window sty, 
+initcolours :: UIStyle -> IO ()
+initcolours sty = do
+    let ls  = [helpscreen sty, warnings sty, window sty, 
                selected sty, highlight sty, progress sty,
                cursors sty, combined sty ]
         (Style fg bg) = progress sty    -- bonus style
