@@ -95,20 +95,20 @@ do_args xs = return xs
 --
 main :: IO ()
 main = do  
-    Control.Exception.catch
-        (      do args  <- packedGetArgs
-                  files <- do_args args
-                  files'<- expandDirectories files
-                  case files' of
-                    [] -> do mapM_ putStrLn usage; exitWith (ExitFailure 1)
-                    fs -> performGC >> initSignals >> start fs)
-
-    -- catch any exception thrown by the main loop, clean up and quit
-        (\e -> do releaseSignals
-                  Control.Exception.catch shutdown (\f -> hPutStrLn stderr (show f))
-                  when (not $ isExitCall e) $ hPutStrLn stderr (show e)
-                  return ())
-
+    args  <- packedGetArgs
+    files <- do_args args
+    files'<- expandDirectories files
+    case files' of
+        [] -> mapM_ putStrLn usage >> exitWith (ExitFailure 1)
+        fs -> do 
+            performGC
+            initSignals
+            Control.Exception.catch (start fs) $ \e -> do
+                releaseSignals
+                Control.Exception.catch shutdown 
+                                        (\f -> hPutStrLn stderr (show f))
+                when (not $ isExitCall e) $ hPutStrLn stderr (show e)
+                return ()
     return ()
 
     where
