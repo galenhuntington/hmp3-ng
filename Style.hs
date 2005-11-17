@@ -74,16 +74,6 @@ data Color
     deriving (Show,Eq)
 
 ------------------------------------------------------------------------
-
-infixr 6 ><
-
-(><) :: StringA -> StringA -> StringA
-(Fancy s) >< (Fancy t) = Fancy (s ++ t)
-(Plain s) >< (Plain t) = Plain (s ++ t)
-_ >< _ = error "Attempt to combine fancy and plain strings"
-{-# INLINE (><) #-}
-
-------------------------------------------------------------------------
 --
 -- | Some simple colours (derivied from proxima/src/common/CommonTypes.hs)
 --
@@ -196,13 +186,13 @@ cwhite     = fromJust $! Curses.color "white"
 --
 -- Combine attribute with another attribute
 --
-setBoldA :: Curses.Attr -> Curses.Attr
-setBoldA = flip Curses.setBold True
+setBoldA, setReverseA :: Curses.Attr -> Curses.Attr
+setBoldA      = flip Curses.setBold    True
+setReverseA   = flip Curses.setReverse True
 
 -- setUnderlineA, setDimA, setReverseA :: Curses.Attr -> Curses.Attr
 -- setUnderlineA = flip Curses.setUnderline True
 -- setDimA       = flip Curses.setDim       True
--- setReverseA   = flip Curses.setReverse   True
 
 --
 -- | Some attribute constants
