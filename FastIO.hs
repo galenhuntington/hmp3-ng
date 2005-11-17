@@ -122,7 +122,7 @@ packedWithFileStatus :: String -> P.FastString -> (Ptr CStat -> IO a) -> IO a
 packedWithFileStatus loc name f = do
   modifyIOError (`ioeSetFileName` []) $
     allocaBytes sizeof_stat $ \p -> do
-      allocaBytes (P.length name) $ \s -> do
+      allocaBytes (P.length name + 1) $ \s -> do
         copyFP name s
         throwErrnoIfMinus1Retry_ loc (c_stat s p)
         f p
