@@ -77,7 +77,7 @@ packedGetDirectoryContents path = do
    alloca $ \ ptr_dEnt ->
      bracket
     (allocaBytes (P.length path + 1) $ \s -> do
-       copyFP path s
+       unsafeCopyFP path s
        throwErrnoIfNullRetry desc (c_opendir s))
     (\p -> throwErrnoIfMinus1_ desc (c_closedir p))
     (\p -> loop ptr_dEnt p)
@@ -123,13 +123,13 @@ packedWithFileStatus loc name f = do
   modifyIOError (`ioeSetFileName` []) $
     allocaBytes sizeof_stat $ \p -> do
       allocaBytes (P.length name + 1) $ \s -> do
-        copyFP name s
+        unsafeCopyFP name s
         throwErrnoIfMinus1Retry_ loc (c_stat s p)
         f p
 
 -- | Destructively copy a packedstring into a cstring
-copyFP :: P.FastString -> CString -> IO () -- copy onto stack
-copyFP srcfp destp = do
+unsafeCopyFP :: P.FastString -> CString -> IO () -- copy onto stack
+unsafeCopyFP srcfp destp = do
     let (fp, _, _) = P.toForeignPtr srcfp
     withForeignPtr fp $ \ptr -> do
         c_memcpy (castPtr destp) ptr (P.length srcfp)
