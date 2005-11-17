@@ -480,7 +480,7 @@ redraw = withState $ \s -> do
    gotoTop
    {-# SCC "redraw.draw" #-}mapM_ (\t -> do drawLine w t
                                             (y',x') <- Curses.getYX Curses.stdScr
-                                            when (x' < w) fillLine
+                                            fillLine
                                             maybeLineDown t h y' x' )
          (take (h-1) (init a))
 
@@ -531,7 +531,7 @@ lineDown h y = Curses.wMove Curses.stdScr (min h (y+1)) 0
 -- | Fill to end of line spaces
 --
 fillLine :: IO ()
-fillLine = Curses.clrToEol
+fillLine = Control.Exception.catch (Curses.clrToEol) (\_ -> return ()) -- harmless?
 
 --
 -- | move cursor to origin of stdScr.
