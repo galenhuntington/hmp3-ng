@@ -479,8 +479,8 @@ redraw = withState $ \s -> do
        a = x ++ y
    gotoTop
    {-# SCC "redraw.draw" #-}mapM_ (\t -> do drawLine w t
-                                            fillLine
                                             (y',x') <- Curses.getYX Curses.stdScr
+                                            when (x' < w) fillLine
                                             maybeLineDown t h y' x' )
          (take (h-1) (init a))
 
