@@ -30,9 +30,10 @@ data Config = Config {
 
 -- default instance
 config :: Config
-config = Config {
-       keymap = Default.keymap,
-       style  = UIStyle { window     = Style Default Default
+config = Config { keymap = Default.keymap, style = defaultStyle }
+
+defaultStyle :: UIStyle
+defaultStyle  = UIStyle { window     = Style Default Default
                         , highlight  = Style brightWhite green
                         , selected   = Style blue      Default
                         , cursors    = Style black        cyan
@@ -40,8 +41,17 @@ config = Config {
                         , warnings   = Style brightWhite  red
                         , helpscreen = Style black   cyan
                         , progress   = Style cyan    brightWhite  }
-   }
 
+blackBgStyle :: UIStyle
+blackBgStyle  = UIStyle { window     = Style white        black
+                        , highlight  = Style green        blue
+                        , selected   = Style brightWhite  black
+                        , cursors    = Style black        cyan
+                        , combined   = Style black        cyan
+                        , warnings   = Style brightWhite  red
+                        , helpscreen = Style black        cyan
+                        , progress   = Style cyan         white  }
+           
 ------------------------------------------------------------------------
 
 package :: String
