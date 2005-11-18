@@ -417,10 +417,13 @@ instance Element PlayList where
 
             -- all this drop stuff is $$
             visible   = drop (screens*buflen) songs -- take the visible songs
+
+            mchop s | P.length s > (x-4) = P.take (x - 4) s `P.append` ellipsis
+                    | otherwise          = s
     
-            -- no scrolling:
+            -- inefficient
             list   = [ uncurry color n
-                     | n <- zip (map snd visible) [0..] ]
+                     | n <- zip (map (mchop.snd) visible) [0..] ]
 
             color s i 
                 | i == select && i == playing
@@ -452,7 +455,9 @@ alignLR w l r | padding >= 0 = l `P.append` gap `P.append` r
               | otherwise    = P.take (w - P.length r - 4) l `P.append` ellipsis `P.append` r
     where padding = w - P.length l - P.length r
           gap     = P.pack $ replicate padding ' '
-          ellipsis= P.packAddress "... "#
+
+ellipsis :: P.FastString
+ellipsis = P.packAddress "... "#
 
 ------------------------------------------------------------------------
 --
