@@ -30,8 +30,6 @@ import qualified Data.FastPackedString as P
 import Control.Monad
 import Control.Exception        ( catch )
 
-import System.Mem               (performGC)
-
 import System.IO
 import System.Exit
 import System.Posix.Signals
@@ -97,18 +95,12 @@ main :: IO ()
 main = do  
     args  <- packedGetArgs
     files <- do_args args
-    files'<- expandDirectories files
-    case files' of
-        [] -> mapM_ putStrLn usage >> exitWith (ExitFailure 1)
-        fs -> do 
-            performGC
-            initSignals
-            Control.Exception.catch (start fs) $ \e -> do
-                releaseSignals
-                Control.Exception.catch shutdown 
-                                        (\f -> hPutStrLn stderr (show f))
-                when (not $ isExitCall e) $ hPutStrLn stderr (show e)
-                return ()
+    initSignals
+    Control.Exception.catch (start files) $ \e -> do
+        releaseSignals
+        Control.Exception.catch shutdown (\f -> hPutStrLn stderr (show f))
+        when (not $ isExitCall e) $ hPutStrLn stderr (show e)
+        return ()
     return ()
 
     where

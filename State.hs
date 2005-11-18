@@ -23,9 +23,11 @@
 module State where
 
 import Syntax
+import Tree
 import Style 
 import qualified Data.FastPackedString as P
 
+import Data.Array               ( listArray )
 import Data.IORef               ( newIORef, readIORef, writeIORef, IORef )
 import System.IO.Unsafe         ( unsafePerformIO )
 
@@ -40,31 +42,25 @@ import System.Posix.Types       ( ProcessID )
 
 -- | The editor state type
 data State = State {
-        music           :: ![(P.FastString,P.FastString)] -- TODO, sort on mp3 fields
+        music           :: !FileArray
+       ,folders         :: !DirArray
        ,size            :: !Int             -- cache size of list
        ,current         :: !Int             -- currently playing mp3
        ,cursor          :: !Int             -- mp3 under the cursor
-
        ,mp3pid          :: ProcessID        -- pid of decoder
        ,pipe            :: Maybe Handle     -- r/w pipe to mp3
        ,threads         :: [ThreadId]       -- all our threads
-
        ,id3             :: Maybe Id3        -- maybe mp3 id3 info
        ,info            :: Maybe Info       -- mp3 info
        ,status          :: Status                  
-
        ,minibuffer      :: StringA          -- contents of minibuffer
-
        ,helpVisible     :: !Bool           -- is the help window shown
        ,mode            :: !Mode           -- random mode
-
        ,uptime          :: !P.FastString
        ,boottime        :: !ClockTime
     }
 
-data Mode = Normal | Random | Loop
-    deriving (Eq,Bounded,Enum)   -- for pred,succ
-
+data Mode = Normal | Random | Loop deriving (Eq,Bounded,Enum) -- for pred,succ
 
 ------------------------------------------------------------------------
 --
@@ -72,7 +68,8 @@ data Mode = Normal | Random | Loop
 --
 emptySt :: State
 emptySt = State {
-        music        = []
+        music        = listArray (0,0) []
+       ,folders      = listArray (0,0) []
        ,size         = 0
        ,mp3pid       = 0
        ,pipe         = Nothing
@@ -114,10 +111,10 @@ readClock f = withMVar clock $ \ref -> return . f =<< readIORef ref
 
 modifyClock :: ((Maybe Frame) -> IO (Maybe Frame)) -> IO ()
 modifyClock f = modifyMVar_ clock $ \r -> do
-            v  <- readIORef r
-            v' <- f v
-            writeIORef r v'
-            return r
+    v  <- readIORef r
+    v' <- f v
+    writeIORef r v'
+    return r
 
 ------------------------------------------------------------------------
 --
@@ -142,29 +139,29 @@ withState f = withMVar state $ \ref -> f =<< readIORef ref
 -- | Modify the contents, using an IO action.
 modifyState_ :: (State -> IO State) -> IO ()
 modifyState_ f = modifyMVar_ state $ \r -> do
-            v  <- readIORef r
-            v' <- f v
-            writeIORef r v'
-            tryPutMVar modified ()
-        --  hPutStrLn stderr "MODIFIED"
-            return r
+    v  <- readIORef r
+    v' <- f v
+    writeIORef r v'
+    tryPutMVar modified ()
+--  hPutStrLn stderr "MODIFIED"
+    return r
 
 -- | Variation on modifyState_ that won't trigger a refresh
 unsafeModifyState :: (State -> IO State) -> IO ()
 unsafeModifyState f = modifyMVar_ state $ \r -> do
-            v  <- readIORef r
-            v' <- f v
-            writeIORef r v'
-            return r
+    v  <- readIORef r
+    v' <- f v
+    writeIORef r v'
+    return r
 
 -- | Variation on modifyState_ that lets you return a value
 modifyState :: (State -> IO (State,b)) -> IO b
 modifyState f = modifyMVar state $ \r -> do
-            v  <- readIORef r
-            (v',b) <- f v
-            writeIORef r v'
-            tryPutMVar modified ()
-            return (r,b)
+    v  <- readIORef r
+    (v',b) <- f v
+    writeIORef r v'
+    tryPutMVar modified ()
+    return (r,b)
 
 ------------------------------------------------------------------------
 

@@ -24,7 +24,7 @@ module Core (
         start,
         shutdown,
         seekLeft, seekRight, up, down, pause, nextMode, playNext,
-        quit, clrmsg, toggleHelp, play, jumpToPlaying, jump, add
+        quit, clrmsg, toggleHelp, play, jumpToPlaying, jump {-, add-}
     ) where
 
 import Prelude hiding (catch)
@@ -36,12 +36,14 @@ import State
 import Style
 import Config
 import Utils
-import FastIO       ( fdToCFile, expandDirectories )
+import FastIO       ( fdToCFile )
+import Tree         ( buildTree )
 import qualified UI
 
 import qualified Data.FastPackedString as P
 
 import Data.Maybe
+import Data.Array
 
 import Control.Monad
 
@@ -77,6 +79,9 @@ start ms =
         -- initialise curses
         UI.start
 
+        -- parse args
+        (ds,fs) <- buildTree ms
+
         -- fork process first. could fail. pass handles over to threads
         (r,w,pid) <- popen (MPG321 :: String) ["-R","-"]
 
@@ -86,8 +91,9 @@ start ms =
 
         modifyState_ $ \s -> return s 
             { mp3pid    = pid
-            , music     = [ (m, basenameP m) | m <- ms ] -- look ma! no boxes!
-            , size      = length ms
+            , music     = fs
+            , folders   = ds
+            , size      = 1 + (snd . bounds $ fs)
             , current   = 0
             , cursor    = 0
             , uptime    = drawUptime now now
@@ -283,7 +289,7 @@ play :: IO ()
 play = modifyState_ $ \st -> do
     let i     = cursor st
         m     = music st
-        (f,_) = m !! i
+        (f,_) = m ! i
         st'   = st { current = i, status = Playing }
     send (pipe st) (Load f)
     return st'
@@ -298,14 +304,14 @@ playNext = modifyState_ $ \st -> do
         m   = music st
     case () of {_ 
         | i < size st - 1          -- successor
-        -> let (f,_) = m !! (i + 1)
+        -> let (f,_) = m ! (i + 1)
                st'   = st { current = i + 1
                           , status = Playing
                           , cursor = if i == j then i + 1 else j } 
            in send (pipe st) (Load f) >> return st'
 
         | mode st == Loop           -- else loop
-        -> let (f,_) = m !! 0
+        -> let (f,_) = m ! 0
                st'   = st { current = 0, status = Playing
                           , cursor = if i == j then 0 else j } 
            in send (pipe st) (Load f) >> return st'
@@ -321,7 +327,7 @@ playRandom = modifyState_ $ \st -> do
         j   = cursor  st
         m   = music st
     n <- getStdRandom (randomR (0, size st -1)) -- memoise length m?
-    let (f,_) = m !! n
+    let (f,_) = m ! n
         st'   = st { current = n
                    , status = Playing
                    , cursor = if i == j then n else j }
@@ -349,11 +355,13 @@ nextMode = modifyState_ $ \st -> return st { mode = next (mode st) }
 ------------------------------------------------------------------------
 
 -- | Add a tree to the playlist
+{-
 add :: String -> IO ()
 add f = do 
-    new <- expandDirectories [P.pack f]
+    new <- buildTree [P.pack f]
     modifyState_ $ \st -> return st { music = music st ++ [ (n,basenameP n) | n <- new ]
                                     , size = size st + length new }
+-}
 
 ------------------------------------------------------------------------
 -- Editing the minibuffer

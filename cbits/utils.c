@@ -51,7 +51,7 @@ int getline(char *buf, FILE *hdl) {
         }
         buf[0] = '@';                     /* poke back these chars */
         buf[1] = c;   
-        return strlen(buf);
+        return strlen(buf); /* return length so we can realloc */
     }
 }
             

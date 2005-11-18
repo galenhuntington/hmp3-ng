@@ -22,7 +22,7 @@
 module Lexer ( parser ) where
 
 import Syntax
-import FastIO   ( packedHGetLine )
+import FastIO   ( getFilteredPacket )
 
 import qualified Data.FastPackedString as P
 
@@ -129,7 +129,7 @@ doI s = let f = P.dropSpaceEnd . P.dropSpace . P.drop 3 $ s
 --
 parser :: Ptr CFile -> IO (Either String Msg)
 parser h = do
-    s <- packedHGetLine h
+    s <- getFilteredPacket h
     return $ case P.take 2 s of
         t | t == p "@R"# -> Right $ T Tag
           | t == p "@I"# -> Right $ doI s

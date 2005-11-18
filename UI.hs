@@ -56,6 +56,7 @@ import {-# SOURCE #-} Keymap
 import Control.Monad
 import Data.IORef
 import Data.List
+import Data.Array
 import Data.Char
 import System.IO
 import Text.Printf
@@ -223,7 +224,7 @@ instance Element PPlaying where
 -- | Id3 Info
 instance Element PId3 where
     draw _ _ st _ = case id3 st of
-        Nothing -> PId3 . snd $! (music st) !! (current st)
+        Nothing -> PId3 . snd $! (music st) ! (current st)
         Just i  -> PId3 $! id3str i
 
 -- | mp3 information
@@ -416,7 +417,7 @@ instance Element PlayList where
                             else (-1)
 
             -- all this drop stuff is $$
-            visible   = drop (screens*buflen) songs -- take the visible songs
+            visible   = take buflen . drop (screens*buflen) $ elems songs
 
             mchop s | P.length s > (x-4) = P.take (x - 4) s `P.append` ellipsis
                     | otherwise          = s

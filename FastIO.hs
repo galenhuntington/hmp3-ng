@@ -35,7 +35,6 @@ import Foreign.Ptr
 import Foreign.Storable
 
 import System.IO.Error
-import System.IO
 import System.Posix.Types       ( Fd )
 import System.Posix.Internals
 
@@ -76,8 +75,7 @@ packedGetDirectoryContents path = do
   modifyIOError (`ioeSetFileName` (P.unpack path)) $
    alloca $ \ ptr_dEnt ->
      bracket
-    (allocaBytes (P.length path + 1) $ \s -> do
-       unsafeCopyFP path s
+    (P.useAsCString path $ \s ->
        throwErrnoIfNullRetry desc (c_opendir s))
     (\p -> throwErrnoIfMinus1_ desc (c_closedir p))
     (\p -> loop ptr_dEnt p)
@@ -92,7 +90,7 @@ packedGetDirectoryContents path = do
         then do dEnt <- peek ptr_dEnt
                 if (dEnt == nullPtr)
                     then return []
-                    else do
+                    else do  -- copy entry out before we free:
                         entry   <- (d_name dEnt >>= copyCStringToFastString)
                         freeDirEnt dEnt
                         entries <- loop ptr_dEnt dir
@@ -113,6 +111,7 @@ doesFileExist name = Control.Exception.catch
         b <- isDirectory st; return (not b))
    (\ _ -> return False)
 
+-- packed version:
 doesDirectoryExist :: P.FastString -> IO Bool
 doesDirectoryExist name = Control.Exception.catch
    (packedWithFileStatus "Utils.doesDirectoryExist" name $ \st -> isDirectory st)
@@ -122,18 +121,9 @@ packedWithFileStatus :: String -> P.FastString -> (Ptr CStat -> IO a) -> IO a
 packedWithFileStatus loc name f = do
   modifyIOError (`ioeSetFileName` []) $
     allocaBytes sizeof_stat $ \p -> do
-      allocaBytes (P.length name + 1) $ \s -> do
-        unsafeCopyFP name s
+      P.useAsCString name $ \s -> do    -- i.e. every string is duplicated
         throwErrnoIfMinus1Retry_ loc (c_stat s p)
         f p
-
--- | Destructively copy a packedstring into a cstring
-unsafeCopyFP :: P.FastString -> CString -> IO () -- copy onto stack
-unsafeCopyFP srcfp destp = do
-    let (fp, _, _) = P.toForeignPtr srcfp
-    withForeignPtr fp $ \ptr -> do
-        c_memcpy (castPtr destp) ptr (P.length srcfp)
-        poke (destp `plusPtr` P.length srcfp) (0 :: Word8)
 
 packedFileNameEndClean :: P.FastString -> P.FastString
 packedFileNameEndClean name =
@@ -151,62 +141,8 @@ isDirectory stat = do
   return (s_isdir mode)
 
 -- ---------------------------------------------------------------------
---
--- Expand directory arguments into their contents
--- Recursive descent
---
--- Do something about memory usage here
---
-expandDirectories :: [P.FastString] -> IO [P.FastString]
-expandDirectories []     = return []
-expandDirectories (f:fs) = do
-    ls  <- expandDirectory f
-    lss <- expandDirectories fs
-    return $! ls ++ lss  -- hmm. append sucks
 
-expandDirectory :: P.FastString -> IO [P.FastString]
-expandDirectory f = do
-    b  <- doesFileExist f
-    if b then return [f]    -- bad
-         else do 
-    ls_raw <- Control.Exception.handle (\e -> hPutStrLn stderr (show e) >> return []) $ 
-                packedGetDirectoryContents f
-    let ls = map joinPath . sort . filter notEdge $ ls_raw
-    ls `seq` return ()
-    (fs,ds) <- partition ls
-    ds'     <- expandDirectories ds
-    return $! fs ++ ds'
-    where
-          joinPath g = f `P.append` sep `P.append` g
-          notEdge p  = p /= dot && p /= dotdot
-          sep        = P.packAddress "/"#
-          dot        = P.packAddress "."#
-          dotdot     = P.packAddress ".."#
-
-partition :: [P.FastString] -> IO ([P.FastString], [P.FastString]) 
-partition [] = return ([],[]) 
-partition (a:xs) = do
-    (fs,ds) <- partition xs
-    b       <- doesFileExist a
-    return $! if b then (a:fs, ds) else (fs, a:ds)
-
--- ---------------------------------------------------------------------
-
--- packed hGetLine
-packedHGetLine :: Ptr CFile -> IO P.FastString
-packedHGetLine fp = P.generate 1024{-hardcoded!-} $ \p -> do 
-    i <- c_getline p fp
-    if i == -1 
-        then throwErrno "FastIO.packedHGetLine"
-        else return i
-
--- convert a Haskell-side Fd to a FILE*.
-fdToCFile :: Fd -> IO (Ptr CFile)
-fdToCFile = c_openfd
-
--- ---------------------------------------------------------------------
-
--- | Copy entry out of directory.
+-- | Duplicate a CString as a FastString
 copyCStringToFastString :: CString -> IO P.FastString
 copyCStringToFastString cstr = do 
     let len = fromIntegral $ c_strlen cstr
@@ -215,6 +151,24 @@ copyCStringToFastString cstr = do
         c_memcpy p (castPtr cstr) len
         poke (p `plusPtr` len) (0 :: Word8)
     return $! P.PS fp 0 len
+
+-- ---------------------------------------------------------------------
+
+-- | Read a line from a file stream connected to an external prcoess,
+-- Returning a FastString. Note that the underlying C code is dropping
+-- redundant @F frames for us.
+getFilteredPacket :: Ptr CFile -> IO P.FastString
+getFilteredPacket fp = P.generate size $ \p -> do 
+    i <- c_getline p fp
+    if i == -1 
+        then throwErrno "FastIO.packedHGetLine"
+        else return i
+    where
+        size = 1024 + 1 -- seems unlikely
+
+-- convert a Haskell-side Fd to a FILE*.
+fdToCFile :: Fd -> IO (Ptr CFile)
+fdToCFile = c_openfd
 
 -- ---------------------------------------------------------------------
 
