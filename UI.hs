@@ -352,7 +352,7 @@ instance Element PMode2 where
 
 -- | Playlist, TODO this should do threading-style rendering of filesystem trees
 --
--- TODO needs to be less memory hungry
+-- Rewrite the playlist code to draw trees.
 --
 instance Element PlayList where
     draw p@(y,x) q@(o,_) st z =

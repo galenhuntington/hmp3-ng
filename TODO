@@ -1,17 +1,18 @@
 Todo:
  - Thread-representation of filesystem trees
  - Search
- - Tree structure
+ - Validate input files somehow
  - Refresh handling
  - Check small terminals
  - Black and white terminals
  - Add/delete tracks
  - More profiling.
- - when dropping frames, skip behaves weirdly. temporarily force
- - catch stderr from mpg321
- - debug on linux some more
+ - When dropping frames, skip behaves weirdly. temporarily force
+ - Catch stderr from mpg321
+ - Debug on linux some more
  - Optimisations:
         + store curses state in global state  (width,height)
+ - Handle non-readable files
 
 Possible:
  - If mpg321 dies, restart it
