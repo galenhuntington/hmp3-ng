@@ -476,7 +476,9 @@ redrawJustClock = withState $ \st -> do
 -- | Draw the screen
 --
 redraw :: IO ()
-redraw = withState $ \s -> do
+redraw = 
+   -- linux ncurses, in particular, seems to complain a lot. this is an easy solution
+   Control.Exception.handle (\_ -> return ()) $ withState $ \s -> do
 
    sz@(h,w) <- screenSize
    f <- readClock id
