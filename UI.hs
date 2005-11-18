@@ -56,11 +56,13 @@ import {-# SOURCE #-} Keymap
 import Control.Monad
 import Data.IORef
 import Data.List
-import Data.Array
 import Data.Char
 import System.IO
 import Text.Printf
 import qualified Control.Exception
+
+import Data.Array
+import Data.Array.Base  ( unsafeAt )
 
 import System.Posix.Signals         ( raiseSignal, sigTSTP )
 import System.Posix.Env
@@ -416,8 +418,12 @@ instance Element PlayList where
                             then this - top -- playing song is visible
                             else (-1)
 
-            -- all this drop stuff is $$
-            visible   = take buflen . drop (screens*buflen) $ elems songs
+            visible = slice off (off + buflen) songs
+                where
+                    off           = screens * buflen
+                    slice i j arr = 
+                        let (a,b) = bounds arr
+                        in [unsafeAt arr n | n <- [(max a i) .. (min b j)]]
 
             mchop s | P.length s > (x-4) = P.take (x - 4) s `P.append` ellipsis
                     | otherwise          = s
