@@ -6,7 +6,6 @@ Todo:
  - Check small terminals
  - Black and white terminals
  - Add/delete tracks
- - More profiling.
  - When dropping frames, skip behaves weirdly. temporarily force
  - Catch stderr from mpg321
  - Debug on linux some more
