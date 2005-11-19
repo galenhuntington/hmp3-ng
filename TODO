@@ -11,6 +11,7 @@ Todo:
  - Optimisations:
         + store curses state in global state  (width,height)
  - Handle non-readable files
+ - Handle adding literal .mp3s on command line
 
 Possible:
  - If mpg321 dies, restart it
