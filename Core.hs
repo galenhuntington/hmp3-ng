@@ -24,8 +24,8 @@ module Core (
         start,
         shutdown,
         seekLeft, seekRight, up, down, pause, nextMode, playNext,
-        quit, clrmsg, toggleHelp, play, jumpToPlaying, jump, {-, add-}
-        writeSt, readSt
+        quit, putmsg, clrmsg, toggleHelp, play, jumpToPlaying, jump, {-, add-}
+        writeSt, readSt, jumpToMatch
     ) where
 
 import Prelude hiding (catch)
@@ -39,6 +39,7 @@ import Config
 import Utils
 import FastIO       ( fdToCFile )
 import Tree
+import Regex
 import qualified UI
 
 import qualified Data.FastPackedString as P
@@ -348,6 +349,24 @@ quit = shutdown
 -- | Move cursor to currently playing song
 jumpToPlaying :: IO ()
 jumpToPlaying = modifyState_ $ \st -> return st { cursor = (current st) }
+
+-- | Jump to element that matches regex
+jumpToMatch :: String -> IO ()
+jumpToMatch re = modifyState_ $ \st -> do
+    p <- regcomp re (regExtended + regIgnoreCase)
+    let m  = size st
+        fs = music st
+        loop n
+            | n == m    = return Nothing
+            | otherwise = P.unsafeUseAsCString (snd $ fs ! n) $ \s -> do
+                v <- regexec p s 0
+                case v of
+                    Nothing -> loop (n+1)
+                    Just _  -> return $ Just n
+    mi <- loop (cursor st)  -- start here
+    case mi of
+        Nothing -> warnA "No match found" >> return st
+        Just i  -> return st { cursor = i }
 
 -- | Show/hide the help window
 toggleHelp :: IO ()

@@ -33,6 +33,8 @@ AC_DEFINE_UNQUOTED(REPO_PATH, "$REPO_PATH_", [Path to hmp3 repo])
 PATCH_COUNT_=`darcs changes --xml-output | sed -n '/^<patch/p;/TAG/q' | wc -l | sed 's/ *//g'`
 AC_DEFINE_UNQUOTED(PATCH_COUNT, $PATCH_COUNT_, [Current patch count])
 
+AC_CHECK_HEADERS([regex.h sys/types.h])
+
 AC_SUBST(SYMS)
 
 AC_OUTPUT

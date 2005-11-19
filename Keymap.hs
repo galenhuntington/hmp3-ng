@@ -22,13 +22,16 @@
 --
 module Keymap where
 
+import Prelude hiding (all)
+
 import Lexers
 import Core
 import Curses
 import State
+import Style
 import qualified UI
 
-import Data.List
+import Data.List        hiding (delete, all)
 import Control.Monad
 
 import qualified Data.FastPackedString as P
@@ -39,12 +42,61 @@ import qualified Data.Map as M
 --
 keymap :: [Char] -> [IO ()]
 keymap cs = map (clrmsg >>) actions
-    where (actions,_,_) = execLexer commands (cs, ()) 
- 
-commands :: Lexer () (IO ())
+    where (actions,_,_) = execLexer all (cs, []) 
+
+all :: Lexer [Char] (IO ())
+all = commands >||< search
+  
+commands :: Lexer [Char] (IO ())
 commands = (alt keys) `action` \[c] -> Just $ case M.lookup c keyMap of
         Nothing -> return ()    -- ignore
         Just a  -> a
+
+------------------------------------------------------------------------
+
+search :: Lexer [Char] (IO ())
+search = char '/' `meta` \_ _ -> 
+            (with (putmsg (Plain "/") >> touchState), ['/'], Just dosearch)
+
+dosearch :: Lexer [Char] (IO ())
+dosearch = search_char >||< search_edit >||< search_esc >||< search_eval
+
+search_char :: Lexer [Char] (IO ())
+search_char = anyButDelNL
+    `meta` \c st -> (with (putmsg (Plain $ st++c) >> touchState), st++c, Just dosearch)
+    where
+        anyButDelNL = alt $ any' \\ (enter' ++ delete' ++ ['\ESC'])
+
+search_edit :: Lexer [Char] (IO ())
+search_edit = delete 
+    `meta` \_ st -> 
+    let st' = case st of 
+                [c] -> [c]
+                xs  -> init xs
+    in (with (putmsg (Plain st') >> touchState), st', Just search_edit)
+
+-- escape exits ex mode immediately
+search_esc :: Lexer [Char] (IO ())
+search_esc = char '\ESC'
+    `meta` \_ _ -> (with (clrmsg >> touchState), [], Just all)
+
+search_eval :: Lexer [Char] (IO ())
+search_eval = enter
+    `meta` \_ ('/':pat) -> (with (jumpToMatch pat), [], Just all)
+
+------------------------------------------------------------------------
+
+enter', any', digit', delete' :: [Char]
+enter'   = ['\n', '\r']
+delete'  = ['\BS', '\127', keyBackspace ]
+any'     = ['\0' .. '\255']
+digit'   = ['0' .. '9']
+
+delete, enter :: Regexp [Char] (IO ())
+delete  = alt delete'
+enter   = alt enter'
+
+------------------------------------------------------------------------
 
 --
 -- The default keymap, and its description
