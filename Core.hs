@@ -115,7 +115,7 @@ start ms =
         modifyState_ $ \s -> return s { threads = [t,t',t'',t'''] } 
 
         -- start the first song
-        play
+        when (0 <= (snd . bounds $ fs)) play
 
         -- start the main loop
         filep <- fdToCFile r

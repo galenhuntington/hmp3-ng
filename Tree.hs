@@ -34,6 +34,7 @@ import Data.Array
 import Data.List hiding (partition)
 
 import System.IO
+import System.Directory     ( readable )
 import Control.Exception
 import Control.Monad
 
@@ -124,8 +125,10 @@ partition :: [FilePathP] -> IO ([FilePathP], [FilePathP])
 partition [] = return ([],[]) 
 partition (a:xs) = do
     (fs,ds) <- partition xs
-    b       <- doesFileExist a
-    return $! if b then (a:fs, ds) else (fs, a:ds)
+    x <- doesFileExist a
+    if x then do y <- getPermissions a >>= return . readable
+                 return $! if y then (a:fs, ds) else (fs, ds)
+         else return (fs, a:ds)
 
 ------------------------------------------------------------------------
 

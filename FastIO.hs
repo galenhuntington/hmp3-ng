@@ -35,7 +35,8 @@ import Foreign.Ptr
 import Foreign.Storable
 
 import System.IO.Error
-import System.Posix.Types       ( Fd )
+import System.Directory
+import System.Posix.Types       ( Fd, CMode )
 import System.Posix.Internals
 
 import Control.Monad
@@ -172,6 +173,25 @@ fdToCFile = c_openfd
 
 -- ---------------------------------------------------------------------
 
+getPermissions :: P.FastString -> IO Permissions
+getPermissions name = do
+  P.useAsCString name $ \s -> do
+  readp <- c_access s r_OK
+  write <- c_access s w_OK
+  exec  <- c_access s x_OK
+  packedWithFileStatus "FastIO.getPermissions" name $ \st -> do
+  is_dir <- isDirectory st
+  return (
+    Permissions {
+      readable   = readp == 0,
+      writable   = write == 0,
+      executable = not is_dir && exec == 0,
+      searchable = is_dir && exec == 0
+    }
+   )
+
+-- ---------------------------------------------------------------------
+
 foreign import ccall safe "utils.h getline" 
     c_getline :: Ptr Word8 -> Ptr CFile -> IO Int
 
@@ -183,4 +203,8 @@ foreign import ccall unsafe "static string.h strlen"
 
 foreign import ccall unsafe "static string.h memcpy" 
     c_memcpy  :: Ptr Word8 -> Ptr Word8 -> Int -> IO ()
+
+foreign import ccall unsafe "__hscore_R_OK" r_OK :: CMode
+foreign import ccall unsafe "__hscore_W_OK" w_OK :: CMode
+foreign import ccall unsafe "__hscore_X_OK" x_OK :: CMode
 
