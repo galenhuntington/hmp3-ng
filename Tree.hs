@@ -135,8 +135,8 @@ instance Binary a => Binary (Array Int a) where
 
     get bh      = do
         ((x,y) :: (Int,Int)) <- get bh
-        (els   :: [a])       <- sequence (take (y+1) (repeat (get bh)))
-        return (listArray (x,y) els)
+        (els   :: [a])       <- sequence $ take (y+1) $ repeat (get bh)
+        return $ listArray (x,y) els
 
 instance Binary Dir where
     put_ bh (Dir nm sz lo hi) = do
@@ -164,6 +164,7 @@ writeTree f arrs = do
 
 --
 -- | Read the arrays from a file
+-- Read from binMem?
 --
 readTree :: FilePath -> IO (FileArray, DirArray)
 readTree f = do
