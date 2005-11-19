@@ -29,7 +29,7 @@ int getline(char *buf, FILE *hdl) {
     int c;
 
     /* read first two bytes of packet, to work out if we drop it */
-    getc(hdl);
+    getc(hdl);      /* should be '@' */
     c = getc(hdl);
 
     /* drop packet */
@@ -44,13 +44,12 @@ int getline(char *buf, FILE *hdl) {
     } else {
         if (c == 'F') frame_count = 0;    /* reset frame count */
 
-        p = fgets(buf+2, BUFLEN-2, hdl);  /* read rest of line */
+        p = fgets(buf+1, BUFLEN-1, hdl);  /* read rest of line */
         if (p == NULL) {
         //  perror("getline failed\n");
             return (-1);
         }
-        buf[0] = '@';                     /* poke back these chars */
-        buf[1] = c;   
+        buf[0] = c;   
         return strlen(buf); /* return length so we can realloc */
     }
 }
