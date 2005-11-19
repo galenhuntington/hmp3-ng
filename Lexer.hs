@@ -73,6 +73,7 @@ doS s = let fs = P.split ' ' . P.drop 3 $ s
                 , extension     = read $ P.unpack $ fs !! 11
                 , userinfo      = (p "mpeg "#)
                        `P.append` (fs !! 0)
+                       `P.append` (p " "#)
                        `P.append` (fs !! 10)
                        `P.append` (p "kbit/s "#)
                        `P.append` (P.pack . show) ((read . P.unpack $ fs !! 2) `div` 1000 :: Int)
