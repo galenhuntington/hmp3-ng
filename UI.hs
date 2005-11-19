@@ -178,9 +178,9 @@ data PlayScreen =
 newtype PlayList = PlayList [StringA]
 
 newtype PPlaying    = PPlaying    StringA
-newtype PVersion    = PVersion    StringA
-newtype PMode       = PMode       StringA
-newtype PMode2      = PMode2      StringA
+newtype PVersion    = PVersion    P.FastString
+newtype PMode       = PMode       P.FastString
+newtype PMode2      = PMode2      P.FastString
 newtype ProgressBar = ProgressBar StringA
 newtype PTimes      = PTimes      StringA
 
@@ -318,7 +318,7 @@ instance Element ProgressBar where
 
 -- | Version info
 instance Element PVersion where
-    draw _ _ _ _ = PVersion $ Fast (P.pack versinfo) (highlight.style $ config)
+    draw _ _ _ _ = PVersion $ P.pack versinfo
 
 -- | Uptime
 instance Element PTime where
@@ -326,7 +326,7 @@ instance Element PTime where
 
 -- | Play mode
 instance Element PMode where
-    draw _ _ st _ = PMode $! flip Fast sty $ case status st of 
+    draw _ _ st _ = PMode $! case status st of 
                         Stopped -> a
                         Paused  -> b
                         Playing -> c
@@ -334,23 +334,77 @@ instance Element PMode where
         where a = P.packAddress "stop"#
               b = P.packAddress "pause"#
               c = P.packAddress "play"#
-              sty = highlight . style $ config
 
 -- | Loop, normal or random
 instance Element PMode2 where
-    draw _ _ st _ = PMode2 $ flip Fast sty $
-        case mode st of Random  -> a
+    draw _ _ st _ = PMode2 $ case mode st of 
+                        Random  -> a
                         Loop    -> b
                         Normal  -> c
 
         where a = P.packAddress "random"#
               b = P.packAddress "loop"#
               c = P.empty
-              sty = highlight . style $ config
 
 ------------------------------------------------------------------------
 
+newtype PlayTitle = PlayTitle StringA
+newtype PlayInfo  = PlayInfo  P.FastString
+newtype PlayModes = PlayModes P.FastString
+
+instance Element PlayModes where
+    draw a b c d = PlayModes $  
+        m `P.append` if m' == P.empty then P.empty else ' ' `P.cons` m'
+        where
+            (PMode  m ) = draw a b c d :: PMode
+            (PMode2 m') = draw a b c d :: PMode2
+
+instance Element PlayInfo where
+    draw _ _ st _ = PlayInfo $ percent
+        `P.append` P.packAddress " ("# 
+        `P.append` P.pack (show . size $ st)
+        `P.append` P.packAddress " file"# 
+        `P.append` (if size st == 1 then P.empty else P.packAddress "s"#) 
+        `P.append` P.packAddress ")"#
+      where
+        curr   = cursor  st
+        percent | percent' == 0  && curr == 0 = P.packAddress "top"#
+                | percent' == 100             = P.packAddress "all"#
+                | otherwise = if P.length s == 2 then ' ' `P.cons` s else s
+            where 
+                s = P.pack (show percent') `P.append` P.packAddress "%"#
+
+        percent' :: Int = round $ 
+                    ((fromIntegral curr) / 
+                    ((fromIntegral . size $ st) - 1) * 100.0 :: Float)
+
+instance Element PlayTitle where
+    draw a@(_,x) b c d = PlayTitle $
+        flip Fast hl $ space
+             `P.append` inf
+             `P.append` P.pack (replicate gapl ' ')
+             `P.append` modes
+             `P.append` P.pack (replicate gapr ' ')
+             `P.append` time
+             `P.append` space
+             `P.append` ver
+             `P.append` space
+      where
+        (PlayInfo inf)    = draw a b c d :: PlayInfo
+        (PTime time)      = draw a b c d :: PTime
+        (PlayModes modes) = draw a b c d :: PlayModes
+        (PVersion ver)    = draw a b c d :: PVersion
+
+        gap     = x - padding - P.length inf - modlen - P.length time - P.length ver
+        gapl    = gap `div` 2
+        gapr    = gap - gapl
+        padding = 3
+        modlen  = P.length modes
+        space   = P.packAddress " "#
+        hl     = highlight (style config)
+
 -- | Playlist, TODO this should do threading-style rendering of filesystem trees
+-- TODO too complex
 --
 -- Rewrite the playlist code to draw trees.
 --
@@ -361,48 +415,8 @@ instance Element PlayList where
                  ++ (replicate (height - length list - 2) (Plain []))
                  ++ [minibuffer st]
         where
-            (PMode (Fast m _))      = draw p q st z :: PMode
-            (PMode2 (Fast m' _))    = draw p q st z :: PMode2
-            (PVersion (Fast ver _)) = draw p q st z :: PVersion
-            (PTime time)            = draw p q st z :: PTime
+            (PlayTitle title)       = draw p q st z :: PlayTitle
 
-            inf =         percent
-                `P.append` P.packAddress " ("# 
-                `P.append` P.pack (show . size $ st)
-                `P.append` P.packAddress " file"# 
-                `P.append` (if size st == 1 then P.empty else P.packAddress "s"#) 
-                `P.append` P.packAddress ")"#
-
-            percent | percent' == 0  && curr == 0 = P.packAddress "top"#
-                    | percent' == 100 = P.packAddress "all"#
-                    | otherwise       
-                    = let s = P.pack (show percent') `P.append` P.packAddress "%"#
-                      in if P.length s == 2 then ' ' `P.cons` s else s
-  
-            percent' :: Int= round $ 
-                        ((fromIntegral curr) / 
-                        ((fromIntegral . size $ st) - 1) * 100.0 :: Float)
-
-            padding        = 3
-
-            gap            = x - padding - P.length inf - modlen - P.length time - P.length ver
-            gapl           = gap `div` 2
-            gapr           = gap - gapl
-
-            title  = flip Fast hl $ P.packAddress " "#
-                         `P.append` inf
-                         `P.append` P.pack (replicate gapl ' ')
-                         `P.append` modes
-                         `P.append` P.pack (replicate gapr ' ')
-                         `P.append` time
-                         `P.append` P.packAddress " "#
-                         `P.append` ver
-                         `P.append` P.packAddress " "#
-
-            modlen = P.length modes
-            modes  = m `P.append` if m' == P.empty then P.empty else ' ' `P.cons` m'
-
-            hl     = highlight (style config)
             songs  = music st
             this   = current st
             curr   = cursor  st
@@ -421,9 +435,6 @@ instance Element PlayList where
             visible = slice off (off + buflen) songs
                 where
                     off           = screens * buflen
-                    slice i j arr = 
-                        let (a,b) = bounds arr
-                        in [unsafeAt arr n | n <- [(max a i) .. (min b j)]]
 
             mchop s | P.length s > (x-4) = P.take (x - 4) s `P.append` ellipsis
                     | otherwise          = s
@@ -558,4 +569,11 @@ fillLine = Control.Exception.catch (Curses.clrToEol) (\_ -> return ()) -- harmle
 --
 gotoTop :: IO ()
 gotoTop = Curses.wMove Curses.stdScr 0 0
+
+
+-- | Take a slice of an array efficiently
+slice :: Int -> Int -> Array Int e -> [e]
+slice i j arr = 
+    let (a,b) = bounds arr
+    in [unsafeAt arr n | n <- [max a i .. min b j] ]
 
