@@ -864,7 +864,7 @@ instance Binary P.FastString where
     get bh@(BinIO ix_r h bit_off_r _) = do
             l@(I# l#) <- get bh
             ix <- readFastMutInt ix_r
-            ps <- P.hGet h l
+            ps <- {-#SCC "Binary.FastString.get" #-}P.hGet h l
             writeFastMutInt ix_r (ix+l)
             return $! ps
 
