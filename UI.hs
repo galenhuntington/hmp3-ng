@@ -283,6 +283,7 @@ instance Element HelpScreen where
                           | k == Curses.keyLeft  -> "Left"
                           | k == Curses.keyRight -> "Right"
                           | k == '\n'            -> "Enter"
+                          | k == '\f'            -> "^L"
                           | k == Curses.keyEnd   -> "End"
                           | k == Curses.keyHome  -> "Home"
                         _ -> show c
