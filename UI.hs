@@ -38,7 +38,7 @@
 module UI (
 
         -- * Construction, destruction
-        start, end, suspend, screenSize, refresh, refreshClock,
+        start, end, suspend, screenSize, refresh, refreshClock, resetui,
 
         -- * Input
         getKey
@@ -79,13 +79,22 @@ start = do
         case term of Just "vt220" -> putEnv "TERM=xterm-color"
                      _            -> return ()
 
-    Curses.initCurses refresh
+    Curses.initCurses resetui
 
     -- working out if we can do colours
     b <- Curses.hasColors
     initcolours $ if b then style config else {- do something better -} style config
 
     Curses.keypad Curses.stdScr True    -- grab the keyboard
+    nocursor
+
+-- | Rezet
+resetui :: IO ()
+resetui = resizeui >> nocursor >> refresh
+
+-- | And force invisible
+nocursor :: IO ()
+nocursor = do
     Control.Exception.catch (Curses.cursSet (fromIntegral (0::Int)) >> return ()) 
                             (\_ -> return ())
 

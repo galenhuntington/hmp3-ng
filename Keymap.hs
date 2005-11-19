@@ -26,6 +26,7 @@ import Lexers
 import Core
 import Curses
 import State
+import qualified UI
 
 import Data.List
 import Control.Monad
@@ -82,6 +83,8 @@ keyTable =
         ['m'],   nextMode)
     ,(p "Save the current playlist"#,
         ['w'],   writeSt)
+    ,(p "Refresh the display"#,
+        ['\^L'], UI.resetui)
     ]
     where
         p = P.packAddress
