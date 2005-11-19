@@ -146,6 +146,10 @@ modifyState_ f = modifyMVar_ state $ \r -> do
 --  hPutStrLn stderr "MODIFIED"
     return r
 
+-- | Trigger a refresh
+touchState :: IO ()
+touchState = modifyState_ $ return . id
+
 -- | Variation on modifyState_ that won't trigger a refresh
 unsafeModifyState :: (State -> IO State) -> IO ()
 unsafeModifyState f = modifyMVar_ state $ \r -> do

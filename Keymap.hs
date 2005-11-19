@@ -80,6 +80,8 @@ keyTable =
         ['n'],   playNext)
     ,(p "Cycle through normal, random and loop modes"#,
         ['m'],   nextMode)
+    ,(p "Save the current playlist"#,
+        ['w'],   writeSt)
     ]
     where
         p = P.packAddress

@@ -24,7 +24,8 @@ module Core (
         start,
         shutdown,
         seekLeft, seekRight, up, down, pause, nextMode, playNext,
-        quit, clrmsg, toggleHelp, play, jumpToPlaying, jump {-, add-}
+        quit, clrmsg, toggleHelp, play, jumpToPlaying, jump, {-, add-}
+        writeSt, readSt
     ) where
 
 import Prelude hiding (catch)
@@ -37,7 +38,7 @@ import Style
 import Config
 import Utils
 import FastIO       ( fdToCFile )
-import Tree         ( buildTree )
+import Tree
 import qualified UI
 
 import qualified Data.FastPackedString as P
@@ -52,12 +53,16 @@ import System.Exit
 import System.Time
 import System.Random            ( getStdRandom, randomR )
 import System.Process           ( waitForProcess )
+import System.Environment       ( getEnv )
 
 import Control.Concurrent
 import Control.Exception
 
 import Foreign.C.Types          ( CFile )
 import Foreign.Ptr              ( Ptr )
+
+import System.Directory
+import System.Posix.User        ( getUserEntryForID, getRealUserID, homeDirectory )
 
 import GHC.Base
 import GHC.Handle
@@ -68,7 +73,7 @@ import GHC.IOBase               ( unsafeInterleaveIO )
 
 ------------------------------------------------------------------------
 
-start :: [P.FastString] -> IO ()
+start :: Either (FileArray,DirArray) [P.FastString] -> IO ()
 start ms = 
     Control.Exception.handle
         (\e -> do if isOK e then return ()
@@ -80,7 +85,9 @@ start ms =
         UI.start
 
         -- parse args
-        (ds,fs) <- buildTree ms
+        (ds,fs) <- case ms of
+                    Left (fs',ds') -> return (ds',fs')
+                    Right roots    -> buildTree roots
 
         -- fork process first. could fail. pass handles over to threads
         (r,w,pid) <- popen (MPG321 :: String) ["-R","-"]
@@ -362,6 +369,32 @@ add f = do
     modifyState_ $ \st -> return st { music = music st ++ [ (n,basenameP n) | n <- new ]
                                     , size = size st + length new }
 -}
+
+------------------------------------------------------------------------
+
+-- | Saving the playlist 
+writeSt :: IO ()
+writeSt = do
+    home <- getHome
+    let f = home </> ".hmp3db"
+    withState $ \st -> do
+        let arr1 = music st
+            arr2 = folders st
+        writeTree f (arr1,arr2)
+    putmsg (Plain $ "Wrote state to " ++ f) >> touchState
+
+-- | Read the playlist back
+readSt :: IO (Maybe (FileArray, DirArray))
+readSt = do
+    home <- getHome
+    let f = home </> ".hmp3db"
+    b <- doesFileExist f
+    if b then liftM Just $ readTree f else return Nothing
+
+getHome :: IO String
+getHome = Control.Exception.catch 
+    (getRealUserID >>= getUserEntryForID >>= (return . homeDirectory))
+    (\_ -> getEnv "HOME")
 
 ------------------------------------------------------------------------
 -- Editing the minibuffer

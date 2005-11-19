@@ -175,6 +175,14 @@ data PlayScreen =
               ,_ptime  :: !PTimes
         }
 
+-- How does this all work? Firstly, we mostly want to draw fast strings
+-- directly to the screen. To break the drawing problem down, you need
+-- to write an instance of Element for each element in the ui. Larger
+-- and larger elements then combine these items together. 
+--
+-- Obviously to write the element instance, you need a new type for each
+-- element, to disinguish them. As follows:
+
 newtype PlayList = PlayList [StringA]
 
 newtype PPlaying    = PPlaying    StringA
@@ -188,6 +196,11 @@ newtype PInfo       = PInfo       P.FastString
 newtype PId3        = PId3        P.FastString
 newtype PTime       = PTime       P.FastString
 
+newtype PlayTitle = PlayTitle StringA
+newtype PlayInfo  = PlayInfo  P.FastString
+newtype PlayModes = PlayModes P.FastString
+newtype HelpScreen = HelpScreen [StringA]
+
 ------------------------------------------------------------------------
 
 instance Element PlayScreen where
@@ -197,9 +210,7 @@ instance Element PlayScreen where
             b = draw w x y z :: ProgressBar
             c = draw w x y z :: PTimes
 
---
 -- | Decode the play screen
---
 printPlayScreen :: PlayScreen -> [StringA]
 printPlayScreen (PlayScreen (PPlaying a) 
                             (ProgressBar b) 
@@ -236,8 +247,6 @@ instance Element PInfo where
         Just i   -> userinfo i
 
 ------------------------------------------------------------------------
-
-newtype HelpScreen = HelpScreen [StringA]
 
 instance Element HelpScreen where
     draw (_,w) _ _ _ = HelpScreen $ [ Fast (f cs h) sty | (h,cs,_) <- keyTable ]
@@ -348,10 +357,6 @@ instance Element PMode2 where
 
 ------------------------------------------------------------------------
 
-newtype PlayTitle = PlayTitle StringA
-newtype PlayInfo  = PlayInfo  P.FastString
-newtype PlayModes = PlayModes P.FastString
-
 instance Element PlayModes where
     draw a b c d = PlayModes $  
         m `P.append` if m' == P.empty then P.empty else ' ' `P.cons` m'
@@ -404,7 +409,6 @@ instance Element PlayTitle where
         hl     = highlight (style config)
 
 -- | Playlist, TODO this should do threading-style rendering of filesystem trees
--- TODO too complex
 --
 -- Rewrite the playlist code to draw trees.
 --
@@ -433,26 +437,21 @@ instance Element PlayList where
                             else (-1)
 
             visible = slice off (off + buflen) songs
-                where
-                    off           = screens * buflen
+                where off = screens * buflen
 
             mchop s | P.length s > (x-4) = P.take (x - 4) s `P.append` ellipsis
                     | otherwise          = s
     
-            -- inefficient
             list   = [ uncurry color n
                      | n <- zip (map (mchop.snd) visible) [0..] ]
 
             color s i 
                 | i == select && i == playing
                 = Fast (s `P.append` P.pack (replicate (x - P.length s) ' ')) sty3
-
                 | i == select
                 = Fast (s `P.append` P.pack (replicate (x - P.length s) ' ')) sty2
-
                 | i == playing
                 = Fast (s `P.append` P.pack (replicate (x - P.length s) ' ')) sty1
-
                 | otherwise = Fast s (Style Default Default)
                 where
                     sty1 = selected . style $ config

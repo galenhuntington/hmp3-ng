@@ -21,6 +21,7 @@
 module Main where
 
 import Core
+import Tree
 import Config
 import FastIO
 import Keymap ({-# bogus import to work around 6.4 rec modules bug #-})
@@ -70,18 +71,24 @@ releaseSignals =
 
 -- usage string.
 usage :: [String]
-usage = ["Usage: hmp3 [option...] [file|dir]"
-        ,"-V  --version  Show version information"
-        ,"-h  --help     Show this help"]
+usage = ["Usage: hmp3 [option...] [file|dir]*"
+        ,"-V             Show version information"
+        ,"-h             Show this help"]
 
 -- | Parse the args
-do_args :: [P.FastString] -> IO [P.FastString]
-do_args []  = do mapM_ putStrLn usage; exitWith ExitSuccess
+do_args :: [P.FastString] -> IO (Either (FileArray,DirArray) [P.FastString])
+do_args []  = do    -- attempt to read db
+    x <- readSt 
+    case x of
+        Nothing -> do mapM_ putStrLn usage; exitWith ExitSuccess
+        Just st -> return $ Left st
+
 do_args [s] | s == P.pack "-V" 
             = do putStrLn versinfo; putStrLn darcsinfo; exitWith ExitSuccess
             | s == P.pack "-h" 
             = do mapM_ putStrLn usage; exitWith ExitSuccess
-do_args xs = return xs
+
+do_args xs = return $ Right xs
 
 -- ---------------------------------------------------------------------
 -- | Static main. This is the front end to the statically linked

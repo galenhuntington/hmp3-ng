@@ -24,6 +24,7 @@
 module Tree where
 
 import FastIO
+import Binary
 
 import qualified Data.FastPackedString as P
 
@@ -124,4 +125,51 @@ partition (a:xs) = do
     (fs,ds) <- partition xs
     b       <- doesFileExist a
     return $! if b then (a:fs, ds) else (fs, a:ds)
+
+------------------------------------------------------------------------
+
+instance Binary a => Binary (Array Int a) where
+    put_ bh arr = do
+        put_ bh (bounds arr)
+        mapM_ (put_ bh) (elems arr)
+
+    get bh      = do
+        ((x,y) :: (Int,Int)) <- get bh
+        (els   :: [a])       <- sequence (take (y+1) (repeat (get bh)))
+        return (listArray (x,y) els)
+
+instance Binary Dir where
+    put_ bh (Dir nm sz lo hi) = do
+        put_ bh nm
+        put_ bh sz
+        put_ bh lo
+        put_ bh hi
+
+    get bh = do
+        nm <- get bh
+        sz <- get bh
+        lo <- get bh
+        hi <- get bh
+        return (Dir nm sz lo hi)
+
+--
+-- write the arrays out
+--
+writeTree :: FilePath -> (FileArray, DirArray) -> IO ()
+writeTree f arrs = do
+    h    <- openFile   f WriteMode
+    bh   <- openBinIO_ h
+    put_ bh arrs
+    hClose h
+
+--
+-- | Read the arrays from a file
+--
+readTree :: FilePath -> IO (FileArray, DirArray)
+readTree f = do
+    h    <- openFile   f ReadMode
+    bh   <- openBinIO_ h        -- openBinMem
+    arrs <- get bh
+    hClose h
+    return arrs
 
