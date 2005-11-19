@@ -1,19 +1,12 @@
 Todo:
  - Thread-representation of filesystem trees
  - Search
- - Validate input files somehow
- - Check small terminals
- - Black and white terminals
- - Add/delete tracks
- - When dropping frames, skip behaves weirdly. temporarily force
- - Catch stderr from mpg321
- - Debug on linux some more
- - Optimisations:
-        + store curses state in global state  (width,height)
- - Handle non-readable files
  - Handle adding literal .mp3s on command line
+ - Debug on linux some more
 
 Possible:
+ - Validate input files somehow
+ - Cleaner updates when skipping 
  - If mpg321 dies, restart it
  - Automated testing, Stress testing
  - Should random mode not repeat itself?
