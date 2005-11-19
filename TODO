@@ -2,7 +2,6 @@ Todo:
  - Thread-representation of filesystem trees
  - Search
  - Validate input files somehow
- - Refresh handling
  - Check small terminals
  - Black and white terminals
  - Add/delete tracks
