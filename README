@@ -1,4 +1,5 @@
-hmp3 : an ncurses mp3 frontend written in Haskell
+
+           hmp3 : an ncurses mp3 player written in Haskell
 
 Dependencies:
         The mpg321 program  ( http://mpg321.sourceforge.net/ )
@@ -15,3 +16,8 @@ License:
 
 Author:
         Don Stewart, Thu Nov 10 16:26:23 EST 2005
+
+Contributors:
+        Samuel Bronson
+        Stefan Wehr
+          
