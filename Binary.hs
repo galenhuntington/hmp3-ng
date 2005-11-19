@@ -1,4 +1,4 @@
-{-# OPTIONS -w #-}
+{-# OPTIONS -w -fasm #-}
 --
 -- (c) The University of Glasgow 2002
 --
