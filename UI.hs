@@ -286,8 +286,6 @@ instance Element HelpScreen where
                           | k == Curses.keyEnd   -> "End"
                           | k == Curses.keyHome  -> "Home"
                         _ -> show c
-                        
-                            
 
 ------------------------------------------------------------------------
 
@@ -530,10 +528,13 @@ redraw =
        let (HelpScreen help) = {-# SCC "redraw.help" #-} draw sz (0,0) s f :: HelpScreen
            (Fast fps _) = head help
            offset = (w - (P.length fps)) `div` 2
-       Curses.wMove Curses.stdScr ((h - length help) `div` 2) offset
-       mapM_ (\t -> do drawLine w t
-                       (y',_) <- Curses.getYX Curses.stdScr
-                       Curses.wMove Curses.stdScr (y'+1) offset) help
+           height = (h - length help) `div` 2
+
+       when (height > 0) $ do
+            Curses.wMove Curses.stdScr ((h - length help) `div` 2) offset
+            mapM_ (\t -> do drawLine w t
+                            (y',_) <- Curses.getYX Curses.stdScr
+                            Curses.wMove Curses.stdScr (y'+1) offset) help
 
 ------------------------------------------------------------------------
 --

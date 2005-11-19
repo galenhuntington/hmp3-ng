@@ -36,7 +36,7 @@ import GHC.Base
 ------------------------------------------------------------------------
 
 doP :: P.FastString -> Msg
-doP s = S $! case P.head . P.drop 3 $ s of
+doP s = S $! case P.head . P.drop 2 $ s of
                 '0' -> Stopped
                 '1' -> Paused
                 '2' -> Playing
@@ -51,13 +51,13 @@ doF s = R $ Frame {
               , timeLeft     = f 3
            }
         where
-          fs  = P.split ' ' . P.drop 3 $ s
+          fs  = P.split ' ' . P.drop 2 $ s
           f n = (read $ P.unpack x, read $ P.unpack y) 
             where [x,y] = P.split '.' (fs !! n)
 
 -- Outputs information about the mp3 file after loading.
 doS :: P.FastString -> Msg
-doS s = let fs = P.split ' ' . P.drop 3 $ s
+doS s = let fs = P.split ' ' . P.drop 2 $ s
         in I $ Info { 
                   version       = fs !! 0
                 , layer         = read . P.unpack $ fs !! 1
@@ -83,7 +83,7 @@ doS s = let fs = P.split ' ' . P.drop 3 $ s
 -- Track info if ID fields are in the file, otherwise file name.
 -- 30 chars per field?
 doI :: P.FastString -> Msg
-doI s = let f = P.dropSpaceEnd . P.dropSpace . P.drop 3 $ s 
+doI s = let f = P.dropSpaceEnd . P.dropSpace . P.drop 2 $ s 
         in case P.take 4 f of
             cs | cs == p "ID3:"# -> F . File . Right . toId id3 . splitUp . P.drop 4 $ f
                | otherwise       -> F . File . Left $ f
@@ -130,15 +130,16 @@ doI s = let f = P.dropSpaceEnd . P.dropSpace . P.drop 3 $ s
 --
 parser :: Ptr CFile -> IO (Either String Msg)
 parser h = do
-    s <- getFilteredPacket h
-    return $ case P.take 2 s of
-        t | t == p "@R"# -> Right $ T Tag
-          | t == p "@I"# -> Right $ doI s
-          | t == p "@S"# -> Right $ doS s
-          | t == p "@F"# -> Right $ doF s
-          | t == p "@P"# -> Right $ doP s
-          | t == p "@E"# -> Left $ "mpg321 error: " ++ P.unpack s
-          | otherwise    -> Left $ "Strange mpg321 packet: " ++ P.unpack s
+    s' <- getFilteredPacket h
+    let s = P.dropWhile (== '@') s'
+    return $ case P.head s of
+        'R' -> Right $ T Tag
+        'I' -> Right $ doI s
+        'S' -> Right $ doS s
+        'F' -> Right $ doF s
+        'P' -> Right $ doP s
+        'E' -> Left $ "mpg321 error: " ++ P.unpack s
+        _   -> Left $ "Strange mpg321 packet: " ++ P.unpack s
 
 ------------------------------------------------------------------------
 
