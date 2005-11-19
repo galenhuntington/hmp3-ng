@@ -860,7 +860,6 @@ instance Binary P.FastString where
             P.hPut h ps
             writeFastMutInt ix_r (ix+l)
             return ()
-    put_ bh@(BinMem 
 
     get bh@(BinIO ix_r h bit_off_r _) = do
             l@(I# l#) <- get bh
