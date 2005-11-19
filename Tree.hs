@@ -128,14 +128,26 @@ partition (a:xs) = do
 
 ------------------------------------------------------------------------
 
-instance Binary a => Binary (Array Int a) where
+instance Binary (Array Int Dir) where
     put_ bh arr = do
         put_ bh (bounds arr)
         mapM_ (put_ bh) (elems arr)
 
     get bh      = do
         ((x,y) :: (Int,Int)) <- get bh
-        (els   :: [a])       <- sequence $ take (y+1) $ repeat (get bh)
+        (els   :: [Dir])     <- sequence $ take (y+1) $ repeat (get bh)
+        return $ listArray (x,y) els
+
+-- XXX: special version, we reconstruct the basename
+instance Binary (Array Int (FilePathP,FilePathP)) where
+    put_ bh arr = do
+        put_ bh (bounds arr)
+        mapM_ (put_ bh . fst) (elems arr)
+
+    get bh      = do
+        ((x,y) :: (Int,Int)) <- get bh
+        (els   :: [a])       <- sequence $ take (y+1) $ repeat 
+                                    (get bh >>= \c -> return (c, basenameP c))
         return $ listArray (x,y) els
 
 instance Binary Dir where
