@@ -387,9 +387,9 @@ jumpToMatch re = do
         mi <- loop $ 1 + fdir (music st ! cursor st)
 
         let st' = st { regex = Just p }
-        case mi of
-            Nothing -> hPutStrLn stderr "not found" >> return (st',False)
-            Just i  -> return (st' { cursor = dlo (folders st ! i) }, True)
+        return $ case mi of
+            Nothing -> (st',False)
+            Just i  -> (st' { cursor = dlo (folders st ! i) }, True)
     when (not found) $ putmsg (Plain "No match found.") >> touchState
 
 -- | Show/hide the help window
