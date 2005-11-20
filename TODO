@@ -1,6 +1,5 @@
 Todo:
  - Thread-representation of filesystem trees
- - Handle adding literal .mp3s on command line
  - Debug on linux some more
 
 Possible:
