@@ -39,54 +39,57 @@ import qualified Data.Map as M
 
 import GHC.Base (Addr#)
 
+type LexerS = Lexer (Bool,[Char]) (IO ())
+
 --
 -- The keymap
 --
 keymap :: [Char] -> [IO ()]
 keymap cs = map (clrmsg >>) actions
-    where (actions,_,_) = execLexer all (cs, []) 
+    where (actions,_,_) = execLexer all (cs, (True,[])) 
 
-all :: Lexer [Char] (IO ())
+all :: LexerS
 all = commands >||< search
   
-commands :: Lexer [Char] (IO ())
+commands :: LexerS
 commands = (alt keys) `action` \[c] -> Just $ case M.lookup c keyMap of
         Nothing -> return ()    -- ignore
         Just a  -> a
 
 ------------------------------------------------------------------------
 
-search :: Lexer [Char] (IO ())
-search = char '/' `meta` \_ _ -> 
-    (with (toggleFocus >> putmsg (Plain "/") >> touchState),['/'],Just dosearch)
+search :: LexerS
+search = (char '/' >|< char '?') `meta` \[c] _ -> 
+                (with (toggleFocus >> putmsg (Plain [c]) >> touchState)
+                ,((c == '/'), [c]) ,Just dosearch)
 
-dosearch :: Lexer [Char] (IO ())
+dosearch :: LexerS
 dosearch = search_char >||< search_edit >||< search_esc >||< search_eval
 
-search_char :: Lexer [Char] (IO ())
+search_char :: LexerS
 search_char = anyButDelNL
-    `meta` \c st -> (with (putmsg (Plain $ st++c) >> touchState), st++c, Just dosearch)
+    `meta` \c (d,st) -> (with (putmsg (Plain $ st++c) >> touchState), (d,st++c), Just dosearch)
     where
         anyButDelNL = alt $ any' \\ (enter' ++ delete' ++ ['\ESC'])
 
-search_edit :: Lexer [Char] (IO ())
+search_edit :: LexerS
 search_edit = delete 
-    `meta` \_ st -> 
-    let st' = case st of 
-                [c] -> [c]
-                xs  -> init xs
-    in (with (putmsg (Plain st') >> touchState), st', Just dosearch)
+    `meta` \_ (d,st) -> 
+        let st' = case st of 
+                    [c] -> [c]
+                    xs  -> init xs
+        in (with (putmsg (Plain st') >> touchState), (d,st'), Just dosearch)
 
 -- escape exits ex mode immediately
-search_esc :: Lexer [Char] (IO ())
+search_esc :: LexerS
 search_esc = char '\ESC'
-    `meta` \_ _ -> (with (clrmsg >> touchState >> toggleFocus), [], Just all)
+    `meta` \_ _ -> (with (clrmsg >> touchState >> toggleFocus), (True,[]), Just all)
 
-search_eval :: Lexer [Char] (IO ())
+search_eval :: LexerS
 search_eval = enter
-    `meta` \_ ('/':pat) -> case pat of
-        [] -> (with (clrmsg >> touchState >> toggleFocus), [], Just all)
-        _  -> (with (jumpToMatch (Just pat) >> toggleFocus), [], Just all)
+    `meta` \_ (d,(_:pat)) -> case pat of
+        [] -> (with (clrmsg >> touchState >> toggleFocus),     (True,[]), Just all)
+        _  -> (with (jumpToMatch (Just (pat,d)) >> toggleFocus), (True,[]), Just all)
 
 ------------------------------------------------------------------------
 
@@ -96,7 +99,7 @@ delete'  = ['\BS', '\127', keyBackspace ]
 any'     = ['\0' .. '\255']
 digit'   = ['0' .. '9']
 
-delete, enter :: Regexp [Char] (IO ())
+delete, enter :: Regexp (Bool,[Char]) (IO ())
 delete  = alt delete'
 enter   = alt enter'
 
@@ -149,7 +152,8 @@ p :: Addr# -> P.FastString
 p = P.packAddress
 
 extraTable :: [(P.FastString, [Char])]
-extraTable = [(p "Search for track matching regex"#, ['/'])]
+extraTable = [(p "Search for track matching regex"#, ['/'])
+             ,(p "Search backwards for track"#, ['?'])]
 
 helpIsVisible :: IO Bool
 helpIsVisible = modifyState $ \st -> return (st, helpVisible st)
@@ -159,17 +163,3 @@ keyMap = M.fromList [ (c,a) | (_,cs,a) <- keyTable, c <- cs ]
 
 keys :: [Char]
 keys = concat [ cs | (_,cs,_) <- keyTable ]
-
-------------------------------------------------------------------------
--- 
--- +       Increase volume for current song
--- -       Decrease volume for current song
--- /       Search within the playlist
--- A       Sort playlist according to Artist
--- S       Sort playlist according to Song title
--- T       Sort playlist according to Time
--- R       Sort playlist according to Rating
--- 1-9     Set rating of selected song
--- a       Add files to playlist
--- e       Edit ID3 tags for selected song
--- s       Save playlist

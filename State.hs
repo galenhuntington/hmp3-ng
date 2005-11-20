@@ -60,7 +60,7 @@ data State = State {
        ,mode            :: !Mode           -- random mode
        ,uptime          :: !P.FastString
        ,boottime        :: !ClockTime
-       ,regex           :: !(Maybe Regex)   -- most recent search pattern
+       ,regex           :: Maybe (Regex,Bool)   -- most recent search pattern and direction
     }
 
 data Mode = Normal | Random | Loop deriving (Eq,Bounded,Enum) -- for pred,succ

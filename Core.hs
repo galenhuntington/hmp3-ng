@@ -365,28 +365,33 @@ jumpToPrevDir = modifyState_ $ \st -> do
         d   = max (i - 1) 0
     return st { cursor = dlo ((folders st) ! d) }
 
--- | Jump to first element of folder that matches regex
-jumpToMatch :: Maybe String -> IO ()
+-- | Jump to first element (forwards or backwards) of folder that matches regex
+jumpToMatch :: Maybe (String,Bool) -> IO ()
 jumpToMatch re = do
     found <- modifyState $ \st -> do
-        p <- case re of
+        (p,forwards) <- case re of
                 Nothing -> case regex st of
                             Nothing -> undefined    -- no previous pattern. harmless
-                            Just r  -> return r
-                Just s  -> regcomp s (regExtended + regIgnoreCase)
-        let m  = 1 + (snd . bounds $ folders st)
-            fs = folders st
-            loop n
-                | n >= m    = return Nothing
+                            Just (r,d)  -> return (r,d)
+                Just (s,d)  -> do v <- regcomp s (regExtended + regIgnoreCase)
+                                  return (v,d)
+
+        let fs = folders st
+            cur= fdir (music st ! cursor st)
+            m  = 1 + (snd . bounds $ folders st)
+
+            loop fn inc n
+                | fn n      = return Nothing
                 | otherwise = P.unsafeUseAsCString (dname $ fs ! n) $ \s -> do
                     v <- regexec p s 0
                     case v of
-                        Nothing -> loop $! n+1
+                        Nothing -> loop fn inc $! inc n
                         Just _  -> return $ Just n
 
-        mi <- loop $ 1 + fdir (music st ! cursor st)
+        mi <- if forwards then loop (>=m) (+1) (cur+1) 
+                          else loop (<0) (subtract 1) (cur-1)
 
-        let st' = st { regex = Just p }
+        let st' = st { regex = Just (p,forwards) }
         return $ case mi of
             Nothing -> (st',False)
             Just i  -> (st' { cursor = dlo (folders st ! i) }, True)
