@@ -2,6 +2,8 @@ Todo:
  - Thread-representation of filesystem trees
  - Handle adding literal .mp3s on command line
  - Debug on linux some more
+ - Add focus/unfocus to edit line
+ - store dirpath and basename separately in .db
 
 Possible:
  - Validate input files somehow

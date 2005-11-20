@@ -25,7 +25,7 @@ module Core (
         shutdown,
         seekLeft, seekRight, up, down, pause, nextMode, playNext,
         quit, putmsg, clrmsg, toggleHelp, play, jumpToPlaying, jump, {-, add-}
-        writeSt, readSt, jumpToMatch
+        writeSt, readSt, jumpToMatch, toggleFocus
     ) where
 
 import Prelude hiding (catch)
@@ -351,22 +351,29 @@ jumpToPlaying :: IO ()
 jumpToPlaying = modifyState_ $ \st -> return st { cursor = (current st) }
 
 -- | Jump to element that matches regex
-jumpToMatch :: String -> IO ()
-jumpToMatch re = modifyState_ $ \st -> do
-    p <- regcomp re (regExtended + regIgnoreCase)
-    let m  = size st
-        fs = music st
-        loop n
-            | n == m    = return Nothing
-            | otherwise = P.unsafeUseAsCString (snd $ fs ! n) $ \s -> do
-                v <- regexec p s 0
-                case v of
-                    Nothing -> loop (n+1)
-                    Just _  -> return $ Just n
-    mi <- loop (cursor st)  -- start here
-    case mi of
-        Nothing -> warnA "No match found" >> return st
-        Just i  -> return st { cursor = i }
+jumpToMatch :: Maybe String -> IO ()
+jumpToMatch re = do
+    found <- modifyState $ \st -> do
+        p <- case re of
+                Nothing -> case regex st of
+                            Nothing -> undefined    -- no previous pattern. harmless
+                            Just r  -> return r
+                Just s  -> regcomp s (regExtended + regIgnoreCase)  
+        let m  = size st
+            fs = music st
+            loop n
+                | n >= m    = return Nothing
+                | otherwise = P.unsafeUseAsCString (snd $ fs ! n) $ \s -> do
+                    v <- regexec p s 0
+                    case v of
+                        Nothing -> loop $! n+1
+                        Just _  -> return $ Just n
+        mi <- loop (1 + cursor st)  -- start here (don't loop back)
+        let st' = st { regex = Just p }
+        return $ case mi of
+            Nothing -> (st',False)
+            Just i  -> (st' { cursor = i }, True)
+    when (not found) $ putmsg (Plain "No match found.") >> touchState
 
 -- | Show/hide the help window
 toggleHelp :: IO ()
@@ -417,6 +424,10 @@ getHome = Control.Exception.catch
 
 ------------------------------------------------------------------------
 -- Editing the minibuffer
+
+-- | Focus the minibuffer
+toggleFocus :: IO ()
+toggleFocus = modifyState_ $ \st -> return st { miniFocused = not (miniFocused st) }
 
 putmsg :: StringA -> IO ()
 putmsg s = unsafeModifyState $ \st -> return st { minibuffer = s }

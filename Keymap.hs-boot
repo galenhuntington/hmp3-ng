@@ -4,4 +4,5 @@ import Data.FastPackedString
 
 keymap :: [Char] -> [IO ()]
 
-keyTable :: [(FastString, [Char], IO ())]
+keyTable   :: [(FastString, [Char], IO ())]
+extraTable :: [(FastString, [Char])]

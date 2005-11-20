@@ -258,7 +258,9 @@ instance Element PInfo where
 ------------------------------------------------------------------------
 
 instance Element HelpScreen where
-    draw (_,w) _ _ _ = HelpScreen $ [ Fast (f cs h) sty | (h,cs,_) <- keyTable ]
+    draw (_,w) _ _ _ = HelpScreen $ 
+        [ Fast (f cs h) sty | (h,cs,_) <- keyTable ] ++
+        [ Fast (f cs h) sty | (h,cs) <- extraTable ]
         where
             sty  = helpscreen . style $ config 
 
@@ -522,9 +524,6 @@ redraw =
                                             maybeLineDown t h y' x' )
          (take (h-1) (init a))
 
-   Curses.wMove Curses.stdScr (h-1) 0
-   drawLine (w-1) (last a) >> fillLine
-
    when (helpVisible s) $ do
        let (HelpScreen help) = {-# SCC "redraw.help" #-} draw sz (0,0) s f :: HelpScreen
            (Fast fps _) = head help
@@ -536,6 +535,15 @@ redraw =
             mapM_ (\t -> do drawLine w t
                             (y',_) <- Curses.getYX Curses.stdScr
                             Curses.wMove Curses.stdScr (y'+1) offset) help
+
+   -- minibuffer
+
+   Curses.wMove Curses.stdScr (h-1) 0
+   fillLine 
+   Curses.wMove Curses.stdScr (h-1) 0
+   drawLine (w-1) (last a)
+   when (miniFocused s) $ -- a fake cursor
+        drawLine 1 (Fast (P.packAddress " "#) (helpscreen . style $  config))
 
 ------------------------------------------------------------------------
 --

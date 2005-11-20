@@ -25,6 +25,7 @@ module State where
 import Syntax
 import Tree
 import Style 
+import Regex    ( Regex )
 import qualified Data.FastPackedString as P
 
 import Data.Array               ( listArray )
@@ -55,9 +56,11 @@ data State = State {
        ,status          :: Status                  
        ,minibuffer      :: StringA          -- contents of minibuffer
        ,helpVisible     :: !Bool           -- is the help window shown
+       ,miniFocused     :: !Bool           -- is the mini buffer focused?
        ,mode            :: !Mode           -- random mode
        ,uptime          :: !P.FastString
        ,boottime        :: !ClockTime
+       ,regex           :: !(Maybe Regex)   -- most recent search pattern
     }
 
 data Mode = Normal | Random | Loop deriving (Eq,Bounded,Enum) -- for pred,succ
@@ -81,9 +84,11 @@ emptySt = State {
        ,status       = Stopped
        ,minibuffer   = Plain []
        ,helpVisible  = False
+       ,miniFocused  = False
        ,mode         = Normal
        ,uptime       = P.empty
        ,boottime     = TOD 0 0
+       ,regex        = Nothing
     }
 
 --

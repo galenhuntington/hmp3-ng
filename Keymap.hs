@@ -37,6 +37,8 @@ import Control.Monad
 import qualified Data.FastPackedString as P
 import qualified Data.Map as M
 
+import GHC.Base (Addr#)
+
 --
 -- The keymap
 --
@@ -56,7 +58,7 @@ commands = (alt keys) `action` \[c] -> Just $ case M.lookup c keyMap of
 
 search :: Lexer [Char] (IO ())
 search = char '/' `meta` \_ _ -> 
-            (with (putmsg (Plain "/") >> touchState), ['/'], Just dosearch)
+    (with (toggleFocus >> putmsg (Plain "/") >> touchState),['/'],Just dosearch)
 
 dosearch :: Lexer [Char] (IO ())
 dosearch = search_char >||< search_edit >||< search_esc >||< search_eval
@@ -73,16 +75,16 @@ search_edit = delete
     let st' = case st of 
                 [c] -> [c]
                 xs  -> init xs
-    in (with (putmsg (Plain st') >> touchState), st', Just search_edit)
+    in (with (putmsg (Plain st') >> touchState), st', Just dosearch)
 
 -- escape exits ex mode immediately
 search_esc :: Lexer [Char] (IO ())
 search_esc = char '\ESC'
-    `meta` \_ _ -> (with (clrmsg >> touchState), [], Just all)
+    `meta` \_ _ -> (with (clrmsg >> touchState >> toggleFocus), [], Just all)
 
 search_eval :: Lexer [Char] (IO ())
 search_eval = enter
-    `meta` \_ ('/':pat) -> (with (jumpToMatch pat), [], Just all)
+    `meta` \_ ('/':pat) -> (with (jumpToMatch (Just pat) >> toggleFocus), [], Just all)
 
 ------------------------------------------------------------------------
 
@@ -130,16 +132,22 @@ keyTable =
     ,(p "Quit (or close help screen)"#, 
         ['q'],   do b <- helpIsVisible ; if b then toggleHelp else quit)
     ,(p "Select and play next track"#, 
-        ['n'],   playNext)
+        ['d'],   playNext)
     ,(p "Cycle through normal, random and loop modes"#,
         ['m'],   nextMode)
     ,(p "Save the current playlist"#,
         ['w'],   writeSt)
     ,(p "Refresh the display"#,
         ['\^L'], UI.resetui)
+    ,(p "Repeat last regex search"#, 
+        ['n'],   jumpToMatch Nothing)
     ]
-    where
-        p = P.packAddress
+
+p :: Addr# -> P.FastString
+p = P.packAddress
+
+extraTable :: [(P.FastString, [Char])]
+extraTable = [(p "Search for track matching regex"#, ['/'])]
 
 helpIsVisible :: IO Bool
 helpIsVisible = modifyState $ \st -> return (st, helpVisible st)
