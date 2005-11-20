@@ -37,7 +37,7 @@ import State
 import Style
 import Config
 import Utils
-import FastIO       ( fdToCFile )
+import FastIO       ( fdToCFile, joinPathP )
 import Tree hiding (File)
 import Regex
 import qualified UI
@@ -297,7 +297,7 @@ play :: IO ()
 play = modifyState_ $ \st -> do
     let i    = cursor st
         m    = music st
-        f    = fpath $ m ! i
+        f    = let fe = m ! i in (dname $ folders st ! fdir fe) `joinPathP` (fbase fe)
         st'  = st { current = i, status = Playing }
     send (pipe st) (Load f)
     return st'
@@ -312,14 +312,14 @@ playNext = modifyState_ $ \st -> do
         m   = music st
     case () of {_ 
         | i < size st - 1          -- successor
-        -> let f     = fpath $ m ! (i + 1)
+        -> let f     = let fe = m ! (i + 1) in (dname $ folders st !  fdir fe) `joinPathP` (fbase fe)
                st'   = st { current = i + 1
                           , status = Playing
                           , cursor = if i == j then i + 1 else j } 
            in send (pipe st) (Load f) >> return st'
 
         | mode st == Loop           -- else loop
-        -> let  f    = fpath $ m ! 0
+        -> let  f    = let fe = m ! 0 in (dname $ folders st ! fdir fe) `joinPathP` (fbase fe)
                 st'  = st { current = 0, status = Playing
                           , cursor = if i == j then 0 else j } 
            in send (pipe st) (Load f) >> return st'
@@ -335,7 +335,7 @@ playRandom = modifyState_ $ \st -> do
         j   = cursor  st
         m   = music st
     n <- getStdRandom (randomR (0, size st -1)) -- memoise length m?
-    let  f    = fpath $ m ! n
+    let  f    = let fe = m ! n in (dname $ folders st ! fdir fe) `joinPathP` (fbase fe)
          st'  = st { current = n
                    , status = Playing
                    , cursor = if i == j then n else j }

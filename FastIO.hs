@@ -191,6 +191,33 @@ getPermissions name = do
    )
 
 -- ---------------------------------------------------------------------
+--
+-- A faster append . append
+--
+joinPathP :: P.FastString -> P.FastString -> P.FastString
+joinPathP f g =
+    let (ffp, s, l) = P.toForeignPtr f 
+        (fgp, t, m) = P.toForeignPtr g
+    in unsafePerformIO $ 
+        P.generate len $ \ptr ->
+            withForeignPtr ffp $ \fp ->
+                withForeignPtr fgp $ \gp -> do
+                    c_memcpy ptr (fp `plusPtr` s) l
+                    poke   (ptr `plusPtr` l) (sep :: Word8)
+                    c_memcpy (ptr `plusPtr` (l + 1)) (gp `plusPtr` t) m
+                    return len
+    where
+      len = P.length f + P.length g + 1
+      sep = fromIntegral . ord $ '/'
+{-# INLINE joinPathP #-}
+{-
+joinPathP :: P.FastString -> P.FastString -> P.FastString
+joinPathP f g = f `P.append` sep `P.append` g
+    where
+        sep = P.packAddress "/"#
+-}
+
+-- ---------------------------------------------------------------------
 
 foreign import ccall safe "utils.h getline" 
     c_getline :: Ptr Word8 -> Ptr CFile -> IO Int

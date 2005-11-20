@@ -54,8 +54,7 @@ data Dir  = Dir { dname :: !FilePathP        -- ^ directory name
                 , dhi   :: !Int }            -- ^ index of last entry
     deriving Show
 
-data File = File { fpath :: !FilePathP      -- ^ full path to file
-                 , fbase :: !FilePathP      -- ^ basename of file
+data File = File { fbase :: !FilePathP      -- ^ basename of file
                  , fdir  :: !Int }          -- ^ index of Dir entry 
     deriving Show
 
@@ -87,7 +86,7 @@ make (i,n,acc1,acc2) (d,fs) =
         (dir,n') -> case map makeFile fs of
             fs' -> (i+1, n', dir:acc1, (reverse fs') ++ acc2)
     where
-        makeFile f = File f (basenameP f) i
+        makeFile f = File (basenameP f) i
 
 ------------------------------------------------------------------------
 
@@ -100,15 +99,13 @@ expandDir :: FilePathP -> IO (Maybe (FilePathP, [FilePathP]),  [FilePathP])
 expandDir f = do
     ls_raw <- Control.Exception.handle (\e -> hPutStrLn stderr (show e) >> return []) $ 
                 packedGetDirectoryContents f
-    let ls = map joinPath . sort . filter notEdge $! ls_raw
+    let ls = map (joinPathP f) . sort . filter notEdge $! ls_raw
     ls `seq` return ()
     (fs,ds) <- partition ls
     let v = if null fs then Nothing else Just (f,fs)
     return (v,ds)
     where
-          joinPath g = f `P.append` sep `P.append` g
           notEdge p  = p /= dot && p /= dotdot
-          sep        = P.packAddress "/"#
           dot        = P.packAddress "."#
           dotdot     = P.packAddress ".."#
 
@@ -140,59 +137,23 @@ partition (a:xs) = do
 
 ------------------------------------------------------------------------
 
-instance Binary (Array Int Dir) where
+instance Binary a => Binary (Array Int a) where
     put_ bh arr = do
         put_ bh (bounds arr)
         mapM_ (put_ bh) (elems arr)
-
     get bh      = do
         ((x,y) :: (Int,Int)) <- get bh
-        (els   :: [Dir])     <- sequence $ take (y+1) $ repeat (get bh)
-        return $ listArray (x,y) els
+        (els   :: [a])       <- sequence $ take (y+1) $ repeat (get bh)
+        return $! listArray (x,y) els
 
-{-
-instance Binary (Array Int (FilePathP,FilePathP)) where
-    put_ bh arr = do
-        put_ bh (bounds arr)
-        mapM_ (put_ bh . fst) (elems arr)
-
-    get bh      = do
-        ((x,y) :: (Int,Int)) <- get bh
-        (els   :: [a])       <- sequence $ take (y+1) $ repeat 
-                                    (get bh >>= \c -> return (c, basenameP c))
-        return $ listArray (x,y) els
--}
-
-------------------------------------------------------------------------
-
--- name our state type
-newtype N = N (FileArray,DirArray) 
-
---
--- Compact state, the idea is to save all the dirnames, and just the
--- basename of the files. When reading back in, read the dirs, then
--- rebuild the full path from the basename and the corresponding dir
--- entry (with append)
---
-instance Binary N where
-    put_ bh (N (farr,darr)) = do
-        put_ bh darr
-        put_ bh (bounds farr)
-        mapM_ (\(File _ b i) -> do put_ bh i; put_ bh b) (elems farr)
-    
-    get bh      = do
-        (darr  :: DirArray)  <- get bh
-        ((x,y) :: (Int,Int)) <- get bh
-        (els   :: [a])       <- sequence $ take (y+1) $ repeat $ do
-                                    i <- get bh
-                                    b <- get bh
-                                    return $! File ((dname $ darr ! i) `joinP` b) b i
-
-        return $ N (listArray (x,y) els, darr)
-    
-        where
-          joinP x y = x `P.append` sep `P.append` y
-          sep       = P.packAddress "/"#
+instance Binary File where
+    put_ bh (File nm i) = do
+        put_ bh nm
+        put_ bh i
+    get bh = do
+        nm <- get bh
+        i  <- get bh
+        return (File nm i)
 
 instance Binary Dir where
     put_ bh (Dir nm sz lo hi) = do
@@ -200,7 +161,6 @@ instance Binary Dir where
         put_ bh sz
         put_ bh lo
         put_ bh hi
-
     get bh = do
         nm <- get bh
         sz <- get bh
@@ -216,7 +176,7 @@ writeTree :: FilePath -> (FileArray, DirArray) -> IO ()
 writeTree f arrs = do
     h    <- openFile   f WriteMode
     bh   <- openBinIO_ h
-    put_ bh (N arrs)
+    put_ bh arrs
     hClose h
 
 --
@@ -225,9 +185,9 @@ writeTree f arrs = do
 --
 readTree :: FilePath -> IO (FileArray, DirArray)
 readTree f = do
-    h        <- openFile   f ReadMode
-    bh       <- openBinIO_ h        -- openBinMem
-    (N arrs) <- get bh
+    h    <- openFile   f ReadMode
+    bh   <- openBinIO_ h        -- openBinMem
+    arrs <- get bh
     hClose h
     return arrs
 
