@@ -84,7 +84,9 @@ search_esc = char '\ESC'
 
 search_eval :: Lexer [Char] (IO ())
 search_eval = enter
-    `meta` \_ ('/':pat) -> (with (jumpToMatch (Just pat) >> toggleFocus), [], Just all)
+    `meta` \_ ('/':pat) -> case pat of
+        [] -> (with (clrmsg >> touchState >> toggleFocus), [], Just all)
+        _  -> (with (jumpToMatch (Just pat) >> toggleFocus), [], Just all)
 
 ------------------------------------------------------------------------
 
