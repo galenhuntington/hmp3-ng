@@ -1,5 +1,6 @@
 Todo:
  - Debug on linux some more
+ - clean up ui code a tad
 
 Possible:
  - Validate input files somehow

@@ -373,7 +373,7 @@ jumpToMatch re = do
                 Nothing -> case regex st of
                             Nothing -> undefined    -- no previous pattern. harmless
                             Just (r,d)  -> return (r,d)
-                Just (s,d)  -> do v <- regcomp s (regExtended + regIgnoreCase)
+                Just (s,d)  -> do v <- regcomp s (regExtended + regIgnoreCase + regNewline)
                                   return (v,d)
 
         let fs = folders st
