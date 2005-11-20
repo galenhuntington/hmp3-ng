@@ -111,10 +111,10 @@ keyTable =
         ['k',keyUp],    up)
     ,(p "Next track"#,             
         ['j',keyDown],  down)
-    ,(p "Jump up"#,                
-        [keyPPage],     replicateM 20 up   >> return ())
-    ,(p "Jump down"#,              
-        [keyNPage],     replicateM 20 down >> return ())
+    ,(p "Next directory down"#,                
+        [keyNPage], jumpToNextDir)
+    ,(p "Next directory up"#,                
+        [keyPPage], jumpToPrevDir)
     ,(p "Jump to start of list"#, 
         [keyHome],  jump 0)
     ,(p "Jump to end of list"#, 

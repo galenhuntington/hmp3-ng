@@ -25,7 +25,7 @@ module Core (
         shutdown,
         seekLeft, seekRight, up, down, pause, nextMode, playNext,
         quit, putmsg, clrmsg, toggleHelp, play, jumpToPlaying, jump, {-, add-}
-        writeSt, readSt, jumpToMatch, toggleFocus
+        writeSt, readSt, jumpToMatch, toggleFocus, jumpToNextDir, jumpToPrevDir
     ) where
 
 import Prelude hiding (catch)
@@ -350,7 +350,22 @@ quit = shutdown
 jumpToPlaying :: IO ()
 jumpToPlaying = modifyState_ $ \st -> return st { cursor = (current st) }
 
--- | Jump to element that matches regex
+-- | Move cursor to first song in next directory (or wrap)
+jumpToNextDir :: IO ()
+jumpToNextDir = modifyState_ $ \st -> do
+    let i   = fdir (music st ! cursor st)
+        len = 1 + (snd . bounds $ folders st)
+        d   = min (i + 1) (len - 1)
+    return st { cursor = dlo ((folders st) ! d) }
+
+-- | Move cursor to first song in next directory (or wrap)
+jumpToPrevDir :: IO ()
+jumpToPrevDir = modifyState_ $ \st -> do
+    let i   = fdir (music st ! cursor st)
+        d   = max (i - 1) 0
+    return st { cursor = dlo ((folders st) ! d) }
+
+-- | Jump to first element of folder that matches regex
 jumpToMatch :: Maybe String -> IO ()
 jumpToMatch re = do
     found <- modifyState $ \st -> do
@@ -358,21 +373,23 @@ jumpToMatch re = do
                 Nothing -> case regex st of
                             Nothing -> undefined    -- no previous pattern. harmless
                             Just r  -> return r
-                Just s  -> regcomp s (regExtended + regIgnoreCase)  
-        let m  = size st
-            fs = music st
+                Just s  -> regcomp s (regExtended + regIgnoreCase)
+        let m  = 1 + (snd . bounds $ folders st)
+            fs = folders st
             loop n
                 | n >= m    = return Nothing
-                | otherwise = P.unsafeUseAsCString (fbase $ fs ! n) $ \s -> do
+                | otherwise = P.unsafeUseAsCString (dname $ fs ! n) $ \s -> do
                     v <- regexec p s 0
                     case v of
                         Nothing -> loop $! n+1
                         Just _  -> return $ Just n
-        mi <- loop (1 + cursor st)  -- start here (don't loop back)
+
+        mi <- loop $ 1 + fdir (music st ! cursor st)
+
         let st' = st { regex = Just p }
-        return $ case mi of
-            Nothing -> (st',False)
-            Just i  -> (st' { cursor = i }, True)
+        case mi of
+            Nothing -> hPutStrLn stderr "not found" >> return (st',False)
+            Just i  -> return (st' { cursor = dlo (folders st ! i) }, True)
     when (not found) $ putmsg (Plain "No match found.") >> touchState
 
 -- | Show/hide the help window

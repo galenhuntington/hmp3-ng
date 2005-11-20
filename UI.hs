@@ -46,6 +46,7 @@ module UI (
   )   where
 
 import Style
+import FastIO
 import Tree
 import State
 import Syntax hiding (draw)
@@ -378,6 +379,10 @@ instance Element PlayModes where
 instance Element PlayInfo where
     draw _ _ st _ = PlayInfo $ percent
         `P.append` P.packAddress " ("# 
+        `P.append` P.pack (show . snd . bounds $ folders st)
+        `P.append` P.packAddress " dir"# 
+        `P.append` (if (snd . bounds $ folders st) == 1 then P.empty else P.packAddress "s"#) 
+        `P.append` P.packAddress ", "# 
         `P.append` P.pack (show . size $ st)
         `P.append` P.packAddress " file"# 
         `P.append` (if size st == 1 then P.empty else P.packAddress "s"#) 
@@ -447,15 +452,32 @@ instance Element PlayList where
                             then this - top -- playing song is visible
                             else (-1)
 
+            -- visible slice of the playlist
             visible = slice off (off + buflen) songs
                 where off = screens * buflen
 
-            mchop s | P.length s > (x-4) = P.take (x - 4) s `P.append` ellipsis
-                    | otherwise          = s
-    
+            -- todo: put dir on its own line
+            visible' :: [(Maybe Int, P.FastString)]
+            visible' = loop (-1) visible
+                where  loop _ []     = []
+                       loop n (v:vs) = 
+                            let r = if fdir v > n then Just (fdir v) else Nothing
+                            in (r,fbase v) : loop (fdir v) vs
+                          
             list   = [ uncurry color n
-                     | n <- zip (map (mchop.fbase) visible) [0..] ]
+                     | n <- zip (map drawIt visible') [0..] ]
 
+            indent = (round $ (0.3 :: Float) * fromIntegral x) :: Int
+
+            drawIt :: (Maybe Int, P.FastString) -> P.FastString
+            drawIt (Nothing,v) = (P.pack $ replicate (1 + indent) ' ') `P.append` (mchop v)
+            drawIt (Just i ,b) = d' `P.append` (mchop b)
+                where
+                    d = basenameP . dname $ folders st ! i
+                    d' | P.length d > indent-1 = P.take (indent+1-4) d `P.append` (P.init ellipsis) `P.append` P.pack "/"
+                       | otherwise             = d `P.append` ('/' `P.cons` spc)
+                    spc = P.pack $ replicate (indent - P.length d) ' '
+                
             color s i 
                 | i == select && i == playing
                 = Fast (s `P.append` P.pack (replicate (x - P.length s) ' ')) sty3
@@ -468,6 +490,9 @@ instance Element PlayList where
                     sty1 = selected . style $ config
                     sty2 = cursors  . style  $ config
                     sty3 = combined . style $ config
+
+            mchop s | P.length s > (x-indent-4-1) = P.take (x-indent-4-1) s `P.append` ellipsis
+                    | otherwise = s
 
 --
 -- | Decode the list of current tracks
