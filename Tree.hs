@@ -63,7 +63,7 @@ data File = File { fbase :: !FilePathP      -- ^ basename of file
 --
 buildTree :: [FilePathP] -> IO (DirArray, FileArray)
 buildTree fs = do
-    (_,dirs) <- partition fs    -- silently discard any extra .mp3s on the cmd line!
+    (os,dirs) <- partition fs    -- silently discard any extra .mp3s on the cmd line!
 
     let loop []     = return []
         loop (a:xs) = do
@@ -71,13 +71,21 @@ buildTree fs = do
             ms     <- loop $! ds ++ xs  -- add to work list
             return $! m : ms
 
-    ms <- liftM catMaybes $! loop dirs
+    ms' <- liftM catMaybes $! loop dirs
 
-    let (_,n,dirls,filels) = foldl make (0,0,[],[]) ms
+    let extras = doOrphans os
+        ms = ms' ++ extras
+
+    let (_,n,dirls,filels) = foldl' make (0,0,[],[]) ms
         dirsArray = listArray (0,length dirls - 1) (reverse dirls)
         fileArray = listArray (0, n-1) (reverse filels)
 
     return $! (dirsArray, fileArray)
+
+    where
+      doOrphans :: [FilePathP] -> [(FilePathP, [FilePathP])]
+      doOrphans []     = []
+      doOrphans (f:xs) = (dirnameP f, [basenameP f]) : doOrphans xs
 
 -- | fold builder, for generating Dirs and Files
 make :: (Int,Int,[Dir],[File]) -> (FilePathP,[FilePathP]) -> (Int,Int,[Dir],[File])

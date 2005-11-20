@@ -52,6 +52,11 @@ basenameP fps = case P.elemIndexLast '/' fps of
     Nothing -> fps
     Just i  -> P.drop (i+1) fps
 
+dirnameP :: P.FastString -> P.FastString
+dirnameP fps = case P.elemIndexLast '/' fps of
+    Nothing -> fps
+    Just i  -> P.take i fps
+
 --
 -- | Packed version of get args.
 --
