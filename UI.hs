@@ -62,6 +62,7 @@ import Data.Char
 import System.IO
 import Text.Printf
 import qualified Control.Exception
+import Foreign.C.String
 
 import Data.Array
 import Data.Array.Base  ( unsafeAt )
@@ -542,7 +543,19 @@ redraw =
    f <- readClock id
    let x = {-# SCC "redraw.playscreen" #-} printPlayScreen (draw sz (0,0) s f :: PlayScreen)
        y = {-# SCC "redraw.playlist" #-} printPlayList   (draw sz (length x,0) s f :: PlayList)
+       (PMode pm) = draw sz (0,0) s f :: PMode
        a = x ++ y
+
+   -- set xterm title (should have an instance Element)
+   setXtermTitle $ pm `P.append` 
+        if status s == Playing
+            then P.packAddress ": "# `P.append` 
+                    case id3 s of
+                        Nothing -> (fbase $ music s ! current s)
+                        Just ti -> id3artist ti `P.append` 
+                                   (P.packAddress ": "# `P.append` id3title ti)
+            else P.empty
+   
    gotoTop
    {-# SCC "redraw.draw" #-}mapM_ (\t -> do drawLine w t
                                             (y',x') <- Curses.getYX Curses.stdScr
@@ -620,4 +633,11 @@ slice :: Int -> Int -> Array Int e -> [e]
 slice i j arr = 
     let (a,b) = bounds arr
     in [unsafeAt arr n | n <- [max a i .. min b j] ]
+
+------------------------------------------------------------------------
+
+setXtermTitle :: P.FastString -> IO ()
+setXtermTitle s = P.unsafeUseAsCString s $ c_setxterm
+
+foreign import ccall safe "utils.h setxterm" c_setxterm :: CString -> IO ()
 

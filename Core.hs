@@ -467,4 +467,3 @@ warnA = putmsg . Fancy . map (\c -> A c (warnings (style config))) . concat . ta
 
 -- unsafeWarnA :: State -> String -> State
 -- unsafeWarnA st s = st { minibuffer = Fancy (map (\c -> A c (warnings (style config))) s) }
-
