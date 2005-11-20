@@ -38,7 +38,7 @@ import Style
 import Config
 import Utils
 import FastIO       ( fdToCFile )
-import Tree
+import Tree hiding (File)
 import Regex
 import qualified UI
 
@@ -295,10 +295,10 @@ pause = withState $ \st -> send (pipe st) Pause
 -- | Load and play the song under the cursor
 play :: IO ()
 play = modifyState_ $ \st -> do
-    let i     = cursor st
-        m     = music st
-        (f,_) = m ! i
-        st'   = st { current = i, status = Playing }
+    let i    = cursor st
+        m    = music st
+        f    = fpath $ m ! i
+        st'  = st { current = i, status = Playing }
     send (pipe st) (Load f)
     return st'
 
@@ -312,15 +312,15 @@ playNext = modifyState_ $ \st -> do
         m   = music st
     case () of {_ 
         | i < size st - 1          -- successor
-        -> let (f,_) = m ! (i + 1)
+        -> let f     = fpath $ m ! (i + 1)
                st'   = st { current = i + 1
                           , status = Playing
                           , cursor = if i == j then i + 1 else j } 
            in send (pipe st) (Load f) >> return st'
 
         | mode st == Loop           -- else loop
-        -> let (f,_) = m ! 0
-               st'   = st { current = 0, status = Playing
+        -> let  f    = fpath $ m ! 0
+                st'  = st { current = 0, status = Playing
                           , cursor = if i == j then 0 else j } 
            in send (pipe st) (Load f) >> return st'
 
@@ -335,8 +335,8 @@ playRandom = modifyState_ $ \st -> do
         j   = cursor  st
         m   = music st
     n <- getStdRandom (randomR (0, size st -1)) -- memoise length m?
-    let (f,_) = m ! n
-        st'   = st { current = n
+    let  f    = fpath $ m ! n
+         st'  = st { current = n
                    , status = Playing
                    , cursor = if i == j then n else j }
     send (pipe st) (Load f)
@@ -363,7 +363,7 @@ jumpToMatch re = do
             fs = music st
             loop n
                 | n >= m    = return Nothing
-                | otherwise = P.unsafeUseAsCString (snd $ fs ! n) $ \s -> do
+                | otherwise = P.unsafeUseAsCString (fbase $ fs ! n) $ \s -> do
                     v <- regexec p s 0
                     case v of
                         Nothing -> loop $! n+1

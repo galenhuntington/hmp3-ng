@@ -46,6 +46,7 @@ module UI (
   )   where
 
 import Style
+import Tree
 import State
 import Syntax hiding (draw)
 import Config
@@ -246,7 +247,7 @@ instance Element PPlaying where
 -- | Id3 Info
 instance Element PId3 where
     draw _ _ st _ = case id3 st of
-        Nothing -> PId3 . snd $! (music st) ! (current st)
+        Nothing -> PId3 . fbase $! (music st) ! (current st)
         Just i  -> PId3 $! id3str i
 
 -- | mp3 information
@@ -453,7 +454,7 @@ instance Element PlayList where
                     | otherwise          = s
     
             list   = [ uncurry color n
-                     | n <- zip (map (mchop.snd) visible) [0..] ]
+                     | n <- zip (map (mchop.fbase) visible) [0..] ]
 
             color s i 
                 | i == select && i == playing
