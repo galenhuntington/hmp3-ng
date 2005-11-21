@@ -73,7 +73,7 @@ buildTree fs = do
 
     ms' <- liftM catMaybes $! loop dirs
 
-    let extras = doOrphans os
+    let extras = merge . doOrphans $ os
         ms = ms' ++ extras
 
     let (_,n,dirls,filels) = foldl' make (0,0,[],[]) ms
@@ -82,11 +82,23 @@ buildTree fs = do
 
     return $! (dirsArray, fileArray)
 
-    where
-      doOrphans :: [FilePathP] -> [(FilePathP, [FilePathP])]
-      doOrphans []     = []
-      doOrphans (f:xs) = (dirnameP f, [basenameP f]) : doOrphans xs
+-- | Create nodes based on dirname for orphan files on cmdline
+doOrphans :: [FilePathP] -> [(FilePathP, [FilePathP])]
+doOrphans []     = []
+doOrphans (f:xs) = (dirnameP f, [basenameP f]) : doOrphans xs
 
+-- | Merge entries with the same root node into a single node
+merge :: [(FilePathP, [FilePathP])] -> [(FilePathP, [FilePathP])]
+merge [] = []
+merge xs = 
+    let xs' = sortBy  (\a b -> fst a `compare` fst b) xs 
+        xs''= groupBy (\a b -> fst a == fst b) xs'
+    in catMaybes $ map flatten xs''
+  where
+    flatten :: [(FilePathP,[FilePathP])] -> Maybe (FilePathP, [FilePathP])
+    flatten []     = Nothing    -- can't happen
+    flatten (x:ys) = let d = fst x in Just (d, snd x ++ concatMap snd ys)
+        
 -- | fold builder, for generating Dirs and Files
 make :: (Int,Int,[Dir],[File]) -> (FilePathP,[FilePathP]) -> (Int,Int,[Dir],[File])
 make (i,n,acc1,acc2) (d,fs) = 
