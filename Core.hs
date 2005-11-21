@@ -120,7 +120,8 @@ start ms =
 
         -- start the main loop
         filep <- fdToCFile r
-        run filep
+
+        run filep   -- won't restart if this fails!
         shutdown
 
     where

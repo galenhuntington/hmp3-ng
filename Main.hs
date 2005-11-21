@@ -71,7 +71,7 @@ releaseSignals =
 
 -- usage string.
 usage :: [String]
-usage = ["Usage: hmp3 [option...] [file|dir]*"
+usage = ["Usage: hmp3 [-Vh] [FILE|DIR ...]"
         ,"-V             Show version information"
         ,"-h             Show this help"]
 
