@@ -685,5 +685,4 @@ slice i j arr =
 setXtermTitle :: P.FastString -> IO ()
 setXtermTitle s = P.hPut stderr pstr >> hFlush stderr
   where
-    pstr = P.packAddress "\ESC]0;"# `P.append` s `P.append` P.packAddress "\007"#
-
+    pstr = P.pack (printf "\ESC]0;%s\007" (P.unpack s))
