@@ -68,8 +68,3 @@ FILE *openfd(int fd) {
          return NULL;
     }
 }
-
-/* printf wrapper */
-void setxterm(char *p) {
-    printf("\033]0;%s\a", p);
-}

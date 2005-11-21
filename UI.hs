@@ -69,7 +69,6 @@ import Text.Printf
 
 import Control.Monad
 import qualified Control.Exception
-import Foreign.C.String
 
 import System.Posix.Signals         ( raiseSignal, sigTSTP )
 import System.Posix.Env
@@ -645,7 +644,11 @@ slice i j arr =
 
 ------------------------------------------------------------------------
 
+--
+-- | magics for setting xterm titles using ansi escape sequences
+--
 setXtermTitle :: P.FastString -> IO ()
-setXtermTitle s = P.unsafeUseAsCString s $ c_setxterm
+setXtermTitle s = P.hPut stderr pstr >> hFlush stderr
+  where
+    pstr = P.packAddress "\ESC]0;"# `P.append` s `P.append` P.packAddress "\007"#
 
-foreign import ccall safe "utils.h setxterm" c_setxterm :: CString -> IO ()
