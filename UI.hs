@@ -472,34 +472,55 @@ instance Element PlayList where
                             let r = if fdir v > n then Just (fdir v) else Nothing
                             in (r,fbase v) : loop (fdir v) vs
                           
-            list   = [ uncurry color n
-                     | n <- zip (map drawIt visible') [0..] ]
+            -- problem: we color *after* merging with directories
+         -- list   = [ uncurry color n
+         --          | n <- zip (map drawIt visible') [0..] ]
+
+            list   = [ drawIt . color $ n | n <- zip visible' [0..] ]
 
             indent = (round $ (0.3 :: Float) * fromIntegral x) :: Int
-
-            drawIt :: (Maybe Int, P.FastString) -> P.FastString
-            drawIt (Nothing,v) = (P.pack $ replicate (1 + indent) ' ') `P.append` (mchop v)
-            drawIt (Just i ,b) = d' `P.append` (mchop b)
-                where
-                    d = basenameP . dname $ folders st ! i
-                    d' | P.length d > indent-1 = P.take (indent+1-4) d `P.append` (P.init ellipsis) `P.append` P.pack "/"
-                       | otherwise             = d `P.append` ('/' `P.cons` spc)
-                    spc = P.pack $ replicate (indent - P.length d) ' '
                 
-            color s i 
+            color :: ((Maybe Int,P.FastString),Int) -> (Maybe Int, StringA)
+            color ((m,s),i) 
                 | i == select && i == playing
-                = Fast (s `P.append` P.pack (replicate (x - P.length s) ' ')) sty3
+                = (m,Fast (s `P.append` P.pack (replicate (x - P.length s) ' ')) sty3)
                 | i == select
-                = Fast (s `P.append` P.pack (replicate (x - P.length s) ' ')) sty2
+                = (m,Fast (s `P.append` P.pack (replicate (x - P.length s) ' ')) sty2)
                 | i == playing
-                = Fast (s `P.append` P.pack (replicate (x - P.length s) ' ')) sty1
-                | otherwise = Fast s (Style Default Default)
-                where
-                    sty1 = selected . style $ config
-                    sty2 = cursors  . style  $ config
-                    sty3 = combined . style $ config
+                = (m,Fast (s `P.append` P.pack (replicate (x - P.length s) ' ')) sty1)
+                | otherwise 
+                = (m,Fast s (Style Default Default))
+            
+            sty1 = selected . style $ config
+            sty2 = cursors  . style  $ config
+            sty3 = combined . style $ config
 
-            mchop s | P.length s > (x-indent-4-1) = P.take (x-indent-4-1) s `P.append` ellipsis
+            drawIt :: (Maybe Int, StringA) -> StringA
+
+            drawIt (Nothing,Fast v sty) = 
+                Fast ((P.pack $ replicate (1 + indent) ' ') `P.append` (mchop v)) sty
+
+            drawIt (Just i ,Fast b sty) = Fancy (pref ++ post)
+              where
+                pref = if sty == sty2 || sty == sty3
+                        then map (flip A sty2) . P.unpack $ d' 
+                        else map C . P.unpack $ d' 
+                post = map (flip A sty) . P.unpack . mchop $ b
+
+                d   = basenameP . dname $ folders st ! i
+                spc = P.pack $ replicate (indent - P.length d) ' '
+
+                d' | P.length d > indent-1 
+                   = P.take (indent+1-4) d 
+                   `P.append` (P.init ellipsis) 
+                   `P.append` P.pack "/"
+
+                   | otherwise = d `P.append` ('/' `P.cons` spc)
+
+            drawIt _ = error "UI.drawIt: color gaves us a non-Fast StringA!"
+
+            mchop s | P.length s > (x-indent-4-1) 
+                    = P.take (x-indent-4-1) s `P.append` ellipsis
                     | otherwise = s
 
 --
