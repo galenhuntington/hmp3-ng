@@ -64,6 +64,7 @@ import Foreign.Ptr              ( Ptr )
 
 import System.Directory
 import System.Posix.User        ( getUserEntryForID, getRealUserID, homeDirectory )
+import System.Posix.Process     ( exitImmediately )
 
 import GHC.Base
 import GHC.Handle
@@ -122,7 +123,7 @@ start ms =
         filep <- fdToCFile r
 
         run filep   -- won't restart if this fails!
-        shutdown
+        shutdown    -- can this even happen?
 
     where
         isOK (ExitException ExitSuccess) = True
@@ -181,17 +182,16 @@ start ms =
 -- Expensive. Should use packed strings.
 --
 run :: Ptr CFile -> IO ()
-run p = do
-    handle (\e -> warnA e >> return ()) $ do
-        res <- parser p
-        case res of
-            Right m -> handleMsg m
-            Left e  -> warnA e  -- error from pipe
-        run p
+run p = handle (\e -> warnA e >> return ()) $ do
+    res <- parser p
+    case res of
+        Right m -> handleMsg m
+        Left e  -> warnA e  -- error from pipe
+    run p
 
 -- | Close most things. Important to do all the jobs:
 shutdown :: IO ()
-shutdown = handle (\e -> hPutStrLn stderr (show e) >> return ()) $ 
+shutdown = handle (\e -> hPutStrLn stderr (show e) >> return ()) $ do
     modifyState_ $ \st -> do
         UI.end (xterm st)
 
@@ -211,6 +211,8 @@ shutdown = handle (\e -> hPutStrLn stderr (show e) >> return ()) $
             catch (killThread t) (\_ -> return ())      -- and kill threads
 
         return st { mp3pid = (-1){-?-}, threads = [] }
+
+    exitImmediately ExitSuccess -- much cleaner way out
 
 ------------------------------------------------------------------------
 -- 
