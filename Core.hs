@@ -192,7 +192,8 @@ run p = do
 shutdown :: IO ()
 shutdown = handle (\e -> hPutStrLn stderr (show e) >> return ()) $ 
     modifyState_ $ \st -> do
-        UI.end
+        UI.end (xterm st)
+
         let pid = mp3pid st
             tds = threads st
 

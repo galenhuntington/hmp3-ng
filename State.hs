@@ -61,6 +61,7 @@ data State = State {
        ,uptime          :: !P.FastString
        ,boottime        :: !ClockTime
        ,regex           :: Maybe (Regex,Bool)   -- most recent search pattern and direction
+       ,xterm           :: !Bool
     }
 
 data Mode = Normal | Random | Loop deriving (Eq,Bounded,Enum) -- for pred,succ
@@ -89,6 +90,7 @@ emptySt = State {
        ,uptime       = P.empty
        ,boottime     = TOD 0 0
        ,regex        = Nothing
+       ,xterm        = False
     }
 
 --

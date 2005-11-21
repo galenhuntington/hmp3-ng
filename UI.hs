@@ -39,6 +39,7 @@ module UI (
 
         -- * Construction, destruction
         start, end, suspend, screenSize, refresh, refreshClock, resetui,
+        setXtermTitle,
 
         -- * Input
         getKey
@@ -55,17 +56,20 @@ import qualified Curses
 
 import {-# SOURCE #-} Keymap
 
-import Control.Monad
 import Data.IORef
 import Data.List
+import Data.Maybe
 import Data.Char
-import System.IO
-import Text.Printf
-import qualified Control.Exception
-import Foreign.C.String
-
 import Data.Array
 import Data.Array.Base  ( unsafeAt )
+
+import System.IO
+
+import Text.Printf
+
+import Control.Monad
+import qualified Control.Exception
+import Foreign.C.String
 
 import System.Posix.Signals         ( raiseSignal, sigTSTP )
 import System.Posix.Env
@@ -78,9 +82,12 @@ import qualified Data.FastPackedString as P
 start :: IO ()
 start = do
     Control.Exception.handle (const $ return ()) $ do -- tweak for OpenBSD console
-        term <- getEnv "TERM"
-        case term of Just "vt220" -> putEnv "TERM=xterm-color"
-                     _            -> return ()
+        thisterm <- getEnv "TERM"
+        case thisterm of 
+            Just "vt220" -> putEnv "TERM=xterm-color"
+            Just t | "xterm" `isPrefixOf` t 
+                   -> modifyState_ $ \st -> return st { xterm = True }
+            _ -> hPutStrLn stderr "not in an xterm"
 
     Curses.initCurses resetui
 
@@ -118,8 +125,9 @@ initcolours sty = do
 --
 -- | Clean up and go home. Refresh is needed on linux. grr.
 --
-end :: IO ()
-end = Curses.endWin
+end :: Bool -> IO ()
+end isXterm = do Curses.endWin
+                 when isXterm $ setXtermTitle (P.packAddress "xterm"#)
 
 --
 -- | Suspend the program
@@ -547,14 +555,15 @@ redraw =
        a = x ++ y
 
    -- set xterm title (should have an instance Element)
-   setXtermTitle $ pm `P.append` 
-        if status s == Playing
-            then P.packAddress ": "# `P.append` 
-                    case id3 s of
-                        Nothing -> (fbase $ music s ! current s)
-                        Just ti -> id3artist ti `P.append` 
-                                   (P.packAddress ": "# `P.append` id3title ti)
-            else P.empty
+   when (xterm s) $ do
+       setXtermTitle $ pm `P.append` 
+            if status s == Playing
+                then P.packAddress ": "# `P.append` 
+                        case id3 s of
+                            Nothing -> (fbase $ music s ! current s)
+                            Just ti -> id3artist ti `P.append` 
+                                       (P.packAddress ": "# `P.append` id3title ti)
+                else P.empty
    
    gotoTop
    {-# SCC "redraw.draw" #-}mapM_ (\t -> do drawLine w t
@@ -640,4 +649,3 @@ setXtermTitle :: P.FastString -> IO ()
 setXtermTitle s = P.unsafeUseAsCString s $ c_setxterm
 
 foreign import ccall safe "utils.h setxterm" c_setxterm :: CString -> IO ()
-
