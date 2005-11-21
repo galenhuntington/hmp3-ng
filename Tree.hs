@@ -136,7 +136,7 @@ expandDir f = do
 --
 listToDir :: Int -> FilePathP -> [FilePathP] -> (Dir, Int)
 listToDir n d fs = 
-        let dir = Dir { dname = d
+        let dir = Dir { dname = packedFileNameEndClean d
                       , dsize = len
                       , dlo   = n
                       , dhi   = n + len - 1 } in (dir, n')
