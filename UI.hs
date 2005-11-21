@@ -476,38 +476,38 @@ instance Element PlayList where
          -- list   = [ uncurry color n
          --          | n <- zip (map drawIt visible') [0..] ]
 
-            list   = [ drawIt . color $ n | n <- zip visible' [0..] ]
+            list   = [ drawIt . color . mchop $ n | n <- zip visible' [0..] ]
 
             indent = (round $ (0.3 :: Float) * fromIntegral x) :: Int
                 
             color :: ((Maybe Int,P.FastString),Int) -> (Maybe Int, StringA)
             color ((m,s),i) 
-                | i == select && i == playing
-                = (m,Fast (s `P.append` P.pack (replicate (x - P.length s) ' ')) sty3)
-                | i == select
-                = (m,Fast (s `P.append` P.pack (replicate (x - P.length s) ' ')) sty2)
-                | i == playing
-                = (m,Fast (s `P.append` P.pack (replicate (x - P.length s) ' ')) sty1)
-                | otherwise 
-                = (m,Fast s (Style Default Default))
+                | i == select && i == playing = f sty3
+                | i == select                 = f sty2
+                | i == playing                = f sty1
+                | otherwise                   = (m,Fast s (Style Default Default))
+                where
+                    f sty = (m,Fast (s `P.append` 
+                            P.pack (replicate (x - indent-1 - P.length s) ' ')) sty)
             
             sty1 = selected . style $ config
             sty2 = cursors  . style  $ config
             sty3 = combined . style $ config
 
+            -- must mchop before drawing.
             drawIt :: (Maybe Int, StringA) -> StringA
-
             drawIt (Nothing,Fast v sty) = 
-                Fast ((P.pack $ replicate (1 + indent) ' ') `P.append` (mchop v)) sty
+                Fast ((P.pack $ replicate (1 + indent) ' ') `P.append` v) sty
 
             drawIt (Just i ,Fast b sty) = Fancy (pref ++ post)
               where
                 pref = if sty == sty2 || sty == sty3
                         then map (flip A sty2) . P.unpack $ d' 
                         else map C . P.unpack $ d' 
-                post = map (flip A sty) . P.unpack . mchop $ b
+                post = map (flip A sty) . P.unpack $ b
 
                 d   = basenameP . dname $ folders st ! i
+
                 spc = P.pack $ replicate (indent - P.length d) ' '
 
                 d' | P.length d > indent-1 
@@ -519,9 +519,11 @@ instance Element PlayList where
 
             drawIt _ = error "UI.drawIt: color gaves us a non-Fast StringA!"
 
-            mchop s | P.length s > (x-indent-4-1) 
-                    = P.take (x-indent-4-1) s `P.append` ellipsis
-                    | otherwise = s
+            mchop :: ((Maybe Int,P.FastString),Int) -> ((Maybe Int,P.FastString),Int) 
+            mchop a@((i,s),j)
+                | P.length s > (x-indent-4-1) 
+                = ((i, P.take (x-indent-4-1) s `P.append` ellipsis),j)
+                | otherwise = a
 
 --
 -- | Decode the list of current tracks
