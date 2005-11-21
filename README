@@ -1,15 +1,26 @@
 
-           hmp3 : an ncurses mp3 player written in Haskell
+            hmp3 : an ncurses mp3 player written in Haskell
+          ---------------------------------------------------
 
 Dependencies:
-        The mpg321 program  ( http://mpg321.sourceforge.net/ )
-        The fps library     ( http://www.cse.unsw.edu.au/~dons/fps.html )
+    The mpg321 program  ( http://mpg321.sourceforge.net/ )
+    The fps library     ( http://www.cse.unsw.edu.au/~dons/fps.html )
 
 Building:
-        $ chmod +x configure Setup.lhs
-        $ ./Setup.lhs configure --prefix=/home/dons
-        $ ./Setup.lhs build
-        $ ./Setup.lhs install
+    $ chmod +x configure Setup.lhs
+    $ ./Setup.lhs configure --prefix=/home/dons
+    $ ./Setup.lhs build
+    $ ./Setup.lhs install
+
+Use:
+    Type 'h' to display the help page. The current playlist can be saved to
+    with 'w', and will be used by default if you start hmp3 without any
+    arguments. The other commands are explained on the help screen.
+
+Limitations:
+    It only plays mp3 files (and variants supported by mpg{321,123}.  If
+    mpg321 fails for some reason, hmp3 doesn't attempt to restart it, (an
+    error message will be dumped to stderr).
 
 License:
         GPL
