@@ -24,6 +24,7 @@ int get_color_pair (int pair) {
 
 int frame_count = 0;    /* we count frame packets, and drop 19/20 of them */
 
+/* sometimes we write to the wrong spot after a refresh */
 int getline(char *buf, FILE *hdl) { 
     char *p;
     int c;
@@ -49,7 +50,7 @@ int getline(char *buf, FILE *hdl) {
         //  perror("getline failed\n");
             return (-1);
         }
-        buf[0] = c;   
+        buf[0] = c;         /* drop the '@' */
         return strlen(buf); /* return length so we can realloc */
     }
 }

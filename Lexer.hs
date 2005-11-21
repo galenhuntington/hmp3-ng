@@ -130,8 +130,9 @@ doI s = let f = P.dropSpaceEnd . P.dropSpace . P.drop 2 $ s
 --
 parser :: Ptr CFile -> IO (Either String Msg)
 parser h = do
-    s' <- getFilteredPacket h
-    let s = P.dropWhile (== '@') s'
+    s' <- do x <- getFilteredPacket h
+             return $ if '@' `P.elem` x then P.dropWhile (/= '@') x else x -- drop any weirdness
+    let s = P.dropWhile (== '@') s' -- drop any redundant '@'
     return $ case P.head s of
         'R' -> Right $ T Tag
         'I' -> Right $ doI s
