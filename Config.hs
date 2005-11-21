@@ -60,7 +60,7 @@ package = "hmp3"
 versinfo :: String
 versinfo  = package++" "++ version++"p"++(show (PATCH_COUNT :: Int))
         where version :: String
-              version = "0"
+              version = "0.1"
 
 darcsinfo :: String
 darcsinfo = "darcs get "++ REPO_PATH
