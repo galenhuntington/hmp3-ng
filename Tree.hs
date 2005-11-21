@@ -63,7 +63,7 @@ data File = File { fbase :: !FilePathP      -- ^ basename of file
 --
 buildTree :: [FilePathP] -> IO (DirArray, FileArray)
 buildTree fs = do
-    (os,dirs) <- partition fs    -- silently discard any extra .mp3s on the cmd line!
+    (os,dirs) <- partition fs    -- note we will lose the ordering of files given on cmd line.
 
     let loop []     = return []
         loop (a:xs) = do
