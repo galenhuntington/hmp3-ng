@@ -527,14 +527,26 @@ ellipsis = P.packAddress "... "#
 redrawJustClock :: IO ()
 redrawJustClock = withState $ \st -> do
    fr      <- readClock id
-   s@(_,w) <- screenSize
+   s@(h,w) <- screenSize
    let (ProgressBar bar) = draw s undefined st fr :: ProgressBar
        (PTimes times)    = draw s undefined st fr :: PTimes
    Curses.wMove Curses.stdScr 1 0   -- hardcoded!
    drawLine w bar
    Curses.wMove Curses.stdScr 2 0   -- hardcoded!
    drawLine w times
-   return ()
+
+   -- and draw the help screen if it is up
+   when (helpVisible st) $ do
+       let (HelpScreen help) = draw s (0,0) st fr :: HelpScreen
+           (Fast fps _)      = head help
+           offset            = (w - (P.length fps)) `div` 2
+           height            = (h - length help) `div` 2
+
+       when (height > 0) $ do
+            Curses.wMove Curses.stdScr ((h - length help) `div` 2) offset
+            mapM_ (\t -> do drawLine w t
+                            (y',_) <- Curses.getYX Curses.stdScr
+                            Curses.wMove Curses.stdScr (y'+1) offset) help
 
 ------------------------------------------------------------------------
 
