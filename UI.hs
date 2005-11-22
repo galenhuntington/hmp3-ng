@@ -86,7 +86,7 @@ start = do
             Just "vt220" -> putEnv "TERM=xterm-color"
             Just t | "xterm" `isPrefixOf` t 
                    -> modifyState_ $ \st -> return st { xterm = True }
-            _ -> hPutStrLn stderr "not in an xterm"
+            _ -> return ()
 
     Curses.initCurses resetui
 
