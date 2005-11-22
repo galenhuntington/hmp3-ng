@@ -36,7 +36,7 @@ import GHC.Base
 ------------------------------------------------------------------------
 
 doP :: P.FastString -> Msg
-doP s = S $! case P.head . P.drop 2 $ s of
+doP s = S $! case P.head . P.tail $ s of
                 '0' -> Stopped
                 '1' -> Paused
                 '2' -> Playing
@@ -51,13 +51,13 @@ doF s = R $ Frame {
               , timeLeft     = f 3
            }
         where
-          fs  = P.split ' ' . P.drop 2 $ s
+          fs  = P.split ' ' . P.tail $ s
           f n = (read $ P.unpack x, read $ P.unpack y) 
             where [x,y] = P.split '.' (fs !! n)
 
 -- Outputs information about the mp3 file after loading.
 doS :: P.FastString -> Msg
-doS s = let fs = P.split ' ' . P.drop 2 $ s
+doS s = let fs = P.split ' ' . P.tail $ s
         in I $ Info { 
                   version       = fs !! 0
                 , layer         = read . P.unpack $ fs !! 1
@@ -83,7 +83,7 @@ doS s = let fs = P.split ' ' . P.drop 2 $ s
 -- Track info if ID fields are in the file, otherwise file name.
 -- 30 chars per field?
 doI :: P.FastString -> Msg
-doI s = let f = P.dropSpaceEnd . P.dropSpace . P.drop 2 $ s 
+doI s = let f = P.dropSpaceEnd . P.dropSpace . P.tail $ s 
         in case P.take 4 f of
             cs | cs == p "ID3:"# -> F . File . Right . toId id3 . splitUp . P.drop 4 $ f
                | otherwise       -> F . File . Left $ f
@@ -97,7 +97,7 @@ doI s = let f = P.dropSpaceEnd . P.dropSpace . P.drop 2 $ s
         splitUp f
             | f == P.empty  = []
             | otherwise     
-            = let (a,xs) = P.splitAt 30 f
+            = let (a,xs) = P.splitAt 30 f   -- we expect it to be 
                   xs'    = splitUp xs
               in a : xs'
 
@@ -116,7 +116,13 @@ doI s = let f = P.dropSpaceEnd . P.dropSpace . P.drop 2 $ s
                              , id3artist = normalise $! ls !! 1
                              , id3album  = normalise $! ls !! 2 }
 
-            in j { id3str = id3artist j `gap` id3album j `gap` id3title j  } 
+            in j { id3str = (id3artist j)
+                        `maybeJoin`
+                            (id3album j)
+                        `maybeJoin`
+                            (id3title j) }
+
+        maybeJoin t f = if P.null f then t `P.append` P.empty else t `gap` f
 
         gap x y = x `P.append` (p " : "#) `P.append` y
 
@@ -130,17 +136,24 @@ doI s = let f = P.dropSpaceEnd . P.dropSpace . P.drop 2 $ s
 --
 parser :: Ptr CFile -> IO (Either String Msg)
 parser h = do
-    s' <- do x <- getFilteredPacket h
-             return $ if '@' `P.elem` x then P.dropWhile (/= '@') x else x -- drop any weirdness
-    let s = P.dropWhile (== '@') s' -- drop any redundant '@'
+    x  <- getFilteredPacket h
+
+    -- normalise the packet
+    let (s,m) = let a    = P.dropWhile (== ' ') x       -- drop any leading whitespace
+                    (b,d)= P.break (== ' ') a           -- split into header and body
+                    b'   = if '@' `P.elem` b 
+                           then P.dropWhile (/= '@') b -- make sure '@' is first char
+                           else b
+                in (P.dropWhile (== '@') b', d)
+
     return $ case P.head s of
         'R' -> Right $ T Tag
-        'I' -> Right $ doI s
-        'S' -> Right $ doS s
-        'F' -> Right $ doF s
-        'P' -> Right $ doP s
-        'E' -> Left $ "mpg321 error: " ++ P.unpack s
-        _   -> Left $ "Strange mpg321 packet: " ++ P.unpack s
+        'I' -> Right $ doI m
+        'S' -> Right $ doS m
+        'F' -> Right $ doF m
+        'P' -> Right $ doP m
+        'E' -> Left $ "mpg321 error: " ++ P.unpack x
+        _   -> Left $ "Strange mpg321 packet: " ++ (show (P.unpack x))
 
 ------------------------------------------------------------------------
 
