@@ -585,19 +585,17 @@ redraw =
    f <- readClock id
    let x = {-# SCC "redraw.playscreen" #-} printPlayScreen (draw sz (0,0) s f :: PlayScreen)
        y = {-# SCC "redraw.playlist" #-} printPlayList   (draw sz (length x,0) s f :: PlayList)
-       (PMode pm) = draw sz (0,0) s f :: PMode
        a = x ++ y
 
    -- set xterm title (should have an instance Element)
    when (xterm s) $ do
-       setXtermTitle $ pm `P.append` 
+       setXtermTitle $ 
             if status s == Playing
-                then P.packAddress ": "# `P.append` 
-                        case id3 s of
-                            Nothing -> (fbase $ music s ! current s)
-                            Just ti -> id3artist ti `P.append` 
-                                       (P.packAddress ": "# `P.append` id3title ti)
-                else P.empty
+                then case id3 s of
+                        Nothing -> (fbase $ music s ! current s)
+                        Just ti -> id3artist ti `P.append` 
+                                   (P.packAddress ": "# `P.append` id3title ti)
+                else let (PMode pm) = draw sz (0,0) s f :: PMode in pm
    
    gotoTop
    {-# SCC "redraw.draw" #-}mapM_ (\t -> do drawLine w t
