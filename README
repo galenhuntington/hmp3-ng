@@ -18,9 +18,7 @@ Use:
     arguments. The other commands are explained on the help screen.
 
 Limitations:
-    It only plays mp3 files (and variants supported by mpg{321,123}.  If
-    mpg321 fails for some reason, hmp3 doesn't attempt to restart it, (an
-    error message will be dumped to stderr).
+    It only plays mp3 files (and variants supported by mpg{321,123}.
 
 License:
         GPL
