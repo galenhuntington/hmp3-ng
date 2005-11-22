@@ -373,32 +373,37 @@ jumpToPrevDir = modifyState_ $ \st -> do
 jumpToMatch :: Maybe (String,Bool) -> IO ()
 jumpToMatch re = do
     found <- modifyState $ \st -> do
-        (p,forwards) <- case re of
+        mre <- case re of   -- work out if we have no pattern, a cached pattern, or a new pattern
                 Nothing -> case regex st of
-                            Nothing -> undefined    -- no previous pattern. harmless
-                            Just (r,d)  -> return (r,d)
+                                Nothing     -> return Nothing
+                                Just (r,d)  -> return $ Just (r,d)
                 Just (s,d)  -> do v <- regcomp s (regExtended + regIgnoreCase + regNewline)
-                                  return (v,d)
+                                  return $ Just (v,d)
 
-        let fs = folders st
-            cur= fdir (music st ! cursor st)
-            m  = 1 + (snd . bounds $ folders st)
+        case mre of 
+            Nothing -> return (st,False)    -- no pattern
+            Just (p,forwards) -> do
 
-            loop fn inc n
-                | fn n      = return Nothing
-                | otherwise = P.unsafeUseAsCString (dname $ fs ! n) $ \s -> do
-                    v <- regexec p s 0
-                    case v of
-                        Nothing -> loop fn inc $! inc n
-                        Just _  -> return $ Just n
+            let fs = folders st
+                cur= fdir (music st ! cursor st)
+                m  = 1 + (snd . bounds $ folders st)
 
-        mi <- if forwards then loop (>=m) (+1) (cur+1) 
-                          else loop (<0) (subtract 1) (cur-1)
+                loop fn inc n
+                    | fn n      = return Nothing
+                    | otherwise = P.unsafeUseAsCString (dname $ fs ! n) $ \s -> do
+                        v <- regexec p s 0
+                        case v of
+                            Nothing -> loop fn inc $! inc n
+                            Just _  -> return $ Just n
 
-        let st' = st { regex = Just (p,forwards) }
-        return $ case mi of
-            Nothing -> (st',False)
-            Just i  -> (st' { cursor = dlo (folders st ! i) }, True)
+            mi <- if forwards then loop (>=m) (+1) (cur+1) 
+                              else loop (<0) (subtract 1) (cur-1)
+
+            let st' = st { regex = Just (p,forwards) }
+            return $ case mi of
+                Nothing -> (st',False)
+                Just i  -> (st' { cursor = dlo (folders st ! i) }, True)
+
     when (not found) $ putmsg (Plain "No match found.") >> touchState
 
 -- | Show/hide the help window
