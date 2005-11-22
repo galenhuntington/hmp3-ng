@@ -59,9 +59,6 @@ import System.Environment       ( getEnv )
 import Control.Concurrent
 import Control.Exception
 
-import Foreign.C.Types          ( CFile )
-import Foreign.Ptr              ( Ptr )
-
 import System.Directory
 import System.Posix.User        ( getUserEntryForID, getRealUserID, homeDirectory )
 import System.Posix.Process     ( exitImmediately )
@@ -76,118 +73,136 @@ import GHC.IOBase               ( unsafeInterleaveIO )
 ------------------------------------------------------------------------
 
 start :: Either (FileArray,DirArray) [P.FastString] -> IO ()
-start ms = 
-    Control.Exception.handle
-        (\e -> do if isOK e then return ()
-                            else do shutdown
-                                    hPutStrLn stderr ("hmp3:start: " ++ show e)
-                                    exitWith (ExitFailure 1)) $ do
+start ms = Control.Exception.handle
+    (\e -> do if isOK e then return ()
+                        else do shutdown
+                                hPutStrLn stderr ("hmp3:start: " ++ show e)
+                                exitWith (ExitFailure 1)) $ do
 
-        -- initialise curses
-        UI.start
+    t0 <- forkIO mpgLoop    -- start this off early, to give mpg321 a time to settle
+    t5 <- forkIO errorLoop
 
-        -- parse args
-        (ds,fs) <- case ms of
-                    Left (fs',ds') -> return (ds',fs')
-                    Right roots    -> buildTree roots
+    UI.start -- initialise curses
 
-        -- fork process first. could fail. pass handles over to threads
-        (r,w,pid) <- popen (MPG321 :: String) ["-R","-"]
+    (ds,fs) <- case ms of -- construct the state
+                Left (fs',ds') -> return (ds',fs')
+                Right roots    -> buildTree roots
 
-        hw <- fdToHandle (unsafeCoerce# w)  -- so we can use Haskell IO
+    now   <- getClockTime
+    modifyState_ $ \s -> return s 
+        { music     = fs
+        , folders   = ds
+        , size      = 1 + (snd . bounds $ fs)
+        , current   = 0
+        , cursor    = 0
+        , uptime    = drawUptime now now
+        , boottime  = now }
 
-        now <- getClockTime
+    -- fork some threads
+    t1 <- forkIO inputLoop
+    t2 <- forkIO refreshLoop
+    t3 <- forkIO clockLoop
+    t4 <- forkIO uptimeLoop
+    modifyState_ $ \s -> return s { threads = [t0,t1,t2,t3,t4,t5] } 
 
-        modifyState_ $ \s -> return s 
-            { mp3pid    = pid
-            , music     = fs
-            , folders   = ds
-            , size      = 1 + (snd . bounds $ fs)
-            , current   = 0
-            , cursor    = 0
-            , uptime    = drawUptime now now
-            , boottime  = now
-            , pipe      = Just hw } 
+    when (0 <= (snd . bounds $ fs)) play -- start the first song
 
-        -- fork some threads
-        t   <- forkIO inputLoop
-        t'  <- forkIO refreshLoop
-        t'' <- forkIO clockLoop
-        t'''<- forkIO uptimeLoop
-        modifyState_ $ \s -> return s { threads = [t,t',t'',t'''] } 
+    run         -- won't restart if this fails!
+    shutdown    -- can this even happen?
 
-        -- start the first song
-        when (0 <= (snd . bounds $ fs)) play
+  where
+    isOK (ExitException ExitSuccess) = True
+    isOK _ = False
 
-        -- start the main loop
-        filep <- fdToCFile r
+    -- | Process loop, launch mpg321, set the handles in the state
+    -- and then wait for the process to die. If it does, restart it.
+    mpgLoop :: IO ()
+    mpgLoop = repeatM_ $ handle (warnA.show) $ do
+        (r,w,e,pid) <- popen (MPG321 :: String) ["-R","-"]
+        hw          <- fdToHandle (unsafeCoerce# w)  -- so we can use Haskell IO
+        ew          <- fdToHandle (unsafeCoerce# e)  -- so we can use Haskell IO
+        filep       <- fdToCFile r                   -- so we can use C IO
+        modifyState_ $ \st -> return st { mp3pid    = pid
+                                        , writeh    = Just hw
+                                        , errh      = Just ew
+                                        , readf     = Just filep 
+                                        , status    = Stopped
+                                        , info      = Nothing
+                                        , id3       = Nothing }
+        Control.Exception.catch (waitForProcess $ unsafeCoerce# pid)
+                                (\_ -> return ExitSuccess)
+        return ()
+        -- and if it returns, loop.
 
-        run filep   -- won't restart if this fails!
-        shutdown    -- can this even happen?
+    -- | When the editor state has been modified, refresh, then wait
+    -- for it to be modified again.
+    refreshLoop :: IO ()
+    refreshLoop = repeatM_ $ handle (warnA.show) $ do
+            takeMVar modified
+            catchJust ioErrors UI.refresh (warnA.show)
 
-    where
-        isOK (ExitException ExitSuccess) = True
-        isOK _ = False
- 
-        -- | When the editor state has been modified, refresh, then wait
-        -- for it to be modified again.
-        refreshLoop :: IO ()
-        refreshLoop = repeatM_ $ handle (\e -> warnA e >> return ()) $ do
-                takeMVar modified
-                catchJust ioErrors UI.refresh warnA
- 
-        -- | Once a minute read the clock time
-        uptimeLoop :: IO ()
-        uptimeLoop = repeatM_ $ handle (\e -> warnA e >> return ()) $ do
-                threadDelay delay 
-                now <- getClockTime 
-                modifyState_ $ \st -> do
-                    let t = drawUptime (boottime st) now
-                 -- hPutStrLn stderr ("TIME " ++ show t)
-                    return st { uptime = t }
-            where
-                delay = 60 * 1000 * 1000 -- 1 minute
+    -- | Once a minute read the clock time
+    uptimeLoop :: IO ()
+    uptimeLoop = repeatM_ $ handle (warnA.show) $ do
+            threadDelay delay 
+            now <- getClockTime 
+            modifyState_ $ \st -> do
+                let t = drawUptime (boottime st) now
+             -- hPutStrLn stderr ("TIME " ++ show t)
+                return st { uptime = t }
+        where
+            delay = 60 * 1000 * 1000 -- 1 minute
 
-        -- | Once each second, wake up a and redraw the clock
-        clockLoop :: IO ()
-        clockLoop = repeatM_ $ handle (\e -> warnA e >> return ()) $ do
-                threadDelay delay 
-            --  hPutStrLn stderr "CLOCK"
-                catchJust ioErrors UI.refreshClock warnA
-            where
-                delay = 500 * 1000 -- 0.5 second
+    -- | Once each second, wake up a and redraw the clock
+    clockLoop :: IO ()
+    clockLoop = repeatM_ $ handle (warnA.show) $ do
+            threadDelay delay 
+        --  hPutStrLn stderr "CLOCK"
+            catchJust ioErrors UI.refreshClock (warnA.show)
+        where
+            delay = 500 * 1000 -- 0.5 second
 
-        -- | Handle keystrokes fed to us by curses
-        inputLoop :: IO ()
-        inputLoop = repeatM_ $ handle handler $ 
-                sequence_ . (keymap config) =<< getKeys
-            where
-                getKeys = unsafeInterleaveIO $ do
-                        c  <- UI.getKey
-                   --   hPutStrLn stderr "INPUT"
-                        cs <- getKeys
-                        return (c:cs) -- A lazy list of curses keys
+    -- | Handle keystrokes fed to us by curses
+    inputLoop :: IO ()
+    inputLoop = repeatM_ $ handle handler $ 
+            sequence_ . (keymap config) =<< getKeys
+      where
+            getKeys = unsafeInterleaveIO $ do
+                    c  <- UI.getKey
+               --   hPutStrLn stderr "INPUT"
+                    cs <- getKeys
+                    return (c:cs) -- A lazy list of curses keys
 
-                handler e | isJust (ioErrors e) = warnA e
-                          | isExitCall e        = throwIO e     -- to main thread?
-                          | otherwise           = warnA e
-          
-                isExitCall (ExitException _) = True
-                isExitCall _ = False
+            handler e | isJust (ioErrors e) = (warnA.show) e
+                      | isExitCall e        = throwIO e     -- to main thread?
+                      | otherwise           = (warnA.show) e
+      
+            isExitCall (ExitException _) = True
+            isExitCall _ = False
 
--- | Main thread, main loop. Handle messages arriving over a pipe from
--- the decoder process. When shutdown kills the other end of the pipe,
--- hGetLine will fail, so we take that chance to exit.
---
--- Expensive. Should use packed strings.
---
-run :: Ptr CFile -> IO ()
-run p = handle (\e -> warnA e >> return ()) $ do
-    res <- parser p
-    case res of
-        Right m -> handleMsg m
-        Left e  -> warnA e  -- error from pipe
-    run p
+    -- | Handle errors produced by mpg321
+    errorLoop :: IO ()
+    errorLoop = repeatM_ $ handle (warnA.show) $ do
+        mh   <- readState errh -- race
+        case mh of
+            Nothing -> warnA "No error handle to mpg321"
+            Just h  -> hGetLine h >>= warnA
+
+    -- | Main thread, main loop. Handle messages arriving over a pipe from
+    -- the decoder process. When shutdown kills the other end of the pipe,
+    -- hGetLine will fail, so we take that chance to exit.
+    run :: IO ()
+    run = repeatM_ $ handle (warnA.show) $ do        -- don't stop
+        mp   <- readState readf -- race
+        case mp of
+            Nothing -> warnA "No handle to mpg321"
+            Just p  -> do 
+                res <- parser p
+                case res of
+                    Right m -> handleMsg m
+                    Left e  -> (warnA.show) e  -- error from pipe
+
+------------------------------------------------------------------------
 
 -- | Close most things. Important to do all the jobs:
 shutdown :: IO ()
@@ -199,7 +214,7 @@ shutdown = handle (\e -> hPutStrLn stderr (show e) >> return ()) $ do
             tds = threads st
 
         handle (\_ -> return ()) $ do
-            send (pipe st) Quit                         -- ask politely
+            send (writeh st) Quit                         -- ask politely
             waitForProcess $ unsafeCoerce# pid          -- wait
             return ()
 
@@ -240,7 +255,7 @@ handleMsg (R f) = do
     b <- isEmptyMVar clockModified
     when (not b) $ do   -- force an immediate update if we've just skipped 
         takeMVar clockModified
-        catchJust ioErrors UI.refreshClock warnA
+        catchJust ioErrors UI.refreshClock (warnA.show)
         return ()
 
 ------------------------------------------------------------------------
@@ -256,7 +271,7 @@ seekLeft        = do
         Nothing -> return ()
         Just (Frame { currentFrame = fr }) -> do
             withState $ \st -> 
-                send (pipe st) $ Jump (max 0 (fr-400))
+                send (writeh st) $ Jump (max 0 (fr-400))
             tryPutMVar clockModified () -- touch the modified MVar
             return ()
 
@@ -268,7 +283,7 @@ seekRight       = do
         Nothing -> return ()
         Just g@(Frame { currentFrame = fr }) -> do
                 withState $ \st -> 
-                    send (pipe st) $ Jump (fr + (min 400 (framesLeft g)))
+                    send (writeh st) $ Jump (fr + (min 400 (framesLeft g)))
                 tryPutMVar clockModified () -- touch the modified MVar
                 return ()
 
@@ -294,7 +309,7 @@ jump i = modifyState_ $ \st -> do
 
 -- | Toggle pause on the current song
 pause :: IO ()
-pause = withState $ \st -> send (pipe st) Pause
+pause = withState $ \st -> send (writeh st) Pause
 
 -- | Load and play the song under the cursor
 play :: IO ()
@@ -303,7 +318,7 @@ play = modifyState_ $ \st -> do
         m    = music st
         f    = let fe = m ! i in (dname $ folders st ! fdir fe) `joinPathP` (fbase fe)
         st'  = st { current = i, status = Playing }
-    send (pipe st) (Load f)
+    send (writeh st) (Load f)
     return st'
 
 -- | Play the song following the current song, if we're not at the end
@@ -320,13 +335,13 @@ playNext = modifyState_ $ \st -> do
                st'   = st { current = i + 1
                           , status = Playing
                           , cursor = if i == j then i + 1 else j } 
-           in send (pipe st) (Load f) >> return st'
+           in send (writeh st) (Load f) >> return st'
 
         | mode st == Loop           -- else loop
         -> let  f    = let fe = m ! 0 in (dname $ folders st ! fdir fe) `joinPathP` (fbase fe)
                 st'  = st { current = 0, status = Playing
                           , cursor = if i == j then 0 else j } 
-           in send (pipe st) (Load f) >> return st'
+           in send (writeh st) (Load f) >> return st'
 
         | otherwise -> return st    -- else stop
     }
@@ -343,7 +358,7 @@ playRandom = modifyState_ $ \st -> do
          st'  = st { current = n
                    , status = Playing
                    , cursor = if i == j then n else j }
-    send (pipe st) (Load f)
+    send (writeh st) (Load f)
     return st'
 
 -- | Shutdown and exit
@@ -471,8 +486,5 @@ clrmsg = unsafeModifyState $ \s -> return s { minibuffer = empty }
 -- showA :: Show a => a -> IO ()
 -- showA = putmsg . Plain . show
 
-warnA :: Show a => a -> IO ()
-warnA = putmsg . Fancy . map (\c -> A c (warnings (style config))) . concat . take 1 . lines . show
-
--- unsafeWarnA :: State -> String -> State
--- unsafeWarnA st s = st { minibuffer = Fancy (map (\c -> A c (warnings (style config))) s) }
+warnA :: String -> IO ()
+warnA x = putmsg $ Fast (P.pack x) (warnings . style $ config)

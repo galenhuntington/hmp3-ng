@@ -33,7 +33,7 @@ module POpen (popen) where
 
 import System.Posix.Types   ( ProcessID, Fd )
 import System.Posix.Process ( forkProcess, executeFile )
-import System.Posix.IO      ( createPipe, stdInput, 
+import System.Posix.IO      ( createPipe, stdInput, stdError,
                               stdOutput, closeFd, dupTo )
 
 --
@@ -45,19 +45,24 @@ import System.Posix.IO      ( createPipe, stdInput,
 -- unix-fork style function, and the modern function has semantics more
 -- like the Awkward-Squad paper. We provide implementations of popen
 -- using both versions, depending on which GHC the user wants to try.
+--
+-- And now a third, we return stderr.
 -- 
-popen :: FilePath -> [String] -> IO (Fd, Fd, ProcessID)
+popen :: FilePath -> [String] -> IO (Fd, Fd, Fd, ProcessID)
 popen cmd args = do
-        (pr, pw) <- createPipe
-        (cr, cw) <- createPipe    
+        (pr, pw)   <- createPipe
+        (cr, cw)   <- createPipe    
+        (cre, cwe) <- createPipe    
 
         -- parent --
         let parent = do closeFd cw
+                        closeFd cwe
                         closeFd pr
         -- child --
         let child  = do closeFd pw
                         closeFd cr 
-                        exec cmd args (pr,cw)
+                        closeFd cre
+                        exec cmd args (pr,cw,cwe)
                         error "exec cmd failed!" -- typing only
 
 #if __GLASGOW_HASKELL__ >= 601
@@ -73,14 +78,16 @@ popen cmd args = do
    --   hcr <- fdToHandle cr
    --   hpw <- fdToHandle pw
 
-        return (cr,pw,pid)
+        return (cr,pw,cre,pid)
 
 --
 -- execve cmd in the child process, dup'ing the file descriptors passed
 -- as arguments to become the child's stdin and stdout.
 --
-exec :: FilePath -> [String] -> (Fd,Fd) -> IO ()
-exec cmd args (pr,cw) = do
+exec :: FilePath -> [String] -> (Fd,Fd,Fd) -> IO ()
+exec cmd args (pr,cw,ce) = do
         dupTo pr stdInput
-        dupTo cw stdOutput
+        dupTo cw stdOutput      -- dup stderr too!
+        dupTo ce stdError       -- dup stderr too!
         executeFile cmd False args Nothing
+

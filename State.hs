@@ -31,6 +31,8 @@ import qualified Data.FastPackedString as P
 import Data.Array               ( listArray )
 import Data.IORef               ( newIORef, readIORef, writeIORef, IORef )
 import System.IO.Unsafe         ( unsafePerformIO )
+import Foreign.C.Types          ( CFile )
+import Foreign.Ptr              ( Ptr )
 
 import Control.Concurrent       ( ThreadId )
 import Control.Concurrent.MVar
@@ -49,7 +51,9 @@ data State = State {
        ,current         :: !Int             -- currently playing mp3
        ,cursor          :: !Int             -- mp3 under the cursor
        ,mp3pid          :: ProcessID        -- pid of decoder
-       ,pipe            :: Maybe Handle     -- r/w pipe to mp3
+       ,writeh          :: Maybe Handle     --  handle to mp3
+       ,errh            :: Maybe Handle     --  error handle to mp3
+       ,readf           :: Maybe (Ptr CFile)-- r/w pipe to mp3
        ,threads         :: [ThreadId]       -- all our threads
        ,id3             :: Maybe Id3        -- maybe mp3 id3 info
        ,info            :: Maybe Info       -- mp3 info
@@ -76,7 +80,9 @@ emptySt = State {
        ,folders      = listArray (0,0) []
        ,size         = 0
        ,mp3pid       = 0
-       ,pipe         = Nothing
+       ,writeh       = Nothing
+       ,errh         = Nothing
+       ,readf        = Nothing
        ,threads      = []
        ,current      = 0
        ,cursor       = 0
@@ -142,6 +148,10 @@ clockModified = unsafePerformIO $ newMVar ()
 -- | Read the state, with an IO action
 withState :: (State -> IO ()) -> IO ()
 withState f = withMVar state $ \ref -> f =<< readIORef ref
+
+-- | Read state
+readState :: (State -> a) -> IO a
+readState f = withMVar state $ \ref -> return . f =<< readIORef ref
 
 -- | Modify the contents, using an IO action.
 modifyState_ :: (State -> IO State) -> IO ()
