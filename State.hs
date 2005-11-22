@@ -66,6 +66,7 @@ data State = State {
        ,boottime        :: !ClockTime
        ,regex           :: Maybe (Regex,Bool)   -- most recent search pattern and direction
        ,xterm           :: !Bool
+       ,doNotResuscitate:: !Bool            -- should we just let mpg321 die?
     }
 
 data Mode = Normal | Random | Loop deriving (Eq,Bounded,Enum) -- for pred,succ
@@ -97,6 +98,7 @@ emptySt = State {
        ,boottime     = TOD 0 0
        ,regex        = Nothing
        ,xterm        = False
+       ,doNotResuscitate = False
     }
 
 --

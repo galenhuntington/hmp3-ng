@@ -117,7 +117,7 @@ start ms = Control.Exception.handle
     -- | Process loop, launch mpg321, set the handles in the state
     -- and then wait for the process to die. If it does, restart it.
     mpgLoop :: IO ()
-    mpgLoop = repeatM_ $ handle (warnA.show) $ do
+    mpgLoop = handle (\e -> (warnA.show) e >> mpgLoop) $ do
         (r,w,e,pid) <- popen (MPG321 :: String) ["-R","-"]
         hw          <- fdToHandle (unsafeCoerce# w)  -- so we can use Haskell IO
         ew          <- fdToHandle (unsafeCoerce# e)  -- so we can use Haskell IO
@@ -131,7 +131,9 @@ start ms = Control.Exception.handle
                                         , id3       = Nothing }
         Control.Exception.catch (waitForProcess $ unsafeCoerce# pid)
                                 (\_ -> return ExitSuccess)
-        return ()
+
+        stop <- readState doNotResuscitate -- more races
+        when (not stop) mpgLoop
         -- and if it returns, loop.
 
     -- | When the editor state has been modified, refresh, then wait
@@ -207,27 +209,33 @@ start ms = Control.Exception.handle
 -- | Close most things. Important to do all the jobs:
 shutdown :: IO ()
 shutdown = handle (\e -> hPutStrLn stderr (show e) >> return ()) $ do
+    -- so this should stop the mpg restart thread looping
+    modifyState_ $ \st -> return st { doNotResuscitate = True }
+
     modifyState_ $ \st -> do
         UI.end (xterm st)
 
         let pid = mp3pid st
             tds = threads st
 
+        -- now shtudown mpg321
         handle (\_ -> return ()) $ do
-            send (writeh st) Quit                         -- ask politely
-            waitForProcess $ unsafeCoerce# pid          -- wait
+            send (writeh st) Quit                        -- ask politely
+            waitForProcess $ unsafeCoerce# pid
             return ()
 
 --      Should check if it's still running
 --      handle (\_ -> return ()) $
 --          signalProcess sigTERM (unsafeCoerce# pid)   -- just kill it
 
+        -- now our own threads
         flip mapM_ tds $ \t -> 
             catch (killThread t) (\_ -> return ())      -- and kill threads
 
-        return st { mp3pid = (-1){-?-}, threads = [] }
+        return st { mp3pid = (-1){-?-}, threads = [] } -- just being safe
 
-    exitImmediately ExitSuccess -- much cleaner way out
+    -- and get the hell out of here
+    exitImmediately ExitSuccess
 
 ------------------------------------------------------------------------
 -- 
