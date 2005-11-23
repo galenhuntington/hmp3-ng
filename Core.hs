@@ -73,11 +73,7 @@ import GHC.IOBase               ( unsafeInterleaveIO )
 ------------------------------------------------------------------------
 
 start :: Either (FileArray,DirArray) [P.FastString] -> IO ()
-start ms = Control.Exception.handle
-    (\e -> do if isOK e then return ()
-                        else do shutdown
-                                hPutStrLn stderr ("hmp3:start: " ++ show e)
-                                exitWith (ExitFailure 1)) $ do
+start ms = do
 
     t0 <- forkIO mpgLoop    -- start this off early, to give mpg321 a time to settle
     t5 <- forkIO errorLoop
