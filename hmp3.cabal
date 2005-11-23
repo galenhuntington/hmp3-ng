@@ -10,7 +10,7 @@ Executable:          hmp3
 Main-is:             Main.hs
 extensions:          CPP, ForeignFunctionInterface
 include-dirs:        cbits
-c-sources:           cbits/utils.c
+c-sources:           cbits/utils.c cbits/hooks.c
 other-modules:       Curses Regex
 -- ghc-options:         -prof -auto-all -Wall -fglasgow-exts -O -optc-O3 -funbox-strict-fields -Icbits -threaded -lncurses
 ghc-options:         -Wall -fglasgow-exts -O -optc-O3 -funbox-strict-fields -Icbits -threaded -lncurses
