@@ -13,9 +13,14 @@ Building:
     $ ./Setup.lhs install
 
 Use:
-    Type 'h' to display the help page. The current playlist can be saved to
-    with 'w', and will be used by default if you start hmp3 without any
-    arguments. The other commands are explained on the help screen.
+    Type 'h' to display the help page. The current playlist and track
+    are saved on shutdown (into ~/.hmp3db) and if you restart without
+    arguments, the playlist and starting track will be taken from the
+    previous session. The other commands are explained on the help
+    screen, which can be accessed by typing 'h'.
+
+    The keymaps are configurable by adding your own bindings to
+    Config.hs (as are the colours). Edit this file before compilation.
 
 Limitations:
     It only plays mp3 files (and variants supported by mpg{321,123}.
