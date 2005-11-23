@@ -140,8 +140,6 @@ keyTable =
         ['d'],   playNext)
     ,(p "Cycle through normal, random and loop modes"#,
         ['m'],   nextMode)
-    ,(p "Save the current playlist"#,
-        ['w'],   writeSt)
     ,(p "Refresh the display"#,
         ['\^L'], UI.resetui)
     ,(p "Repeat last regex search"#, 
