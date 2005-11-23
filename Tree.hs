@@ -192,24 +192,24 @@ instance Binary Dir where
 --
 -- write the arrays out
 --
-writeTree :: FilePath -> (FileArray, DirArray) -> (Int,Int) -> IO ()
-writeTree f arrs is = do
+writeTree :: FilePath -> (FileArray, DirArray) -> Int -> IO ()
+writeTree f arrs i = do
     h    <- openFile   f WriteMode
     bh   <- openBinIO_ h
     put_ bh arrs
-    put_ bh is
+    put_ bh i 
     hClose h
 
 --
 -- | Read the arrays from a file
 -- Read from binMem?
 --
-readTree :: FilePath -> IO ((FileArray, DirArray), (Int,Int))
+readTree :: FilePath -> IO (FileArray, DirArray, Int)
 readTree f = do
     h    <- openFile   f ReadMode
     bh   <- openBinIO_ h        -- openBinMem
-    arrs <- get bh
-    is   <- get bh
+    (a,b)<- get bh
+    i    <- get bh
     hClose h
-    return (arrs,is)
+    return (a,b,i)
 

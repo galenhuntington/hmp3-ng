@@ -72,7 +72,7 @@ import GHC.IOBase               ( unsafeInterleaveIO )
 
 ------------------------------------------------------------------------
 
-start :: Either ((FileArray,DirArray),(Int,Int)) [P.FastString] -> IO ()
+start :: Either (FileArray,DirArray,Int) [P.FastString] -> IO ()
 start ms = do
 
     t0 <- forkIO mpgLoop    -- start this off early, to give mpg321 a time to settle
@@ -80,9 +80,9 @@ start ms = do
 
     UI.start -- initialise curses
 
-    (ds,fs,(i,j)) <- case ms of -- construct the state
-                Left ((fs',ds'),x) -> return (ds',fs',x)
-                Right roots        -> buildTree roots >>= \(a,b) -> return (a,b,(0,0))
+    (ds,fs,i) <- case ms of -- construct the state
+                Left (fs',ds',x) -> return (ds',fs',x)
+                Right roots      -> buildTree roots >>= \(a,b) -> return (a,b,0)
 
     now   <- getClockTime
     modifyState_ $ \s -> return s 
@@ -90,7 +90,7 @@ start ms = do
         , folders   = ds
         , size      = 1 + (snd . bounds $ fs)
         , cursor    = i
-        , current   = j
+        , current   = i
         , uptime    = drawUptime now now
         , boottime  = now }
 
@@ -468,11 +468,11 @@ writeSt = do
     withState $ \st -> do
         let arr1 = music st
             arr2 = folders st
-        writeTree f (arr1,arr2) (cursor st, current st)
+        writeTree f (arr1,arr2) (current st)
     putmsg (Plain $ "Wrote state to " ++ f) >> touchState
 
 -- | Read the playlist back
-readSt :: IO (Maybe ((FileArray, DirArray), (Int,Int)))
+readSt :: IO (Maybe (FileArray, DirArray, Int))
 readSt = do
     home <- getHome
     let f = home </> ".hmp3db"
