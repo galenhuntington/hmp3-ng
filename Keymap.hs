@@ -152,8 +152,8 @@ p :: Addr# -> P.FastString
 p = P.packAddress
 
 extraTable :: [(P.FastString, [Char])]
-extraTable = [(p "Search for track matching regex"#, ['/'])
-             ,(p "Search backwards for track"#, ['?'])]
+extraTable = [(p "Search for directory matching regex"#, ['/'])
+             ,(p "Search backwards for directory"#, ['?'])]
 
 helpIsVisible :: IO Bool
 helpIsVisible = modifyState $ \st -> return (st, helpVisible st)
