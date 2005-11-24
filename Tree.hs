@@ -31,6 +31,7 @@ import qualified Data.FastPackedString as P
 
 import Data.Maybe
 import Data.Array
+import Data.Char            ( toLower )
 import Data.List hiding (partition)
 
 import System.IO
@@ -119,15 +120,20 @@ expandDir :: FilePathP -> IO (Maybe (FilePathP, [FilePathP]),  [FilePathP])
 expandDir f = do
     ls_raw <- Control.Exception.handle (\e -> hPutStrLn stderr (show e) >> return []) $ 
                 packedGetDirectoryContents f
-    let ls = map (joinPathP f) . sort . filter notEdge $! ls_raw
+    let ls = map (joinPathP f) . sort . filter validFiles $! ls_raw
     ls `seq` return ()
-    (fs,ds) <- partition ls
-    let v = if null fs then Nothing else Just (f,fs)
+    (fs',ds) <- partition ls
+    let fs = filter onlyMp3s fs'
+        v = if null fs then Nothing else Just (f,fs)
     return (v,ds)
     where
-          notEdge p  = p /= dot && p /= dotdot
-          dot        = P.packAddress "."#
-          dotdot     = P.packAddress ".."#
+          notEdge    p = p /= dot && p /= dotdot
+          validFiles p = notEdge p
+          onlyMp3s   p = mp3 == (P.map toLower . P.drop (P.length p -3) $ p) 
+
+          mp3        = P.pack "mp3"
+          dot        = P.pack "."
+          dotdot     = P.pack ".."
 
 --
 -- | Given an the next index into the files array, a directory name, and
