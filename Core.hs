@@ -199,6 +199,10 @@ errorLoop = repeatM_ $ handle (warnA.show) $ do
 -- | Main thread, main loop. Handle messages arriving over a pipe from
 -- the decoder process. When shutdown kills the other end of the pipe,
 -- hGetLine will fail, so we take that chance to exit.
+--
+-- NB, if we ever want to do profiling, insert a throwIO as the handler,
+-- and replace exitImmediately with return ()
+--
 run :: IO ()
 run = repeatM_ $ handle (warnA.show) $ do        -- don't stop
     mp   <- readState readf -- race

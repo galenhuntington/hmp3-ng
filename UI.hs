@@ -304,13 +304,19 @@ instance Element HelpScreen where
 
 -- | The time used and time left
 instance Element PTimes where
-    draw _ _ _ Nothing       = PTimes . Plain $ []
-    draw (_,x) _ _ (Just fr) = PTimes $ Plain $! "  " ++elapsed++gap++remaining
-      where
-        elapsed   = (printf  "%01d:%02d" lm lm') :: String
-        remaining = (printf "-%01d:%02d" rm rm') :: String
-        gap       = replicate distance ' '
-        distance  = x - 4{-2 on each end-} - length elapsed - length remaining
+    draw _ _ _ Nothing       = PTimes $ Fast (P.pack "-") (Style Default Default)
+    draw (_,x) _ _ (Just fr) = PTimes $ flip Fast sty $! 
+                                    spc     `P.append`
+                                    elapsed `P.append`
+                                    gap     `P.append`
+                                    remaining
+      where  -- 8.3 %
+        sty       = Style Default Default
+        spc       = P.pack "  "
+        elapsed   = P.pack $! ((printf  "%01d:%02d" lm lm') :: String)
+        remaining = P.pack $! ((printf "-%01d:%02d" rm rm') :: String)
+        gap       = P.unfoldr distance (\c -> Just (c,c)) ' '
+        distance  = x - 4{-2 on each end-} - P.length elapsed - P.length remaining
         (lm,lm')  = quotRem (fst $ currentTime fr) 60
         (rm,rm')  = quotRem (fst $ timeLeft fr) 60
 
@@ -411,9 +417,9 @@ instance Element PlayTitle where
     draw a@(_,x) b c d = PlayTitle $
         flip Fast hl $ space
              `P.append` inf
-             `P.append` P.pack (replicate gapl ' ')
+             `P.append` P.unfoldr gapl (\u -> Just (u,u)) ' '
              `P.append` modes
-             `P.append` P.pack (replicate gapr ' ')
+             `P.append` P.unfoldr gapr (\u -> Just (u,u)) ' '
              `P.append` time
              `P.append` space
              `P.append` ver
@@ -440,7 +446,8 @@ instance Element PlayList where
     draw p@(y,x) q@(o,_) st z =
         PlayList $! title 
                  : list 
-                 ++ (replicate (height - length list - 2) (Plain []))
+                 ++ (replicate (height - length list - 2) 
+                        (Fast P.empty (Style Default Default)))
                  ++ [minibuffer st]
         where
             (PlayTitle title)       = draw p q st z :: PlayTitle
@@ -487,8 +494,10 @@ instance Element PlayList where
                 | i == playing                = f sty1
                 | otherwise                   = (m,Fast s (Style Default Default))
                 where
-                    f sty = (m,Fast (s `P.append` 
-                            P.pack (replicate (x - indent-1 - P.length s) ' ')) sty)
+                    f sty = (m, Fast (s `P.append` 
+                                        (P.unfoldr (x-indent-1-P.length s) (\c -> Just (c,c)) ' '))
+
+                                sty)
             
             sty1 = selected . style $ config
             sty2 = cursors  . style  $ config
@@ -497,7 +506,7 @@ instance Element PlayList where
             -- must mchop before drawing.
             drawIt :: (Maybe Int, StringA) -> StringA
             drawIt (Nothing,Fast v sty) = 
-                Fast ((P.pack $ replicate (1 + indent) ' ') `P.append` v) sty
+                Fast ((P.unfoldr (1 + indent) (\c -> Just (c,c)) ' ') `P.append` v) sty
 
             drawIt (Just i ,Fast b sty) = Fancy (pref ++ post)
               where
@@ -508,7 +517,7 @@ instance Element PlayList where
 
                 d   = basenameP . dname $ folders st ! i
 
-                spc = P.pack $ replicate (indent - P.length d) ' '
+                spc = P.unfoldr (indent - P.length d) (\c -> Just (c,c)) ' '
 
                 d' | P.length d > indent-1 
                    = P.take (indent+1-4) d 
@@ -538,7 +547,7 @@ alignLR :: Int -> P.FastString -> P.FastString -> P.FastString
 alignLR w l r | padding >= 0 = l `P.append` gap `P.append` r 
               | otherwise    = P.take (w - P.length r - 4) l `P.append` ellipsis `P.append` r
     where padding = w - P.length l - P.length r
-          gap     = P.pack $ replicate padding ' '
+          gap     = P.unfoldr padding (\c -> Just (c,c)) ' '
 
 ellipsis :: P.FastString
 ellipsis = P.packAddress "... "#
@@ -551,8 +560,8 @@ redrawJustClock :: IO ()
 redrawJustClock = withState $ \st -> do
    fr      <- readClock id
    s@(h,w) <- screenSize
-   let (ProgressBar bar) = draw s undefined st fr :: ProgressBar
-       (PTimes times)    = draw s undefined st fr :: PTimes
+   let (ProgressBar bar) = {-# SCC "redrawJustClock.progressbar" #-} draw s undefined st fr :: ProgressBar
+       (PTimes times)    = {-# SCC "redrawJustClock.times" #-} draw s undefined st fr :: PTimes
    Curses.wMove Curses.stdScr 1 0   -- hardcoded!
    drawLine w bar
    Curses.wMove Curses.stdScr 2 0   -- hardcoded!
