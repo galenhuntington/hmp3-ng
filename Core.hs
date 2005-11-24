@@ -126,6 +126,8 @@ mpgLoop = handle (\e -> (warnA.show) e >> mpgLoop) $ do
     Control.Exception.catch (waitForProcess $ unsafeCoerce# pid)
                             (\_ -> return ExitSuccess)
 
+    warnA (MPG321 ++ " restarting")
+
     stop <- readState doNotResuscitate -- more races
     when (not stop) mpgLoop
     -- and if it returns, loop.
@@ -178,7 +180,7 @@ inputLoop = repeatM_ $ handle handler $
                 return (c:cs) -- A lazy list of curses keys
 
         handler e | isJust (ioErrors e) = (warnA.show) e
-                  | isExitCall e        = throwIO e     -- to main thread?
+                  | isExitCall e        = (warnA.show) e >> throwIO e
                   | otherwise           = (warnA.show) e
   
         isExitCall (ExitException _) = True
