@@ -554,9 +554,11 @@ ellipsis = P.packAddress "... "#
 ------------------------------------------------------------------------
 --
 -- | Now write out just the clock line
+-- Speed things up a bit, just use read State.
 --
 redrawJustClock :: IO ()
-redrawJustClock = withState $ \st -> do
+redrawJustClock = do 
+   st      <- readState id
    fr      <- readClock id
    s@(h,w) <- screenSize
    let (ProgressBar bar) = {-# SCC "redrawJustClock.progressbar" #-} draw s undefined st fr :: ProgressBar
@@ -587,10 +589,12 @@ redrawJustClock = withState $ \st -> do
 redraw :: IO ()
 redraw = 
    -- linux ncurses, in particular, seems to complain a lot. this is an easy solution
-   Control.Exception.handle (\_ -> return ()) $ withState $ \s -> do
+   Control.Exception.handle (\_ -> return ()) $ do
 
-   sz@(h,w) <- screenSize
+   s <- readState id
    f <- readClock id
+   sz@(h,w) <- screenSize
+
    let x = {-# SCC "redraw.playscreen" #-} printPlayScreen (draw sz (0,0) s f :: PlayScreen)
        y = {-# SCC "redraw.playlist" #-} printPlayList   (draw sz (length x,0) s f :: PlayList)
        a = x ++ y
