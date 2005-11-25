@@ -21,28 +21,27 @@
 
 module FastIO where
 
-import Data.Char
-import Data.List hiding (partition)
-import Data.Word
+import Data.Char        (ord)
+import Data.Word        (Word8)
 import qualified Data.FastPackedString as P
 
 import Foreign.C.Error
-import Foreign.C.String
-import Foreign.C.Types
-import Foreign.ForeignPtr
-import Foreign.Marshal
-import Foreign.Ptr
-import Foreign.Storable
+import Foreign.C.String         (CString)
+import Foreign.C.Types          (CFile, CInt)
+import Foreign.ForeignPtr       (withForeignPtr, mallocForeignPtrArray)
+import Foreign.Marshal          (peekArray, advancePtr, allocaBytes, alloca)
+import Foreign.Ptr              (Ptr, nullPtr, plusPtr, castPtr)
+import Foreign.Storable         (poke, peek)
 
-import System.IO.Error
-import System.Directory
-import System.Posix.Types       ( Fd, CMode )
+import System.Directory         (Permissions(..))
+import System.IO.Error          (modifyIOError, ioeSetFileName)
+import System.IO.Unsafe         (unsafePerformIO)
 import System.Posix.Internals
+import System.Posix.Types       (Fd, CMode)
 
-import Control.Monad
-import Control.Exception
+import Control.Monad            (liftM)
+import Control.Exception        (catch, bracket)
 
-import GHC.IOBase
 
 ------------------------------------------------------------------------
 

@@ -47,31 +47,27 @@ module UI (
   )   where
 
 import Style
-import FastIO
-import Tree
+import FastIO           (basenameP)
+import Tree             (File(fdir, fbase), Dir(dname))
 import State
 import Syntax hiding (draw)
-import Config
+import Config           (config, versinfo, Config(style))
 import qualified Curses
 
-import {-# SOURCE #-} Keymap
+import {-# SOURCE #-} Keymap (extraTable, keyTable)
 
-import Data.IORef
-import Data.List
-import Data.Maybe
-import Data.Char
-import Data.Array
-import Data.Array.Base  ( unsafeAt )
+import Data.IORef               (writeIORef)
+import Data.List                (intersperse,isPrefixOf)
+import Data.Array               ((!), bounds, Array)
+import Data.Array.Base          (unsafeAt)
+import System.IO                (IO, stderr, hFlush)
+import Text.Printf              (printf)
 
-import System.IO
+import Control.Monad            (mapM_, when)
+import qualified Control.Exception (catch, handle)
 
-import Text.Printf
-
-import Control.Monad
-import qualified Control.Exception
-
-import System.Posix.Signals         ( raiseSignal, sigTSTP )
-import System.Posix.Env
+import System.Posix.Signals     (raiseSignal, sigTSTP)
+import System.Posix.Env         (getEnv, putEnv)
 
 import qualified Data.FastPackedString as P
 

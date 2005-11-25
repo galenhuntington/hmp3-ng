@@ -47,8 +47,9 @@ module Regex (
 #endif
 
 import Foreign
-import Foreign.C
-import Foreign.ForeignPtr
+import Foreign.C            (CSize, CInt, CChar, withCString, CString)
+import Foreign.ForeignPtr   (withForeignPtr, ForeignPtr, 
+                             addForeignPtrFinalizer, mallocForeignPtrBytes)
 
 type CRegex = ()
 

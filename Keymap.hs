@@ -27,15 +27,14 @@ import Prelude hiding (all)
 import Lexers
 import Core
 import Curses
-import State
-import Style
-import qualified UI
+import State        (modifyState, touchState, State(helpVisible))
+import Style        (StringA(Plain))
+import qualified UI (resetui)
 
-import Data.List        hiding (delete, all)
-import Control.Monad
+import Data.List    (init, (\\))
 
-import qualified Data.FastPackedString as P
-import qualified Data.Map as M
+import qualified Data.FastPackedString as P (packAddress,FastString)
+import qualified Data.Map as M (fromList, lookup, Map)
 
 import GHC.Base (Addr#)
 

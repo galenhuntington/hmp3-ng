@@ -22,24 +22,24 @@
 --
 module State where
 
-import Syntax
-import Tree
-import Style 
-import Regex    ( Regex )
-import qualified Data.FastPackedString as P
+import Syntax                   (draw, Pretty, Status(Stopped), Frame, Info,Id3)
+import Tree                     (FileArray, DirArray)
+import Style                    (StringA(Plain))
+import Regex                    (Regex)
+import qualified Data.FastPackedString as P (empty, FastString)
 
-import Data.Array               ( listArray )
-import Data.IORef               ( newIORef, readIORef, writeIORef, IORef )
-import System.IO.Unsafe         ( unsafePerformIO )
-import Foreign.C.Types          ( CFile )
-import Foreign.Ptr              ( Ptr )
+import Data.Array               (listArray)
+import Data.IORef               (newIORef,readIORef,writeIORef,IORef)
+import System.IO.Unsafe         (unsafePerformIO)
+import Foreign.C.Types          (CFile)
+import Foreign.Ptr              (Ptr)
 
-import Control.Concurrent       ( ThreadId )
-import Control.Concurrent.MVar
+import Control.Concurrent       (ThreadId)
+import Control.Concurrent.MVar  (MVar, tryPutMVar, newMVar,withMVar, modifyMVar_, modifyMVar)
 
-import System.Time
-import System.IO
-import System.Posix.Types       ( ProcessID )
+import System.Time              (ClockTime(..))
+import System.IO                (IO, Handle, hPutStrLn, stderr, hFlush)
+import System.Posix.Types       (ProcessID)
 
 ------------------------------------------------------------------------
 

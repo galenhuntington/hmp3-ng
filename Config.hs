@@ -19,7 +19,7 @@
 module Config where
 
 import Style
-import {-# SOURCE #-} qualified Keymap as Default
+import {-# SOURCE #-} qualified Keymap as Default (keymap)
 
 #include "config.h"
 

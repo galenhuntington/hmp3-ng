@@ -25,19 +25,18 @@
 module Tree where
 
 import FastIO
-import Binary
-
+import Binary           (openBinIO_, Binary(put_, get))
 import qualified Data.FastPackedString as P
 
-import Data.Maybe
-import Data.Array
-import Data.Char            ( toLower )
-import Data.List hiding (partition)
+import Data.Maybe       (catMaybes)
+import Data.Array       (listArray, elems, bounds, Array)
+import Data.Char        (toLower)
+import Data.List        (sortBy,sort,foldl',groupBy)
 
 import System.IO
-import System.Directory     ( readable )
-import Control.Exception
-import Control.Monad
+import System.Directory (readable)
+import Control.Exception(handle)
+import Control.Monad    (liftM,mapM_)
 
 type FilePathP = P.FastString
 

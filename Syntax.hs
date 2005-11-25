@@ -26,10 +26,8 @@
 
 module Syntax where
 
-import Data.Char
-import Text.PrettyPrint
-
-import qualified Data.FastPackedString as P
+import Text.PrettyPrint                     ((<+>), text, render, Doc)
+import qualified Data.FastPackedString as P (unpack, FastString)
 
 ------------------------------------------------------------------------
 --

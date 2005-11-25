@@ -21,16 +21,13 @@
 
 module Utils where
 
-import Data.Char
-import Data.List
+import Data.Char        (isSpace)
+import Data.List        (isPrefixOf)
 import qualified Data.FastPackedString as P
 
-import Text.Printf
-
-import System.Time
-import System.IO
-
-import Control.Monad
+import Text.Printf      (printf)
+import System.Time      (diffClockTimes, TimeDiff(tdSec), ClockTime)
+import System.IO        (IO, FilePath)
 
 ------------------------------------------------------------------------
 

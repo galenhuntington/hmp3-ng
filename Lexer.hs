@@ -22,16 +22,14 @@
 module Lexer ( parser ) where
 
 import Syntax
-import FastIO   ( getFilteredPacket )
+import FastIO           (getFilteredPacket)
 
 import qualified Data.FastPackedString as P
 
-import System.IO
-
-import Foreign.C.Types
-import Foreign.Ptr
-
-import GHC.Base
+import Foreign.C.Types  (CFile)
+import Foreign.Ptr      (Ptr)
+import GHC.Base         (Addr#)
+import System.IO        (IO)
 
 ------------------------------------------------------------------------
 

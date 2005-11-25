@@ -30,42 +30,41 @@ module Core (
 
 import Prelude hiding (catch)
 
-import POpen
+import POpen                    (popen)
 import Syntax
-import Lexer
+import Lexer                    (parser)
 import State
-import Style
-import Config
-import Utils
-import FastIO       ( fdToCFile, joinPathP )
+import Style                    (StringA(..), warnings)
+import Config                   (config, Config(style, keymap))
+import Utils                    ((</>), drawUptime)
+import FastIO                   (fdToCFile, joinPathP)
 import Tree hiding (File)
 import Regex
-import qualified UI
+import qualified UI             (start, refreshClock, refresh, getKey, end)
 
 import qualified Data.FastPackedString as P
 
-import Data.Maybe
-import Data.Array
+import Data.Array               ((!), bounds)
 
-import Control.Monad
+import Control.Monad            (mapM_, liftM, when)
 
-import System.IO
-import System.Exit
-import System.Time
-import System.Random            ( getStdRandom, randomR )
+import System.Directory         (doesFileExist)
+import System.Environment       (getEnv)
+import System.Exit              (ExitCode(ExitSuccess))
+import System.IO                (IO, hPutStrLn, hGetLine, stderr)
+import System.Posix.User        ( getUserEntryForID, getRealUserID, homeDirectory )
 import System.Process           ( waitForProcess )
-import System.Environment       ( getEnv )
+import System.Random            (getStdRandom, randomR)
+import System.Time              (getClockTime)
 
 import Control.Concurrent
-import Control.Exception
+import Control.Exception        (catch, ioErrors, handle, catchJust)
 
-import System.Directory
-import System.Posix.User        ( getUserEntryForID, getRealUserID, homeDirectory )
-
-import GHC.Base
-import GHC.Handle
-import GHC.Exception hiding     ( catch )
-import GHC.IOBase               ( unsafeInterleaveIO )
+import GHC.Base                 (unsafeCoerce#)
+import GHC.Handle               (fdToHandle)
+import GHC.IOBase               (unsafeInterleaveIO)
+import GHC.Exception            (throwIO, AsyncException(ThreadKilled),
+		                         Exception(ExitException, AsyncException))
 
 #include "config.h"
 

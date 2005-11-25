@@ -22,9 +22,9 @@ module FastMutInt(
 
 import GHC.Exts
 #if __GLASGOW_HASKELL__ >= 504
-import GHC.IOBase
-import Data.Word
-import Data.Bits
+import GHC.IOBase   (IO(..))
+import Data.Word    (Word8)
+import Data.Bits    (Bits((.|.)))
 #else
 import PrelIOBase
 import Word

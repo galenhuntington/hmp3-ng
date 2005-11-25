@@ -24,17 +24,15 @@
 module Style where
 
 import qualified Curses
+import qualified Data.FastPackedString as P (FastString)
 
-import Data.Word
-import Data.Maybe
-import Data.IORef
-import qualified Data.Map as M
+import Data.Word                (Word8)
+import Data.Maybe               (fromJust)
+import Data.IORef               (readIORef, newIORef, IORef)
+import qualified Data.Map as M  (fromList, empty, lookup, Map)
 
-import qualified Data.FastPackedString as P
-
-import System.IO.Unsafe
-
-import Control.Exception        ( handle )
+import System.IO.Unsafe         (unsafePerformIO)
+import Control.Exception        (handle)
 
 ------------------------------------------------------------------------
 
