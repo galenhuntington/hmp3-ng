@@ -141,7 +141,7 @@ mpgLoop = handle (\e -> (warnA.show) e >> mpgLoop) $ do
 -- | When the editor state has been modified, refresh, then wait
 -- for it to be modified again.
 refreshLoop :: IO ()
-refreshLoop = repeatM_ $ handle (warnA.show) $ do
+refreshLoop = forever $ handle (warnA.show) $ do
         takeMVar modified
         catchJust ioErrors UI.refresh (warnA.show)
 
@@ -149,7 +149,7 @@ refreshLoop = repeatM_ $ handle (warnA.show) $ do
 
 -- | Once a minute read the clock time
 uptimeLoop :: IO ()
-uptimeLoop = repeatM_ $ handle (warnA.show) $ do
+uptimeLoop = forever $ handle (warnA.show) $ do
         threadDelay delay 
         now <- getClockTime 
         modifyState_ $ \st -> do
@@ -163,7 +163,7 @@ uptimeLoop = repeatM_ $ handle (warnA.show) $ do
 
 -- | Once each second, wake up a and redraw the clock
 clockLoop :: IO ()
-clockLoop = repeatM_ $ handle (warnA.show) $ do
+clockLoop = forever $ handle (warnA.show) $ do
         threadDelay delay 
     --  hPutStrLn stderr "CLOCK"
         catchJust ioErrors UI.refreshClock (warnA.show)
@@ -174,7 +174,7 @@ clockLoop = repeatM_ $ handle (warnA.show) $ do
 
 -- | Handle keystrokes fed to us by curses
 inputLoop :: IO ()
-inputLoop = repeatM_ $ handle handler $ 
+inputLoop = forever $ handle handler $ 
         sequence_ . (keymap config) =<< getKeys
   where
         getKeys = unsafeInterleaveIO $ do
@@ -194,7 +194,7 @@ inputLoop = repeatM_ $ handle handler $
 
 -- | Handle, and display errors produced by mpg321
 errorLoop :: IO ()
-errorLoop = repeatM_ $ handle (warnA.show) $ do
+errorLoop = forever $ handle (warnA.show) $ do
     mh   <- readState errh -- race
     case mh of
         Nothing -> warnA "No error handle to mpg321"
@@ -210,7 +210,7 @@ errorLoop = repeatM_ $ handle (warnA.show) $ do
 -- and replace exitImmediately with return ()
 --
 run :: IO ()
-run = repeatM_ $ handle (warnA.show) $ do        -- don't stop
+run = forever $ handle (warnA.show) $ do        -- don't stop, the only way out is 'quit' or a signal
     mp   <- readState readf -- race
     case mp of
         Nothing -> warnA "No handle to mpg321"

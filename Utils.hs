@@ -132,9 +132,14 @@ drawUptime before now =
         
 ------------------------------------------------------------------------
 -- | Repeat an action
+-- Also known as `forever' in the Awkward squad paper
 repeatM_ :: Monad m => m a -> m ()
 repeatM_ a = a >> repeatM_ a
 {-# SPECIALIZE repeatM_ :: IO a -> IO () #-}
 {-# INLINE repeatM_ #-}
+
+forever :: IO () -> IO ()
+forever = repeatM_
+{-# INLINE forever #-}
 
 ------------------------------------------------------------------------
