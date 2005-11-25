@@ -61,7 +61,6 @@ import Control.Exception
 
 import System.Directory
 import System.Posix.User        ( getUserEntryForID, getRealUserID, homeDirectory )
-import System.Posix.Process     ( exitImmediately )
 
 import GHC.Base
 import GHC.Handle
@@ -105,7 +104,35 @@ start ms = Control.Exception.handle
     when (0 <= (snd . bounds $ fs)) play -- start the first song
 
     run         -- won't restart if this fails!
-    shutdown    -- can this even happen?
+
+------------------------------------------------------------------------
+
+-- | Uniform loop and thread handler
+forever :: IO () -> IO ()
+forever fn = Control.Exception.catch
+    (fn >> maybeLoop fn)
+    (threadHandler $ maybeLoop fn)
+
+-- | We inform our threads that they should not restart this way, giving
+-- them the chance to exit cleanly, rather than killThreading them.
+maybeLoop :: (IO ()) -> IO ()
+maybeLoop f = do
+    stop <- readState doNotResuscitate
+    when (not stop) (forever f)
+
+-- | Generic handler
+threadHandler :: (IO ()) -> Exception -> IO ()
+threadHandler f e
+    | isExitCall e   = (warnA.show) e   -- exit
+    | isKillThread e = (warnA.show) e   -- exit
+    | otherwise      = (warnA.show) e >> f
+
+  where
+    isExitCall (ExitException _) = True
+    isExitCall _ = False
+
+    isKillThread (AsyncException ThreadKilled) = True
+    isKillThread _ = False
 
 ------------------------------------------------------------------------
 
@@ -114,9 +141,11 @@ start ms = Control.Exception.handle
 --
 -- If we're unable to start at all, we should say something sensible
 -- For example, if we can't start it two times in a row, perhaps give up?
+-- 
+-- Also, we should not ignore kill thread exceptions
 --
 mpgLoop :: IO ()
-mpgLoop = handle (\e -> (warnA.show) e >> mpgLoop) $ do
+mpgLoop = forever $ do
     (r,w,e,pid) <- popen (MPG321 :: String) ["-R","-"]
     hw          <- fdToHandle (unsafeCoerce# w)  -- so we can use Haskell IO
     ew          <- fdToHandle (unsafeCoerce# e)  -- so we can use Haskell IO
@@ -133,15 +162,12 @@ mpgLoop = handle (\e -> (warnA.show) e >> mpgLoop) $ do
 
     warnA (MPG321 ++ " restarting")
 
-    stop <- readState doNotResuscitate
-    when (not stop) mpgLoop
-
 ------------------------------------------------------------------------
 
 -- | When the editor state has been modified, refresh, then wait
 -- for it to be modified again.
 refreshLoop :: IO ()
-refreshLoop = forever $ handle (warnA.show) $ do
+refreshLoop = forever $ do
         takeMVar modified
         catchJust ioErrors UI.refresh (warnA.show)
 
@@ -149,7 +175,7 @@ refreshLoop = forever $ handle (warnA.show) $ do
 
 -- | Once a minute read the clock time
 uptimeLoop :: IO ()
-uptimeLoop = forever $ handle (warnA.show) $ do
+uptimeLoop = forever $ do
         threadDelay delay 
         now <- getClockTime 
         modifyState_ $ \st -> do
@@ -163,7 +189,7 @@ uptimeLoop = forever $ handle (warnA.show) $ do
 
 -- | Once each second, wake up a and redraw the clock
 clockLoop :: IO ()
-clockLoop = forever $ handle (warnA.show) $ do
+clockLoop = forever $ do
         threadDelay delay 
     --  hPutStrLn stderr "CLOCK"
         catchJust ioErrors UI.refreshClock (warnA.show)
@@ -174,7 +200,7 @@ clockLoop = forever $ handle (warnA.show) $ do
 
 -- | Handle keystrokes fed to us by curses
 inputLoop :: IO ()
-inputLoop = forever $ handle handler $ 
+inputLoop = forever $ do
         sequence_ . (keymap config) =<< getKeys
   where
         getKeys = unsafeInterleaveIO $ do
@@ -183,19 +209,12 @@ inputLoop = forever $ handle handler $
                 cs <- getKeys
                 return (c:cs) -- A lazy list of curses keys
 
-        handler e | isJust (ioErrors e) = (warnA.show) e
-                  | isExitCall e        = (warnA.show) e >> throwIO e
-                  | otherwise           = (warnA.show) e
-  
-        isExitCall (ExitException _) = True
-        isExitCall _ = False
-
 ------------------------------------------------------------------------
 
 -- | Handle, and display errors produced by mpg321
 errorLoop :: IO ()
-errorLoop = forever $ handle (warnA.show) $ do
-    mh   <- readState errh -- race
+errorLoop = forever $ do
+    mh   <- readState errh 
     case mh of
         Nothing -> warnA "No error handle to mpg321"
         Just h  -> hGetLine h >>= warnA
@@ -210,7 +229,7 @@ errorLoop = forever $ handle (warnA.show) $ do
 -- and replace exitImmediately with return ()
 --
 run :: IO ()
-run = forever $ handle (warnA.show) $ do        -- don't stop, the only way out is 'quit' or a signal
+run = forever $ do
     mp   <- readState readf -- race
     case mp of
         Nothing -> warnA "No handle to mpg321"
@@ -228,10 +247,9 @@ shutdown = handle (\e -> hPutStrLn stderr (show e) >> return ()) $ do
     -- so this should stop the mpg restart thread looping
     modifyState_ $ \st -> return st { doNotResuscitate = True }
 
-    writeSt
+    forkIO writeSt -- should only do this if it changed, otherwise just write the index
 
     modifyState_ $ \st -> do
-        UI.end (xterm st)
 
         let pid = mp3pid st
             tds = threads st
@@ -253,7 +271,11 @@ shutdown = handle (\e -> hPutStrLn stderr (show e) >> return ()) $ do
         return st { mp3pid = (-1){-?-}, threads = [] } -- just being safe
 
     -- and get the hell out of here
-    exitImmediately ExitSuccess
+    -- exitImmediately ExitSuccess
+
+    isXterm <- readState xterm
+    UI.end isXterm
+    return ()
 
 ------------------------------------------------------------------------
 -- 

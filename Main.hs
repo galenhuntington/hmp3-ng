@@ -104,7 +104,7 @@ main = do
     files <- do_args args
     initSignals
     Control.Exception.catch (start files) $ \e -> do
-        releaseSignals
+        releaseSignals      -- only if an exception gets tossed out
         Control.Exception.catch shutdown (\f -> hPutStrLn stderr (show f))
         when (not $ isExitCall e) $ hPutStrLn stderr (show e)
         return ()
