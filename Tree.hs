@@ -66,7 +66,8 @@ buildTree :: [FilePathP] -> IO (DirArray, FileArray)
 buildTree fs = do
     (os,dirs) <- partition fs    -- note we will lose the ordering of files given on cmd line.
 
-    let loop []     = return []
+    let loop xs | seq xs False = undefined -- strictify
+        loop []     = return []
         loop (a:xs) = do
             (m,ds) <- expandDir a
             ms     <- loop $! ds ++ xs  -- add to work list
@@ -117,6 +118,7 @@ make (i,n,acc1,acc2) (d,fs) =
 -- Assumes no evil sym links
 --
 expandDir :: FilePathP -> IO (Maybe (FilePathP, [FilePathP]),  [FilePathP])
+expandDir f | seq f False = undefined -- stricitfy
 expandDir f = do
     ls_raw <- Control.Exception.handle (\e -> hPutStrLn stderr (show e) >> return []) $ 
                 packedGetDirectoryContents f
@@ -153,6 +155,7 @@ listToDir n d fs =
 -- | break a list of file paths into a pair of subliests corresponding
 -- to the paths that point to files and to directories.
 partition :: [FilePathP] -> IO ([FilePathP], [FilePathP])
+partition xs | seq xs False = undefined -- how to make `partition' strict
 partition [] = return ([],[]) 
 partition (a:xs) = do
     (fs,ds) <- partition xs

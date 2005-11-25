@@ -54,7 +54,7 @@ basenameP fps = case P.elemIndexLast '/' fps of
 
 dirnameP :: P.FastString -> P.FastString
 dirnameP fps = case P.elemIndexLast '/' fps of
-    Nothing -> P.packAddress "."#
+    Nothing -> P.pack "."
     Just i  -> P.take i fps
 
 --
