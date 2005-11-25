@@ -1,11 +1,10 @@
 Possible:
- - clean up exit path, so profiling works, and it only shutsdown once
- - cmd line files are not stored in the order they appear on the cmdline
- - Cleaner updates when skipping 
+ - Cmd line *files* (not dirs) are not stored in the order they appear on the cmdline
+ - Cleaner updates when skipping perhaps?
  - Automated testing, Stress testing
  - Should random mode not repeat itself?
  - Dynloaded Config.hs
  - A simpler, more obviously correct UI.hs, based on a Ppr library
  - Volume?
- - mpd backend. slightly different protocol, but not too different.
- - Igloo's gstreamer binding: http://urchin.earth.li/~ian/minstrel/
+ - An mpd backend? slightly different protocol, but not too different.
+ - We should be able to play oggs
