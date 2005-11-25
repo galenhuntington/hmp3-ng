@@ -35,7 +35,7 @@ import Foreign.C.Types          (CFile)
 import Foreign.Ptr              (Ptr)
 
 import Control.Concurrent       (ThreadId)
-import Control.Concurrent.MVar  (MVar, tryPutMVar, newMVar,withMVar, modifyMVar_, modifyMVar)
+import Control.Concurrent.MVar
 
 import System.Time              (ClockTime(..))
 import System.IO                (IO, Handle, hPutStrLn, stderr, hFlush)
@@ -100,6 +100,10 @@ emptySt = State {
        ,xterm        = False
        ,doNotResuscitate = False
     }
+
+running :: MVar ()
+running = unsafePerformIO newEmptyMVar
+{-# NOINLINE running #-}
 
 --
 -- | A global variable holding the state

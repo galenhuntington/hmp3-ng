@@ -36,7 +36,7 @@ import Lexer                    (parser)
 import State
 import Style                    (StringA(..), warnings)
 import Config                   (config, Config(style, keymap))
-import Utils                    ((</>), drawUptime)
+import Utils                    ((</>), drawUptime, repeatM_)
 import FastIO                   (fdToCFile, joinPathP)
 import Tree hiding (File)
 import Regex
@@ -45,26 +45,26 @@ import qualified UI             (start, refreshClock, refresh, getKey, end)
 import qualified Data.FastPackedString as P
 
 import Data.Array               ((!), bounds)
+import Data.Maybe               (isJust)
 
 import Control.Monad            (mapM_, liftM, when)
 
 import System.Directory         (doesFileExist)
 import System.Environment       (getEnv)
-import System.Exit              (ExitCode(ExitSuccess))
+import System.Exit              (ExitCode(ExitSuccess),exitWith)
 import System.IO                (IO, hPutStrLn, hGetLine, stderr)
-import System.Posix.User        ( getUserEntryForID, getRealUserID, homeDirectory )
-import System.Process           ( waitForProcess )
+import System.Posix.User        (getUserEntryForID, getRealUserID, homeDirectory)
+import System.Posix.Process     (exitImmediately)
+import System.Process           (waitForProcess)
 import System.Random            (getStdRandom, randomR)
 import System.Time              (getClockTime)
 
 import Control.Concurrent
-import Control.Exception        (catch, ioErrors, handle, catchJust)
+import Control.Exception
 
 import GHC.Base                 (unsafeCoerce#)
 import GHC.Handle               (fdToHandle)
 import GHC.IOBase               (unsafeInterleaveIO)
-import GHC.Exception            (throwIO, AsyncException(ThreadKilled),
-		                         Exception(ExitException, AsyncException))
 
 #include "config.h"
 
@@ -75,7 +75,6 @@ start ms = Control.Exception.handle
     (\e -> (warnA $ "hmp3.Core: " ++ show e) >> throwIO e) $ do
 
     t0 <- forkIO mpgLoop    -- start this off early, to give mpg321 a time to settle
-    t5 <- forkIO errorLoop
 
     UI.start -- initialise curses
 
@@ -98,8 +97,10 @@ start ms = Control.Exception.handle
     t2 <- forkIO refreshLoop
     t3 <- forkIO clockLoop
     t4 <- forkIO uptimeLoop
+    t5 <- forkIO errorLoop
     modifyState_ $ \s -> return s { threads = [t0,t1,t2,t3,t4,t5] } 
 
+    takeMVar running  -- make sure mpg321 is up before we write to it
     when (0 <= (snd . bounds $ fs)) play -- start the first song
 
     run         -- won't restart if this fails!
@@ -108,26 +109,25 @@ start ms = Control.Exception.handle
 
 -- | Uniform loop and thread handler
 forever :: IO () -> IO ()
-forever fn = Control.Exception.catch (fn >> loop) (threadHandler loop)
+forever fn = catch (repeatM_ fn) handler
     where
-        loop :: IO ()
-        loop = do stop <- readState doNotResuscitate
-                  when (not stop) (forever fn)
-{-# INLINE forever #-}
+        handler :: Exception -> IO ()
+        handler e = 
+               do when (not.exitTime $ e) $ do
+                  (warnA . show) e 
+                  (forever fn)        -- reopen the catch
 
 -- | Generic handler
-threadHandler :: (IO ()) -> Exception -> IO ()
-threadHandler f e
-    | isExitCall e   = (warnA.show) e   -- exit
-    | isKillThread e = (warnA.show) e   -- exit
-    | otherwise      = (warnA.show) e >> f  -- warn only
+exitTime :: Exception -> Bool
+exitTime e | isJust . ioErrors $ e   = False -- ignore
+           | isJust . errorCalls $ e = False -- ignore
+           | isJust . userErrors $ e = False -- ignore
+           | otherwise               = True
 
-  where
-    isExitCall (ExitException _) = True
-    isExitCall _ = False
-
-    isKillThread (AsyncException ThreadKilled) = True
-    isKillThread _ = False
+--
+-- so each loop must be inside a catch. 
+-- and at least mpg321 must check doNotResuscitate
+--
 
 ------------------------------------------------------------------------
 
@@ -145,15 +145,21 @@ mpgLoop = forever $ do
     hw          <- fdToHandle (unsafeCoerce# w)  -- so we can use Haskell IO
     ew          <- fdToHandle (unsafeCoerce# e)  -- so we can use Haskell IO
     filep       <- fdToCFile r                   -- so we can use C IO
-    modifyState_ $ \st -> return st { mp3pid    = pid
-                                    , writeh    = Just hw
-                                    , errh      = Just ew
-                                    , readf     = Just filep 
-                                    , status    = Stopped
-                                    , info      = Nothing
-                                    , id3       = Nothing }
+    modifyState_ $ \st -> do
+            return st { mp3pid    = pid
+                      , writeh    = Just hw
+                      , errh      = Just ew
+                      , readf     = Just filep 
+                      , status    = Stopped
+                      , info      = Nothing
+                      , id3       = Nothing }
+    putMVar running ()
+  
     Control.Exception.catch (waitForProcess $ unsafeCoerce# pid)
-                            (\_ -> return ExitSuccess)
+                (\_ -> return ExitSuccess)
+
+    stop <- readState doNotResuscitate
+    when (stop) $ exitWith ExitSuccess
 
     warnA (MPG321 ++ " restarting")
 
@@ -239,12 +245,12 @@ run = forever $ do
 -- | Close most things. Important to do all the jobs:
 shutdown :: IO ()
 shutdown = handle (\e -> hPutStrLn stderr (show e) >> return ()) $ do
-    -- so this should stop the mpg restart thread looping
-    modifyState_ $ \st -> return st { doNotResuscitate = True }
 
-    forkIO writeSt -- should only do this if it changed, otherwise just write the index
+    unsafeModifyState $ \st -> return st { doNotResuscitate = True }
 
-    modifyState_ $ \st -> do
+    writeSt -- should only do this if it changed, otherwise just write the index
+
+    unsafeModifyState $ \st -> do
 
         let pid = mp3pid st
             tds = threads st
@@ -255,21 +261,16 @@ shutdown = handle (\e -> hPutStrLn stderr (show e) >> return ()) $ do
             waitForProcess $ unsafeCoerce# pid
             return ()
 
---      Should check if it's still running
---      handle (\_ -> return ()) $
---          signalProcess sigTERM (unsafeCoerce# pid)   -- just kill it
-
-        -- now our own threads
+        -- hmm but should kill this thread!
         flip mapM_ tds $ \t -> 
             catch (killThread t) (\_ -> return ())      -- and kill threads
 
-        return st { mp3pid = (-1){-?-}, threads = [] } -- just being safe
-
-    -- and get the hell out of here
-    -- exitImmediately ExitSuccess
+        return st
 
     isXterm <- readState xterm
     UI.end isXterm
+
+    exitImmediately ExitSuccess
     return ()
 
 ------------------------------------------------------------------------
@@ -496,7 +497,6 @@ writeSt = do
         let arr1 = music st
             arr2 = folders st
         writeTree f (arr1,arr2) (current st)
-    putmsg (Plain $ "Wrote state to " ++ f) >> touchState
 
 -- | Read the playlist back
 readSt :: IO (Maybe (FileArray, DirArray, Int))
