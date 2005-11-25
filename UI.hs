@@ -446,8 +446,7 @@ instance Element PlayList where
     draw p@(y,x) q@(o,_) st z =
         PlayList $! title 
                  : list 
-                 ++ (replicate (height - length list - 2) 
-                        (Fast P.empty (Style Default Default)))
+                 ++ (replicate (height - length list - 2) (Plain []))
                  ++ [minibuffer st]
         where
             (PlayTitle title)       = draw p q st z :: PlayTitle
