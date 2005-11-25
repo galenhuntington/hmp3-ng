@@ -9,5 +9,3 @@ Possible:
  - Volume?
  - mpd backend. slightly different protocol, but not too different.
  - Igloo's gstreamer binding: http://urchin.earth.li/~ian/minstrel/
- - try the compacting garbage collector?
-
