@@ -73,7 +73,8 @@ import GHC.IOBase               ( unsafeInterleaveIO )
 ------------------------------------------------------------------------
 
 start :: Either (FileArray,DirArray,Int) [P.FastString] -> IO ()
-start ms = do
+start ms = Control.Exception.handle 
+    (\e -> (warnA $ "hmp3.Core: " ++ show e) >> throwIO e) $ do
 
     t0 <- forkIO mpgLoop    -- start this off early, to give mpg321 a time to settle
     t5 <- forkIO errorLoop
@@ -110,6 +111,10 @@ start ms = do
 
 -- | Process loop, launch mpg321, set the handles in the state
 -- and then wait for the process to die. If it does, restart it.
+--
+-- If we're unable to start at all, we should say something sensible
+-- For example, if we can't start it two times in a row, perhaps give up?
+--
 mpgLoop :: IO ()
 mpgLoop = handle (\e -> (warnA.show) e >> mpgLoop) $ do
     (r,w,e,pid) <- popen (MPG321 :: String) ["-R","-"]
@@ -128,9 +133,8 @@ mpgLoop = handle (\e -> (warnA.show) e >> mpgLoop) $ do
 
     warnA (MPG321 ++ " restarting")
 
-    stop <- readState doNotResuscitate -- more races
+    stop <- readState doNotResuscitate
     when (not stop) mpgLoop
-    -- and if it returns, loop.
 
 ------------------------------------------------------------------------
 
@@ -188,7 +192,7 @@ inputLoop = repeatM_ $ handle handler $
 
 ------------------------------------------------------------------------
 
--- | Handle errors produced by mpg321
+-- | Handle, and display errors produced by mpg321
 errorLoop :: IO ()
 errorLoop = repeatM_ $ handle (warnA.show) $ do
     mh   <- readState errh -- race
