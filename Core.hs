@@ -124,7 +124,7 @@ threadHandler :: (IO ()) -> Exception -> IO ()
 threadHandler f e
     | isExitCall e   = (warnA.show) e   -- exit
     | isKillThread e = (warnA.show) e   -- exit
-    | otherwise      = (warnA.show) e >> f
+    | otherwise      = (warnA.show) e >> f  -- warn only
 
   where
     isExitCall (ExitException _) = True
