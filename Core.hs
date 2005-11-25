@@ -108,16 +108,11 @@ start ms = Control.Exception.handle
 
 -- | Uniform loop and thread handler
 forever :: IO () -> IO ()
-forever fn = Control.Exception.catch
-    (fn >> maybeLoop fn)
-    (threadHandler $ maybeLoop fn)
-
--- | We inform our threads that they should not restart this way, giving
--- them the chance to exit cleanly, rather than killThreading them.
-maybeLoop :: (IO ()) -> IO ()
-maybeLoop f = do
-    stop <- readState doNotResuscitate
-    when (not stop) (forever f)
+forever fn = Control.Exception.catch (fn >> loop fn) (threadHandler (loop fn))
+    where
+        loop = do stop <- readState doNotResuscitate
+                  when (not stop) (forever fn)
+{-# INLINE forever #-}
 
 -- | Generic handler
 threadHandler :: (IO ()) -> Exception -> IO ()
