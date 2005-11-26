@@ -263,7 +263,7 @@ resetParams = do
     echo False          -- don't echo to the screen
     nl True             -- always translate enter to \n
     leaveOk True        -- not ok to leave cursor wherever it is
-    c_meta stdScr 1       -- ask for 8 bit chars, so we can get Meta
+    meta stdScr True    -- ask for 8 bit chars, so we can get Meta
     keypad stdScr True  -- enable the keypad, so things like ^L (refresh) work
     noDelay stdScr False  -- blocking getCh, no #ERR
     return ()
@@ -1402,6 +1402,11 @@ isFKey c = case fromIntegral $ ord c :: CInt of
 
 -- ---------------------------------------------------------------------
 -- try to set the upper bits
+
+meta :: Window -> Bool -> IO ()
+meta win bf = throwIfErr_ "meta"## $
+    c_meta win (if bf then 1 else 0)
+
 foreign import ccall unsafe "curses.h meta" 
     c_meta :: Window -> CInt -> IO CInt
 
