@@ -38,7 +38,7 @@ defaultStyle  = UIStyle { window     = Style Default Default
                         , selected   = Style blue      Default
                         , cursors    = Style black        cyan
                         , combined   = Style brightWhite  cyan
-                        , warnings   = Style red          Default
+                        , warnings   = Style darkRed    Default
                         , helpscreen = Style black   cyan
                         , progress   = Style cyan    brightWhite  }
 

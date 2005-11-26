@@ -50,7 +50,7 @@ import Data.Maybe               (isJust)
 import Control.Monad            (mapM_, liftM, when)
 
 import System.Directory         (doesFileExist,findExecutable)
-import System.Environment       (getEnv,getArgs)
+import System.Environment       (getEnv)
 import System.Exit              (ExitCode(ExitSuccess),exitWith)
 import System.IO                (IO, hPutStrLn, hGetLine, stderr)
 import System.Posix.User        (getUserEntryForID, getRealUserID, homeDirectory)
@@ -480,8 +480,6 @@ add f = do
 -- | Saving the playlist 
 writeSt :: IO ()
 writeSt = do
-    ls <- getArgs
-    when (not . null $ ls) $ do -- new playlist, so write
     home <- getHome
     let f = home </> ".hmp3db"
     withState $ \st -> do
