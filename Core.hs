@@ -137,14 +137,14 @@ exitTime _ = True
 --
 mpgLoop :: IO ()
 mpgLoop = forever $ do
-    (r,w,e,pid) <- popen (MPG321 :: String) ["-R","-"]
-    hw          <- fdToHandle (unsafeCoerce# w)  -- so we can use Haskell IO
-    ew          <- fdToHandle (unsafeCoerce# e)  -- so we can use Haskell IO
-    filep       <- fdToCFile r                   -- so we can use C IO
+    mmpg <- findExecutable (MPG321 :: String)
+    case mmpg of
+      Nothing  -> warnA ("Cannot find " ++ MPG321 ++ " in path") >> quit
+      Just mpg321 -> do 
 
         (r,w,e,pid) <- popen (mpg321 :: String) ["-R","-"]
-        hw          <- fdToHandle (unsafeCoerce# w)  -- so we can use Haskell IO
-        ew          <- fdToHandle (unsafeCoerce# e)  -- so we can use Haskell IO
+        hw          <- fdToHandle (fdToInt w)  -- so we can use Haskell IO
+        ew          <- fdToHandle (fdToInt e)  -- so we can use Haskell IO
         filep       <- fdToCFile r                   -- so we can use C IO
         mhw         <- newMVar hw
         mew         <- newMVar ew
