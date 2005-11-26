@@ -48,14 +48,16 @@ type FileArray = Array Int File
 
 -- | A directory entry is the directory name, and a list of bound
 -- indicies into the Files array.
-data Dir  = Dir { dname :: !FilePathP        -- ^ directory name
-                , dsize :: !Int              -- ^ number of file entries
-                , dlo   :: !Int              -- ^ index of first entry
-                , dhi   :: !Int }            -- ^ index of last entry
+data Dir  = 
+    Dir { dname :: !FilePathP        -- ^ directory name
+        , dsize :: !Int              -- ^ number of file entries
+        , dlo   :: !Int              -- ^ index of first entry
+        , dhi   :: !Int }            -- ^ index of last entry
     deriving Show
 
-data File = File { fbase :: !FilePathP      -- ^ basename of file
-                 , fdir  :: !Int }          -- ^ index of Dir entry 
+data File = 
+    File { fbase :: !FilePathP      -- ^ basename of file
+         , fdir  :: !Int }          -- ^ index of Dir entry 
     deriving Show
 
 --
@@ -81,7 +83,7 @@ buildTree fs = do
         dirsArray = listArray (0,length dirls - 1) (reverse dirls)
         fileArray = listArray (0, n-1) (reverse filels)
 
-    return $! (dirsArray, fileArray)
+    dirsArray `seq` fileArray `seq` return $ (dirsArray, fileArray)
 
 -- | Create nodes based on dirname for orphan files on cmdline
 doOrphans :: [FilePathP] -> [(FilePathP, [FilePathP])]

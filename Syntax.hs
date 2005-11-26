@@ -35,7 +35,7 @@ import qualified Data.FastPackedString as P (unpack, FastString)
 
 -- Loads and starts playing <file>
 --
-data Load = Load !P.FastString
+data Load = Load {-# UNPACK #-} !P.FastString
         deriving Show
 
 instance Pretty Load where
@@ -44,7 +44,7 @@ instance Pretty Load where
 -- If '+' or '-' is specified, jumps <frames> frames forward, or backwards,
 -- respectively, in the the mp3 file.  If neither is specifies, jumps to
 -- absolute frame <frames> in the mp3 file.
-data Jump = Jump !Int
+data Jump = Jump {-# UNPACK #-} !Int
         deriving Show
 
 instance Pretty Jump where
@@ -73,15 +73,15 @@ data Tag = Tag
         deriving Show
 
 -- Track info if ID fields are in the file, otherwise file name.
-data File = File (Either P.FastString Id3)
+data File = File {-# UNPACK #-} !(Either P.FastString Id3)
         deriving Show
 
 -- ID3 info 
 data Id3 = Id3 
-        { id3title  :: P.FastString 
-        , id3artist :: P.FastString 
-        , id3album  :: P.FastString 
-        , id3str    :: P.FastString }   -- cache screen string to draw
+        { id3title  :: !P.FastString 
+        , id3artist :: !P.FastString 
+        , id3album  :: !P.FastString 
+        , id3str    :: !P.FastString }   -- cache screen string to draw
 
 --      , year   :: Maybe P.FastString
 --      , genre  :: Maybe P.FastString }
@@ -105,19 +105,19 @@ data Id3 = Id3
 -- <k>: Bitrate, in kbps. (i.e., 128.) Integer.
 -- <l>: Extension. Integer.
 data Info = Info {
-                userinfo      :: !P.FastString, -- user friendly string
-                version       :: P.FastString,
-                layer         :: Int,     -- 1,2 or 3
-                sampleRate    :: Int,
-                playMode      :: P.FastString,
-                modeExtns     :: Int,
-                bytesPerFrame :: Int,
-                channelCount  :: Int,
-                copyrighted   :: Bool,
-                checksummed   :: Bool,
-                emphasis      :: Int,
-                bitrate       :: Int,
-                extension     :: Int 
+                userinfo      :: !P.FastString  -- user friendly string
+           --   version       :: !P.FastString,
+           --   layer         :: !Int,     -- 1,2 or 3
+           --   sampleRate    :: !Int,
+           --   playMode      :: !P.FastString,
+           --   modeExtns     :: !Int,
+           --   bytesPerFrame :: !Int,
+           --   channelCount  :: !Int,
+           --   copyrighted   :: !Bool,
+           --   checksummed   :: !Bool,
+           --   emphasis      :: !Int,
+           --   bitrate       :: !Int,
+           --   extension     :: !Int 
             }
         deriving Show
 
@@ -158,11 +158,11 @@ class Pretty a where
 --
 -- And a wrapper type 
 --
-data Msg = T Tag
-         | F File
-         | I Info
-         | R Frame
-         | S Status
+data Msg = T {-# UNPACK #-} !Tag
+         | F {-# UNPACK #-} !File
+         | I {-# UNPACK #-} !Info
+         | R {-# UNPACK #-} !Frame
+         | S {-# UNPACK #-} !Status
         deriving Show
 
 draw :: Pretty a => a -> String

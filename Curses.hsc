@@ -606,7 +606,7 @@ color "cyan"     = Just $ Color (#const COLOR_CYAN)
 color "white"    = Just $ Color (#const COLOR_WHITE)
 color _ =  Nothing
 
-data Attribute = Attribute [String] !String !String
+data Attribute = Attribute ![String] !String !String
 
 parseAttr :: String -> Attribute 
 parseAttr s = Attribute as fg bg 

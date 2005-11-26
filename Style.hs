@@ -47,7 +47,7 @@ data UIStyle = UIStyle { window     :: !Style
                        , progress   :: !Style }
 
 -- | Foreground and background color pairs
-data Style = Style !Color !Color
+data Style = Style {-# UNPACK #-} !Color !Color
     deriving (Show,Eq)
 
 -- | A List of characters with styles attached

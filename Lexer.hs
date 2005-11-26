@@ -58,6 +58,7 @@ doF s = R $ Frame {
 doS :: P.FastString -> Msg
 doS s = let fs = P.split ' ' . P.tail $ s
         in I $ Info { 
+            {-
                   version       = fs !! 0
                 , layer         = read . P.unpack $ fs !! 1
                 , sampleRate    = read . P.unpack $ fs !! 2
@@ -70,7 +71,8 @@ doS s = let fs = P.split ' ' . P.tail $ s
                 , emphasis      = read $ P.unpack $ fs !! 9
                 , bitrate       = read $ P.unpack $ fs !! 10
                 , extension     = read $ P.unpack $ fs !! 11
-                , userinfo      = (p "mpeg "#)
+            -}
+                userinfo      = (p "mpeg "#)
                        `P.append` (fs !! 0)
                        `P.append` (p " "#)
                        `P.append` (fs !! 10)
