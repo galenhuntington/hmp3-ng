@@ -214,12 +214,6 @@ joinPathP f g =
       len = P.length f + P.length g + 1
       sep = fromIntegral . ord $ '/'
 {-# INLINE joinPathP #-}
-{-
-joinPathP :: P.FastString -> P.FastString -> P.FastString
-joinPathP f g = f `P.append` sep `P.append` g
-    where
-        sep = P.packAddress "/"#
--}
 
 -- ---------------------------------------------------------------------
 
