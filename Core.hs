@@ -117,11 +117,15 @@ forever fn = catch (repeatM_ fn) handler
                   (forever fn)        -- reopen the catch
 
 -- | Generic handler
+-- For profiling, make sure to return True for anything:
 exitTime :: Exception -> Bool
 exitTime e | isJust . ioErrors $ e   = False -- ignore
            | isJust . errorCalls $ e = False -- ignore
            | isJust . userErrors $ e = False -- ignore
            | otherwise               = True
+{-
+exitTime _ = True
+-}
 
 ------------------------------------------------------------------------
 
@@ -495,7 +499,7 @@ readSt = do
     home <- getHome
     let f = home </> ".hmp3db"
     b <- doesFileExist f
-    if b then liftM Just $ readTree f else return Nothing
+    if b then liftM Just $! readTree f else return Nothing
 
 getHome :: IO String
 getHome = Control.Exception.catch 

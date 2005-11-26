@@ -276,8 +276,8 @@ instance Element HelpScreen where
                     s = P.pack (take (tot - P.length p) (repeat ' '))
                 in p `P.append` s
                 where
-                    tot = round (fromIntegral w * (0.8::Float))
-                    len = round (fromIntegral tot * (0.2::Float))
+                    tot = round $! fromIntegral w *   (0.8::Float)
+                    len = round $! fromIntegral tot * (0.2::Float)
 
                     -- faststringify
                     str = take len $ ' ' :
@@ -343,6 +343,8 @@ instance Element ProgressBar where
           (Style fg bg) = progress (style config)
           bgs           = Style bg bg
           fgs           = Style fg fg
+
+          toFloat (x,y) | x `seq` y `seq` False = undefined
           toFloat (x,y) = (fromIntegral x :: Float) + (fromIntegral y / 100)
 
 ------------------------------------------------------------------------

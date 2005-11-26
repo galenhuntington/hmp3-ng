@@ -55,6 +55,7 @@ data Dir  =
         , dhi   :: !Int }            -- ^ index of last entry
     deriving Show
 
+-- Most data is allocated in this structure
 data File = 
     File { fbase :: !FilePathP      -- ^ basename of file
          , fdir  :: !Int }          -- ^ index of Dir entry 
@@ -221,5 +222,5 @@ readTree f = do
     (a,b)<- get bh
     i    <- get bh
     hClose h
-    return (a,b,i)
+    return $! (a,b,i)
 
