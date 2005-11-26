@@ -38,7 +38,7 @@ import Control.Concurrent       (ThreadId)
 import Control.Concurrent.MVar
 
 import System.Time              (ClockTime(..))
-import System.IO                (IO, Handle, hPutStrLn, stderr, hFlush)
+import System.IO                (IO, Handle, hPutStrLn, hFlush)
 import System.Posix.Types       (ProcessID)
 
 ------------------------------------------------------------------------
@@ -51,9 +51,9 @@ data State = State {
        ,current         :: !Int             -- currently playing mp3
        ,cursor          :: !Int             -- mp3 under the cursor
        ,mp3pid          :: ProcessID        -- pid of decoder
-       ,writeh          :: Maybe Handle     --  handle to mp3
-       ,errh            :: Maybe Handle     --  error handle to mp3
-       ,readf           :: Maybe (Ptr CFile)-- r/w pipe to mp3
+       ,writeh          :: MVar Handle     --  handle to mp3 (should be MVars?)
+       ,errh            :: MVar Handle     --  error handle to mp3
+       ,readf           :: MVar (Ptr CFile)-- r/w pipe to mp3
        ,threads         :: [ThreadId]       -- all our threads
        ,id3             :: Maybe Id3        -- maybe mp3 id3 info
        ,info            :: Maybe Info       -- mp3 info
@@ -81,9 +81,9 @@ emptySt = State {
        ,folders      = listArray (0,0) []
        ,size         = 0
        ,mp3pid       = 0
-       ,writeh       = Nothing
-       ,errh         = Nothing
-       ,readf        = Nothing
+       ,writeh       = unsafePerformIO newEmptyMVar
+       ,errh         = unsafePerformIO newEmptyMVar
+       ,readf        = unsafePerformIO newEmptyMVar
        ,threads      = []
        ,current      = 0
        ,cursor       = 0
@@ -98,12 +98,8 @@ emptySt = State {
        ,boottime     = TOD 0 0
        ,regex        = Nothing
        ,xterm        = False
-       ,doNotResuscitate = False
+       ,doNotResuscitate = False    -- mgp321 should be be restarted
     }
-
-running :: MVar ()
-running = unsafePerformIO newEmptyMVar
-{-# NOINLINE running #-}
 
 --
 -- | A global variable holding the state
@@ -166,7 +162,6 @@ modifyState_ f = modifyMVar_ state $ \r -> do
     v' <- f v
     writeIORef r v'
     tryPutMVar modified ()
---  hPutStrLn stderr "MODIFIED"
     return r
 
 -- | Trigger a refresh
@@ -193,7 +188,6 @@ modifyState f = modifyMVar state $ \r -> do
 ------------------------------------------------------------------------
 
 -- | Send a msg over the channel to the decoder
-send :: Pretty a => Maybe Handle -> a -> IO ()
-send mp m = case mp of
-    Nothing -> hPutStrLn stderr "send: no pipe to send on"
-    Just h  -> hPutStrLn h (draw m) >> hFlush h
+send :: Pretty a => Handle -> a -> IO ()
+send h m = hPutStrLn h (draw m) >> hFlush h
+
