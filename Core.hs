@@ -182,7 +182,7 @@ uptimeLoop = forever $ do
 
 ------------------------------------------------------------------------
 
--- | Once each second, wake up a and redraw the clock
+-- | Once each half second, wake up a and redraw the clock
 clockLoop :: IO ()
 clockLoop = forever $ threadDelay delay >> UI.refreshClock
   where
@@ -277,11 +277,8 @@ handleMsg (S t) = do
 
 handleMsg (R f) = do
     modifyClock $! \_ -> return $ Just f
-    b <- isEmptyMVar clockModified
-    when (not b) $ do   -- force an immediate update if we've just skipped 
-        takeMVar clockModified
-        catchJust ioErrors UI.refreshClock (warnA.show)
-        return ()
+    x <- tryTakeMVar clockModified   -- immediate update
+    when (isJust x) UI.refreshClock
 
 ------------------------------------------------------------------------
 --
