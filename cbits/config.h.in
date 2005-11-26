@@ -36,7 +36,7 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
-/* Path to mpg321 */
+/* Which mp3 decoder to use */
 #undef MPG321
 
 /* Define to the address where bug reports for this package should be sent. */

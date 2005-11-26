@@ -49,7 +49,7 @@ import Data.Maybe               (isJust)
 
 import Control.Monad            (mapM_, liftM, when)
 
-import System.Directory         (doesFileExist)
+import System.Directory         (doesFileExist,findExecutable)
 import System.Environment       (getEnv,getArgs)
 import System.Exit              (ExitCode(ExitSuccess),exitWith)
 import System.IO                (IO, hPutStrLn, hGetLine, stderr)
@@ -133,34 +133,32 @@ exitTime e | isJust . ioErrors $ e   = False -- ignore
 --
 mpgLoop :: IO ()
 mpgLoop = forever $ do
-    (r,w,e,pid) <- popen (MPG321 :: String) ["-R","-"]
-    hw          <- fdToHandle (unsafeCoerce# w)  -- so we can use Haskell IO
-    ew          <- fdToHandle (unsafeCoerce# e)  -- so we can use Haskell IO
-    filep       <- fdToCFile r                   -- so we can use C IO
+    mmpg <- findExecutable (MPG321 :: String)
+    case mmpg of
+      Nothing  -> warnA ("Cannot find " ++ MPG321 ++ " in path") >> quit
+      Just mpg321 -> do 
 
-    mhw         <- newMVar hw
-    mew         <- newMVar ew
-    mfilep      <- newMVar filep
+        (r,w,e,pid) <- popen (mpg321 :: String) ["-R","-"]
+        hw          <- fdToHandle (unsafeCoerce# w)  -- so we can use Haskell IO
+        ew          <- fdToHandle (unsafeCoerce# e)  -- so we can use Haskell IO
+        filep       <- fdToCFile r                   -- so we can use C IO
+        mhw         <- newMVar hw
+        mew         <- newMVar ew
+        mfilep      <- newMVar filep
 
-    -- delay
-
-    modifyState_ $ \st ->
-            return st { mp3pid    = pid
-                      , writeh    = mhw
-                      , errh      = mew
-                      , readf     = mfilep 
-                      , status    = Stopped
-                      , info      = Nothing
-                      , id3       = Nothing }
-  
-    -- now wait
-    Control.Exception.catch (waitForProcess $ unsafeCoerce# pid)
-                (\_ -> return ExitSuccess)
-
-    stop <- readState doNotResuscitate
-    when (stop) $ exitWith ExitSuccess
-
-    warnA (MPG321 ++ " restarting")
+        modifyState_ $ \st ->
+                return st { mp3pid    = pid
+                          , writeh    = mhw
+                          , errh      = mew
+                          , readf     = mfilep 
+                          , status    = Stopped
+                          , info      = Nothing
+                          , id3       = Nothing }
+      
+        catch (waitForProcess $ unsafeCoerce# pid) (\_ -> return ExitSuccess)
+        stop <- readState doNotResuscitate
+        when (stop) $ exitWith ExitSuccess
+        warnA $ "Restarting " ++ mpg321 ++ " ..."
 
 ------------------------------------------------------------------------
 
