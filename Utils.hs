@@ -28,6 +28,7 @@ import qualified Data.FastPackedString as P
 import Text.Printf      (printf)
 import System.Time      (diffClockTimes, TimeDiff(tdSec), ClockTime)
 import System.IO        (IO, FilePath)
+import System.Posix.Types   (Fd(..))
 
 ------------------------------------------------------------------------
 
@@ -142,3 +143,7 @@ forever = repeatM_
 -}
 
 ------------------------------------------------------------------------
+
+fdToInt :: Fd -> Int
+fdToInt (Fd cint) = fromIntegral cint
+

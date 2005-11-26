@@ -36,7 +36,7 @@ import Lexer                    (parser)
 import State
 import Style                    (StringA(..), warnings)
 import Config                   (config, Config(style, keymap))
-import Utils                    ((</>), drawUptime, repeatM_)
+import Utils                    ((</>), drawUptime, repeatM_, fdToInt)
 import FastIO                   (fdToCFile, joinPathP)
 import Tree hiding (File)
 import Regex
@@ -137,10 +137,10 @@ exitTime _ = True
 --
 mpgLoop :: IO ()
 mpgLoop = forever $ do
-    mmpg <- findExecutable (MPG321 :: String)
-    case mmpg of
-      Nothing  -> warnA ("Cannot find " ++ MPG321 ++ " in path") >> quit
-      Just mpg321 -> do 
+    (r,w,e,pid) <- popen (MPG321 :: String) ["-R","-"]
+    hw          <- fdToHandle (unsafeCoerce# w)  -- so we can use Haskell IO
+    ew          <- fdToHandle (unsafeCoerce# e)  -- so we can use Haskell IO
+    filep       <- fdToCFile r                   -- so we can use C IO
 
         (r,w,e,pid) <- popen (mpg321 :: String) ["-R","-"]
         hw          <- fdToHandle (unsafeCoerce# w)  -- so we can use Haskell IO
