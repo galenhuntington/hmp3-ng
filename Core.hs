@@ -287,29 +287,26 @@ handleMsg (R f) = do
 
 -- | Seek backward in song
 seekLeft :: IO ()
-seekLeft        = do
-    f <- readClock id
-    case f of 
-        Nothing -> return ()
-        Just (Frame { currentFrame = fr }) -> do
-            withState $ \st -> do
-                h <- readMVar (writeh st)
-                send h $ Jump (max 0 (fr-400))
-            tryPutMVar clockModified () -- touch the modified MVar
-            return ()
+seekLeft = seek $ \g -> max 0 (currentFrame g - 400)
 
 -- | Seek forward in song
 seekRight :: IO ()
-seekRight       = do
+seekRight = seek $ \g -> currentFrame g + (min 400 (framesLeft g))
+
+-- | Generic seek
+seek :: (Frame -> Int) -> IO ()
+seek fn = do
     f <- readClock id
     case f of 
         Nothing -> return ()
-        Just g@(Frame { currentFrame = fr }) -> do
-                withState $ \st -> do
-                    h <- readMVar (writeh st)
-                    send h $ Jump (fr + (min 400 (framesLeft g)))
-                tryPutMVar clockModified () -- touch the modified MVar
-                return ()
+        Just g  -> do
+            withState $ \st -> do
+                h <- readMVar (writeh st)
+                send h $ Jump (fn g)
+            tryPutMVar clockModified () -- touch the modified MVar
+            return ()
+
+------------------------------------------------------------------------
 
 -- | Move cursor up
 up :: IO ()
@@ -330,6 +327,8 @@ jump i = modifyState_ $ \st -> do
     let l = size st - 1
         n = if i > l then l else if i < 0 then 0 else i
     return st { cursor = n }
+
+------------------------------------------------------------------------
 
 -- | Toggle pause on the current song
 pause :: IO ()
@@ -391,6 +390,8 @@ playRandom = modifyState_ $ \st -> do
     send h (Load f)
     return st'
 
+------------------------------------------------------------------------
+
 -- | Shutdown and exit
 quit :: IO ()
 quit = shutdown
@@ -413,6 +414,8 @@ jumpToPrevDir = modifyState_ $ \st -> do
     let i   = fdir (music st ! cursor st)
         d   = max (i - 1) 0
     return st { cursor = dlo ((folders st) ! d) }
+
+------------------------------------------------------------------------
 
 -- | Jump to first element (forwards or backwards) of folder that matches regex
 jumpToMatch :: Maybe (String,Bool) -> IO ()
@@ -450,6 +453,8 @@ jumpToMatch re = do
                 Just i  -> (st' { cursor = dlo (folders st ! i) }, True)
 
     when (not found) $ putmsg (Plain "No match found.") >> touchState
+
+------------------------------------------------------------------------
 
 -- | Show/hide the help window
 toggleHelp :: IO ()
