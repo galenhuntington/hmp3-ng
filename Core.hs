@@ -47,7 +47,7 @@ import qualified Data.FastPackedString as P
 import Data.Array               ((!), bounds)
 import Data.Maybe               (isJust)
 
-import Control.Monad            (mapM_, liftM, when)
+import Control.Monad            (liftM, when)
 
 import System.Directory         (doesFileExist,findExecutable)
 import System.Environment       (getEnv)
@@ -65,8 +65,6 @@ import Control.Exception
 import GHC.Base                 (unsafeCoerce#)
 import GHC.Handle               (fdToHandle)
 import GHC.IOBase               (unsafeInterleaveIO)
-
-import Debug.Trace
 
 #include "config.h"
 
@@ -232,7 +230,6 @@ shutdown = handle (\e -> hPutStrLn stderr (show e) >> return ()) $ do
     unsafeModifyState $ \st -> do
 
         let pid = mp3pid st
-            tds = threads st
 
         -- now shtudown mpg321
         handle (\_ -> return ()) $ do
