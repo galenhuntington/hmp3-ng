@@ -136,14 +136,9 @@ repeatM_ a = a >> repeatM_ a
 {-# SPECIALIZE repeatM_ :: IO a -> IO () #-}
 {-# INLINE repeatM_ #-}
 
-{-
-forever :: IO () -> IO ()
-forever = repeatM_
-{-# INLINE forever #-}
--}
-
 ------------------------------------------------------------------------
 
+-- | Convert a (newtyped) Posix Fd to an Int we can use in other places
 fdToInt :: Fd -> Int
 fdToInt (Fd cint) = fromIntegral cint
 
