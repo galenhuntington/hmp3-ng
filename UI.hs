@@ -243,7 +243,7 @@ instance Element PPlaying where
     draw w@(_,x') x st z = PPlaying $ 
             Fast (pad `P.append` alignLR (x'-4) a b) sty
         where
-            pad = P.packAddress "  "#
+            pad = P.pack "  "
             sty = Style Default Default
 
             (PId3 a)  = draw w x st z :: PId3 
@@ -302,10 +302,10 @@ instance Element HelpScreen where
 instance Element PTimes where
     draw _ _ _ Nothing       = PTimes $ Fast (P.pack "-") (Style Default Default)
     draw (_,x) _ _ (Just fr) = PTimes $ flip Fast sty $! 
-                                    spc     `P.append`
-                                    elapsed `P.append`
-                                    gap     `P.append`
-                                    remaining
+                                    P.concat [spc
+                                             ,elapsed
+                                             ,gap
+                                             ,remaining ]
       where  -- 8.3 %
         sty       = Style Default Default
         spc       = P.pack "  "
@@ -389,23 +389,24 @@ instance Element PlayModes where
             (PMode2 m') = draw a b c d :: PMode2
 
 instance Element PlayInfo where
-    draw _ _ st _ = PlayInfo $ percent
-        `P.append` P.packAddress " ("# 
-        `P.append` P.pack (show . snd . bounds $ folders st)
-        `P.append` P.packAddress " dir"# 
-        `P.append` (if (snd . bounds $ folders st) == 1 then P.empty else P.packAddress "s"#) 
-        `P.append` P.packAddress ", "# 
-        `P.append` P.pack (show . size $ st)
-        `P.append` P.packAddress " file"# 
-        `P.append` (if size st == 1 then P.empty else P.packAddress "s"#) 
-        `P.append` P.packAddress ")"#
+    draw _ _ st _ = PlayInfo $ P.concat
+         [percent
+         ,P.pack " ("
+         ,P.pack (show . snd . bounds $ folders st)
+         ,P.pack " dir"
+         ,if (snd . bounds $ folders st) == 1 then P.empty else P.pack "s"
+         ,P.pack ", "
+         ,P.pack (show . size $ st)
+         ,P.pack " file"
+         ,if size st == 1 then P.empty else P.pack "s"
+         ,P.pack ")"]
       where
         curr   = cursor  st
-        percent | percent' == 0  && curr == 0 = P.packAddress "top"#
-                | percent' == 100             = P.packAddress "all"#
+        percent | percent' == 0  && curr == 0 = P.pack "top"
+                | percent' == 100             = P.pack "all"
                 | otherwise = if P.length s == 2 then ' ' `P.cons` s else s
             where 
-                s = P.pack (show percent') `P.append` P.packAddress "%"#
+                s = P.pack (show percent') `P.append` P.pack "%"
 
         percent' :: Int = round $ 
                     ((fromIntegral curr) / 
@@ -413,15 +414,16 @@ instance Element PlayInfo where
 
 instance Element PlayTitle where
     draw a@(_,x) b c d = PlayTitle $
-        flip Fast hl $ space
-             `P.append` inf
-             `P.append` P.unfoldr gapl (\u -> Just (u,u)) ' '
-             `P.append` modes
-             `P.append` P.unfoldr gapr (\u -> Just (u,u)) ' '
-             `P.append` time
-             `P.append` space
-             `P.append` ver
-             `P.append` space
+        flip Fast hl $ P.concat 
+              [space
+              ,inf
+              ,P.unfoldr gapl (\u -> Just (u,u)) ' '
+              ,modes
+              ,P.unfoldr gapr (\u -> Just (u,u)) ' '
+              ,time
+              ,space
+              ,ver
+              ,space]
       where
         (PlayInfo inf)    = draw a b c d :: PlayInfo
         (PTime time)      = draw a b c d :: PTime
