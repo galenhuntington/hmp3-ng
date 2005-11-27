@@ -50,7 +50,7 @@ import Control.Monad            (liftM, when)
 
 import System.Directory         (doesFileExist,findExecutable)
 import System.Environment       (getEnv)
-import System.Exit              (ExitCode(ExitSuccess),exitWith)
+import System.Exit              (ExitCode(..),exitWith)
 import System.IO                (IO, hPutStrLn, hGetLine, stderr)
 import System.Posix.User        (getUserEntryForID, getRealUserID, homeDirectory)
 import System.Posix.Process     (exitImmediately)
@@ -222,9 +222,15 @@ run = forever $ sequence_ . (keymap config) =<< getKeys
 
 -- | Close most things. Important to do all the jobs:
 shutdown :: IO ()
-shutdown = handle (\e -> hPutStrLn stderr (show e) >> return ()) $ do
+shutdown = handle 
+    (\e -> do hPutStrLn stderr (show e)
+              UI.end True
+              exitImmediately (ExitFailure 1)) $ do
+
     unsafeModifyState $ \st -> return st { doNotResuscitate = True }
-    writeSt -- should only do this if it changed, otherwise just write the index
+
+    catch writeSt (\e -> hPutStrLn stderr (show e))
+
     unsafeModifyState $ \st -> do
 
         let pid = mp3pid st
@@ -492,6 +498,7 @@ readSt = do
     b <- doesFileExist f
     if b then liftM Just $! readTree f else return Nothing
 
+-- | Find a user's home in a canonical sort of way
 getHome :: IO String
 getHome = Control.Exception.catch 
     (getRealUserID >>= getUserEntryForID >>= (return . homeDirectory))
