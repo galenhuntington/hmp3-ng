@@ -66,6 +66,8 @@ import GHC.Base                 (unsafeCoerce#)
 import GHC.Handle               (fdToHandle)
 import GHC.IOBase               (unsafeInterleaveIO)
 
+import Debug.Trace
+
 #include "config.h"
 
 ------------------------------------------------------------------------
@@ -93,7 +95,7 @@ start ms = Control.Exception.handle
         , boottime  = now }
 
     -- fork some threads
-    t1 <- forkIO inputLoop
+    t1 <- forkIO mpgInput
     t2 <- forkIO refreshLoop
     t3 <- forkIO clockLoop
     t4 <- forkIO uptimeLoop
@@ -111,10 +113,9 @@ forever :: IO () -> IO ()
 forever fn = catch (repeatM_ fn) handler
     where
         handler :: Exception -> IO ()
-        handler e = 
-               do when (not.exitTime $ e) $ do
-                  (warnA . show) e 
-                  (forever fn)        -- reopen the catch
+        handler e =
+            when (not.exitTime $ e) $
+                (warnA . show) e >> (forever fn)        -- reopen the catch
 
 -- | Generic handler
 -- For profiling, make sure to return True for anything:
@@ -123,9 +124,6 @@ exitTime e | isJust . ioErrors $ e   = False -- ignore
            | isJust . errorCalls $ e = False -- ignore
            | isJust . userErrors $ e = False -- ignore
            | otherwise               = True
-{-
-exitTime _ = True
--}
 
 ------------------------------------------------------------------------
 
@@ -194,38 +192,35 @@ clockLoop = forever $ threadDelay delay >> UI.refreshClock
 
 ------------------------------------------------------------------------
 
--- | Handle keystrokes fed to us by curses
-inputLoop :: IO ()
-inputLoop = forever $ sequence_ . (keymap config) =<< getKeys
-  where
-    getKeys = unsafeInterleaveIO $ do
-            c  <- UI.getKey
-            cs <- getKeys
-            return (c:cs) -- A lazy list of curses keys
-
-------------------------------------------------------------------------
-
 -- | Handle, and display errors produced by mpg321
 errorLoop :: IO ()
 errorLoop = forever $ readState errh >>= readMVar >>= hGetLine >>= warnA
 
 ------------------------------------------------------------------------
 
--- | Main thread, main loop. Handle messages arriving over a pipe from
--- the decoder process. When shutdown kills the other end of the pipe,
--- hGetLine will fail, so we take that chance to exit.
+-- | Handle messages arriving over a pipe from the decoder process. When
+-- shutdown kills the other end of the pipe, hGetLine will fail, so we
+-- take that chance to exit.
 --
--- NB, if we ever want to do profiling, insert a throwIO as the handler,
--- and replace exitImmediately with return ()
---
-run :: IO ()
-run = forever $ do
+mpgInput :: IO ()
+mpgInput = forever $ do
     mvar <- readState readf
     fp   <- readMVar mvar
     res  <- parser fp
     case res of
         Right m -> handleMsg m
         Left e  -> (warnA.show) e  -- error from pipe
+
+------------------------------------------------------------------------
+
+-- | The main thread: handle keystrokes fed to us by curses
+run :: IO ()
+run = forever $ sequence_ . (keymap config) =<< getKeys
+  where
+    getKeys = unsafeInterleaveIO $ do
+            c  <- UI.getKey
+            cs <- getKeys
+            return (c:cs) -- A lazy list of curses keys
 
 ------------------------------------------------------------------------
 
@@ -246,17 +241,18 @@ shutdown = handle (\e -> hPutStrLn stderr (show e) >> return ()) $ do
             waitForProcess $ unsafeCoerce# pid
             return ()
 
-        -- hmm but should kill this thread!
+        -- we have daemonic main threads, so who cares:
+        {-
         flip mapM_ tds $ \t -> 
             catch (killThread t) (\_ -> return ())      -- and kill threads
+        -}
 
         return st
 
     isXterm <- readState xterm
     UI.end isXterm
 
-    exitImmediately ExitSuccess
-    return ()
+    exitImmediately ExitSuccess -- we end here
 
 ------------------------------------------------------------------------
 -- 
