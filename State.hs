@@ -69,7 +69,7 @@ data State = State {
        ,doNotResuscitate:: !Bool            -- should we just let mpg321 die?
     }
 
-data Mode = Normal | Random | Loop deriving (Eq,Bounded,Enum) -- for pred,succ
+data Mode = Normal | Loop | Random deriving (Eq,Bounded,Enum) -- for pred,succ
 
 ------------------------------------------------------------------------
 --
