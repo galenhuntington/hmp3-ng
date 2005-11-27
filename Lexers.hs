@@ -1,12 +1,12 @@
 --  Compiler Toolkit: Self-optimizing lexers
 --
 --  Author : Manuel M. T. Chakravarty
---  Created: 2 March 99
+--  Created: 24 February 95, 2 March 99
 --
 --  Version $Revision: 1.1 $ from $Date: 2002/07/28 03:35:20 $
 --
---  Copyright (c) 1999 Manuel M. T. Chakravarty
---  Copyright (c) 2004 Don Stewart
+--  Copyright (c) [1995..2000] Manuel M. T. Chakravarty
+--  Copyright (c) 2004-5 Don Stewart
 --
 --  This library is free software; you can redistribute it and/or
 --  modify it under the terms of the GNU Library General Public
@@ -125,8 +125,6 @@ module Lexers (
    star, plus, quest, alt, string, with, LexerState, execLexer
 
    ) where 
-
-import DLists        (zeroDL, snocDL, closeDL)
 
 import Prelude hiding   (last)
 import Data.Maybe       (fromMaybe)
@@ -514,3 +512,43 @@ execLexer l st =
 
         doaction NoAction _csDL _state last = last -- no change
 
+------------------------------------------------------------------------
+--
+--  This module provides the functional equivalent of the difference lists
+--  from logic programming.  They provide an O(1) append.
+--
+
+
+-- | a difference list is a function that given a list returns the original
+-- contents of the difference list prepended at the given list (EXPORTED)
+type DList a = [a] -> [a]
+
+-- | open a list for use as a difference list (EXPORTED)
+{-
+openDL :: [a] -> DList a
+openDL  = (++)
+-}
+
+-- | create a difference list containing no elements (EXPORTED)
+zeroDL :: DList a
+zeroDL  = id
+
+-- | create difference list with given single element (EXPORTED)
+{-
+unitDL :: a -> DList a
+unitDL  = (:)
+-}
+
+-- | append a single element at a difference list (EXPORTED)
+snocDL      :: DList a -> a -> DList a
+snocDL dl x  = \l -> dl (x:l)
+
+-- | appending difference lists (EXPORTED)
+{-
+joinDL :: DList a -> DList a -> DList a
+joinDL  = (.)
+-}
+
+-- | closing a difference list into a normal list (EXPORTED)
+closeDL :: DList a -> [a]
+closeDL  = ($[])
