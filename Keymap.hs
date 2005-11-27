@@ -122,9 +122,9 @@ keyTable =
     ,(p "Jump to end of list"#, 
         [keyEnd],   jump maxBound)
     ,(p "Seek left within song"#,  
-        ['h',keyLeft],  seekLeft)
+        [keyLeft],  seekLeft)
     ,(p "Seek right within song"#, 
-        ['l',keyRight], seekRight)
+        [keyRight], seekRight)
     ,(p "Toggle pause"#,           
         ['p'],          pause)
     ,(p "Play song under cursor"#, 
