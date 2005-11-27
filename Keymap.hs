@@ -145,6 +145,8 @@ keyTable =
         ['n'],   jumpToMatch Nothing)
     ]
 
+-- Keep as Addr#. If we try the pack/packAddress rule, ghc seems to get
+-- confused and want to *unpack* the strings :/
 p :: Addr# -> P.FastString
 p = P.packAddress
 

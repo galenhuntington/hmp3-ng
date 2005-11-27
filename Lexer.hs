@@ -28,7 +28,6 @@ import qualified Data.FastPackedString as P
 
 import Foreign.C.Types  (CFile)
 import Foreign.Ptr      (Ptr)
-import GHC.Base         (Addr#)
 import System.IO        (IO)
 
 ------------------------------------------------------------------------
@@ -72,13 +71,14 @@ doS s = let fs = P.split ' ' . P.tail $ s
                 , bitrate       = read $ P.unpack $ fs !! 10
                 , extension     = read $ P.unpack $ fs !! 11
             -}
-                userinfo      = (p "mpeg "#)
-                       `P.append` (fs !! 0)
-                       `P.append` (p " "#)
-                       `P.append` (fs !! 10)
-                       `P.append` (p "kbit/s "#)
-                       `P.append` (P.pack . show) ((read . P.unpack $ fs !! 2) `div` 1000 :: Int)
-                       `P.append` (p "kHz"#)
+                userinfo      = P.concat 
+                       [P.pack "mpeg "
+                       ,fs !! 0
+                       ,P.pack " "
+                       ,fs !! 10
+                       ,P.pack "kbit/s "
+                       ,(P.pack . show) ((read . P.unpack $ fs !! 2) `div` 1000 :: Int)
+                       ,P.pack "kHz"]
                 }
 
 -- Track info if ID fields are in the file, otherwise file name.
@@ -86,8 +86,8 @@ doS s = let fs = P.split ' ' . P.tail $ s
 doI :: P.FastString -> Msg
 doI s = let f = P.dropSpaceEnd . P.dropSpace . P.tail $ s 
         in case P.take 4 f of
-            cs | cs == p "ID3:"# -> F . File . Right . toId id3 . splitUp . P.drop 4 $ f
-               | otherwise       -> F . File . Left $ f
+            cs | cs == P.pack "ID3:" -> F . File . Right . toId id3 . splitUp . P.drop 4 $ f
+               | otherwise           -> F . File . Left $ f
     where
         -- a default
         id3 :: Id3
@@ -125,7 +125,7 @@ doI s = let f = P.dropSpaceEnd . P.dropSpace . P.tail $ s
 
         maybeJoin t f = if P.null f then t `P.append` P.empty else t `gap` f
 
-        gap x y = x `P.append` (p " : "#) `P.append` y
+        gap x y = P.concat [ x, (P.pack " : "), y ]
 
         normalise = P.dropSpace . P.dropSpaceEnd
 
@@ -156,7 +156,3 @@ parser h = do
         'E' -> Left $ "mpg321 error: " ++ P.unpack x
         _   -> Left $ "Strange mpg321 packet: " ++ (show (P.unpack x))
 
-------------------------------------------------------------------------
-
-p :: Addr# -> P.FastString
-p = P.packAddress

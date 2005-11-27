@@ -122,7 +122,7 @@ initcolours sty = do
 --
 end :: Bool -> IO ()
 end isXterm = do Curses.endWin
-                 when isXterm $ setXtermTitle (P.packAddress "xterm"#)
+                 when isXterm $ setXtermTitle (P.pack "xterm")
 
 --
 -- | Suspend the program
@@ -301,6 +301,7 @@ instance Element HelpScreen where
 -- | The time used and time left
 instance Element PTimes where
     draw _ _ _ Nothing       = PTimes $ Fast (P.pack "-") (Style Default Default)
+
     draw (_,x) _ _ (Just fr) = PTimes $ flip Fast sty $! 
                                     P.concat [spc
                                              ,elapsed
@@ -364,9 +365,9 @@ instance Element PMode where
                         Paused  -> b
                         Playing -> c
 
-        where a = P.packAddress "stop"#
-              b = P.packAddress "pause"#
-              c = P.packAddress "play"#
+        where a = P.pack "stop"
+              b = P.pack "pause"
+              c = P.pack "play"
 
 -- | Loop, normal or random
 instance Element PMode2 where
@@ -375,8 +376,8 @@ instance Element PMode2 where
                         Loop    -> b
                         Normal  -> c
 
-        where a = P.packAddress "random"#
-              b = P.packAddress "loop"#
+        where a = P.pack "random"
+              b = P.pack "loop"
               c = P.empty
 
 ------------------------------------------------------------------------
@@ -394,19 +395,21 @@ instance Element PlayInfo where
          ,P.pack " ("
          ,P.pack (show . snd . bounds $ folders st)
          ,P.pack " dir"
-         ,if (snd . bounds $ folders st) == 1 then P.empty else P.pack "s"
+         ,if (snd . bounds $ folders st) == 1 then P.empty else plural
          ,P.pack ", "
          ,P.pack (show . size $ st)
          ,P.pack " file"
-         ,if size st == 1 then P.empty else P.pack "s"
+         ,if size st == 1 then P.empty else plural
          ,P.pack ")"]
       where
+        plural = P.pack "s"   -- expose to inlining
+        pct    = P.pack "%"
         curr   = cursor  st
         percent | percent' == 0  && curr == 0 = P.pack "top"
                 | percent' == 100             = P.pack "all"
                 | otherwise = if P.length s == 2 then ' ' `P.cons` s else s
             where 
-                s = P.pack (show percent') `P.append` P.pack "%"
+                s = P.pack (show percent') `P.append` pct
 
         percent' :: Int = round $ 
                     ((fromIntegral curr) / 
@@ -435,7 +438,7 @@ instance Element PlayTitle where
         gapr    = gap - gapl
         padding = 3
         modlen  = P.length modes
-        space   = P.packAddress " "#
+        space   = P.pack " "
         hl     = highlight (style config)
 
 -- | Playlist, TODO this should do threading-style rendering of filesystem trees
@@ -519,13 +522,15 @@ instance Element PlayList where
                 spc = P.unfoldr (indent - P.length d) (\c -> Just (c,c)) ' '
 
                 d' | P.length d > indent-1 
-                   = P.take (indent+1-4) d 
-                   `P.append` (P.init ellipsis) 
-                   `P.append` P.pack "/"
+                   = P.concat [ P.take (indent+1-4) d 
+                              , (P.init ellipsis) 
+                              , fwd ]
 
-                   | otherwise = d `P.append` ('/' `P.cons` spc)
+                   | otherwise = P.concat [ d, fwd, spc ]
 
             drawIt _ = error "UI.drawIt: color gaves us a non-Fast StringA!"
+
+            fwd      = P.pack "/"
 
             mchop :: ((Maybe Int,P.FastString),Int) -> ((Maybe Int,P.FastString),Int) 
             mchop a@((i,s),j)
@@ -549,7 +554,8 @@ alignLR w l r | padding >= 0 = l `P.append` gap `P.append` r
           gap     = P.unfoldr padding (\c -> Just (c,c)) ' '
 
 ellipsis :: P.FastString
-ellipsis = P.packAddress "... "#
+ellipsis = P.pack "... "
+{-# INLINE ellipsis #-}
 
 ------------------------------------------------------------------------
 --
@@ -605,8 +611,7 @@ redraw =
             if status s == Playing
                 then case id3 s of
                         Nothing -> (fbase $ music s ! current s)
-                        Just ti -> id3artist ti `P.append` 
-                                   (P.packAddress ": "# `P.append` id3title ti)
+                        Just ti -> P.concat [id3artist ti, P.pack ": ", id3title ti]
                 else let (PMode pm) = draw sz (0,0) s f :: PMode in pm
    
    gotoTop
@@ -635,7 +640,7 @@ redraw =
    Curses.wMove Curses.stdScr (h-1) 0
    drawLine (w-1) (last a)
    when (miniFocused s) $ -- a fake cursor
-        drawLine 1 (Fast (P.packAddress " "#) (helpscreen . style $  config))
+        drawLine 1 (Fast (P.pack " ") (helpscreen . style $  config))
 
 ------------------------------------------------------------------------
 --
@@ -686,6 +691,7 @@ slice :: Int -> Int -> Array Int e -> [e]
 slice i j arr = 
     let (a,b) = bounds arr
     in [unsafeAt arr n | n <- [max a i .. min b j] ]
+{-# INLINE slice #-}
 
 ------------------------------------------------------------------------
 
