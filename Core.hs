@@ -36,7 +36,7 @@ import Lexer                    (parser)
 import State
 import Style                    (StringA(..), warnings)
 import Config                   (config, Config(style, keymap))
-import Utils                    ((</>), drawUptime, repeatM_, fdToInt)
+import Utils                    ((</>), drawUptime, repeatM_, fdToInt, pid2phdl)
 import FastIO                   (fdToCFile, joinPathP)
 import Tree hiding (File)
 import Regex
@@ -62,7 +62,6 @@ import System.Time              (getClockTime)
 import Control.Concurrent
 import Control.Exception
 
-import GHC.Base                 (unsafeCoerce#)
 import GHC.Handle               (fdToHandle)
 import GHC.IOBase               (unsafeInterleaveIO)
 
@@ -155,7 +154,7 @@ mpgLoop = forever $ do
                           , info      = Nothing
                           , id3       = Nothing }
       
-        catch (waitForProcess $ unsafeCoerce# pid) (\_ -> return ExitSuccess)
+        catch (waitForProcess (pid2phdl pid)) (\_ -> return ExitSuccess)
         stop <- readState doNotResuscitate
         when (stop) $ exitWith ExitSuccess
         warnA $ "Restarting " ++ mpg321 ++ " ..."
@@ -235,7 +234,7 @@ shutdown = handle (\e -> hPutStrLn stderr (show e) >> return ()) $ do
         handle (\_ -> return ()) $ do
             h <- readMVar (writeh st)
             send h Quit                        -- ask politely
-            waitForProcess $ unsafeCoerce# pid
+            waitForProcess $ pid2phdl pid
             return ()
 
         -- we have daemonic main threads, so who cares:

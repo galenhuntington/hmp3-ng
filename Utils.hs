@@ -21,14 +21,16 @@
 
 module Utils where
 
-import Data.Char        (isSpace)
-import Data.List        (isPrefixOf)
+import Data.Char                (isSpace)
+import Data.List                (isPrefixOf)
+
 import qualified Data.FastPackedString as P
 
-import Text.Printf      (printf)
-import System.Time      (diffClockTimes, TimeDiff(tdSec), ClockTime)
-import System.IO        (IO, FilePath)
-import System.Posix.Types   (Fd(..))
+import Text.Printf              (printf)
+import System.Time              (diffClockTimes, TimeDiff(tdSec), ClockTime)
+import System.IO                (IO, FilePath)
+import System.Posix.Types       (Fd(..),ProcessID)
+import System.Process.Internals (ProcessHandle(..))
 
 ------------------------------------------------------------------------
 
@@ -141,4 +143,8 @@ repeatM_ a = a >> repeatM_ a
 -- | Convert a (newtyped) Posix Fd to an Int we can use in other places
 fdToInt :: Fd -> Int
 fdToInt (Fd cint) = fromIntegral cint
+
+-- | Wrap a CPid as a System.Process.ProcessHandle
+pid2phdl :: ProcessID -> ProcessHandle
+pid2phdl pid = (ProcessHandle pid)
 
