@@ -30,13 +30,12 @@ module Core (
 
 import Prelude hiding (catch)
 
-import POpen                    (popen)
 import Syntax
 import Lexer                    (parser)
 import State
 import Style                    (StringA(..), warnings)
 import Config                   (config, Config(style, keymap))
-import Utils                    ((</>), drawUptime, repeatM_, fdToInt, pid2phdl)
+import Utils
 import FastIO                   (fdToCFile, joinPathP)
 import Tree hiding (File)
 import Regex
