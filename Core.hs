@@ -96,7 +96,7 @@ start ms = Control.Exception.handle (\e -> shutdown (Just (show e))) $ do
     t3 <- forkIO clockLoop
     t4 <- forkIO uptimeLoop
     t5 <- forkIO errorLoop
-    modifyState_ $ \s -> return s { threads = [t0,t1,t2,t3,t4,t5] } 
+    silentlyModifyState $ \s -> return s { threads = [t0,t1,t2,t3,t4,t5] } 
 
     when (0 <= (snd . bounds $ fs)) play -- start the first song
 
@@ -315,13 +315,13 @@ up = modifyState_ $ \st -> do
 down :: IO ()
 down = modifyState_ $ \st -> do
     let i = cursor st
-        l = size st - 1
+        l = max 0 (size st - 1)
     return $ if i == l then st else st { cursor = i + 1 }
 
 -- | Move cursor to specified index
 jump :: Int -> IO ()
 jump i = modifyState_ $ \st -> do
-    let l = size st - 1
+    let l = max 0 (size st - 1)
         n = if i > l then l else if i < 0 then 0 else i
     return st { cursor = n }
 
@@ -378,7 +378,7 @@ playRandom = modifyState_ $ \st -> do
     let i   = current st
         j   = cursor  st
         m   = music st
-    n <- getStdRandom (randomR (0, size st -1)) -- memoise length m?
+    n <- getStdRandom (randomR (0, max 0 (size st -1))) -- memoise length m?
     let  f    = let fe = m ! n in (dname $ folders st ! fdir fe) `joinPathP` (fbase fe)
          st'  = st { current = n
                    , status = Playing

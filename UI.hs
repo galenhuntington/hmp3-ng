@@ -60,7 +60,7 @@ import Data.IORef               (writeIORef)
 import Data.List                (intersperse,isPrefixOf)
 import Data.Array               ((!), bounds, Array)
 import Data.Array.Base          (unsafeAt)
-import System.IO                (IO, stderr, hFlush)
+import System.IO                (IO, stderr, hFlush, hPutStrLn)
 import Text.Printf              (printf)
 
 import Control.Monad            (mapM_, when)
@@ -247,13 +247,15 @@ instance Element PPlaying where
 -- | Id3 Info
 instance Element PId3 where
     draw _ _ st _ = case id3 st of
-        Nothing -> PId3 . fbase $! (music st) ! (current st)
-        Just i  -> PId3 $! id3str i
+        Just i  -> PId3 $ id3str i
+        Nothing -> PId3 $ case size st of
+                                0 -> P.pack "(empty)"
+                                _ -> fbase $ (music st) ! (current st)
 
 -- | mp3 information
 instance Element PInfo where
     draw _ _ st _ = PInfo $ case info st of
-        Nothing  -> P.pack "..."
+        Nothing  -> P.pack "(empty)"
         Just i   -> userinfo i
 
 ------------------------------------------------------------------------
@@ -295,7 +297,7 @@ instance Element HelpScreen where
 
 -- | The time used and time left
 instance Element PTimes where
-    draw _ _ _ Nothing       = PTimes $ Fast (P.pack "  ...") (Style Default Default)
+    draw _ _ _ Nothing       = PTimes $ Fast (P.pack "     ") (Style Default Default)
 
     draw (_,x) _ _ (Just fr) = PTimes $ flip Fast sty $! 
                                     P.concat [spc
@@ -388,7 +390,7 @@ instance Element PlayInfo where
     draw _ _ st _ = PlayInfo $ P.concat
          [percent
          ,P.pack " ("
-         ,P.pack (show . snd . bounds $ folders st)
+         ,P.pack (show (1 + ( snd . bounds . folders $ st)))
          ,P.pack " dir"
          ,if (snd . bounds $ folders st) == 1 then P.empty else plural
          ,P.pack ", "
@@ -411,8 +413,8 @@ instance Element PlayInfo where
                     ((fromIntegral . size $ st) - 1) * 100.0 :: Float)
 
 instance Element PlayTitle where
-    draw a@(_,x) b c d = PlayTitle $
-        flip Fast hl $ P.concat 
+    draw a@(_,x) b c d =
+        PlayTitle $ flip Fast hl $ P.concat 
               [space
               ,inf
               ,P.unfoldr gapl (\u -> Just (u,u)) ' '
@@ -512,7 +514,9 @@ instance Element PlayList where
                         else map C . P.unpack $ d' 
                 post = map (flip A sty) . P.unpack $ b
 
-                d   = basenameP . dname $ folders st ! i
+                d   = basenameP $ case size st of
+                                    0 -> P.pack "(empty)"
+                                    _ -> dname $ folders st ! i
 
                 spc = P.unfoldr (indent - P.length d) (\c -> Just (c,c)) ' '
 
@@ -559,6 +563,8 @@ ellipsis = P.pack "... "
 --
 redrawJustClock :: IO ()
 redrawJustClock = do 
+   Control.Exception.handle (\e -> hPutStrLn stderr ("CLOCK " ++ show e) >> return ()) $ do
+
    st      <- readState id
    fr      <- readClock id
    s@(h,w) <- screenSize
@@ -590,9 +596,10 @@ redrawJustClock = do
 redraw :: IO ()
 redraw = 
    -- linux ncurses, in particular, seems to complain a lot. this is an easy solution
-   Control.Exception.handle (\_ -> return ()) $ do
+   Control.Exception.handle (\e -> hPutStrLn stderr ("REFRESH: " ++ show e) >> return ()) $ do
 
-   s <- readState id
+
+   s <- readState id    -- another refresh could be triggered?
    f <- readClock id
    sz@(h,w) <- screenSize
 
@@ -605,7 +612,9 @@ redraw =
        setXtermTitle $ 
             if status s == Playing
                 then case id3 s of
-                        Nothing -> (fbase $ music s ! current s)
+                        Nothing -> case size s of
+                                        0 -> P.pack "hmp3"
+                                        _ -> (fbase $ music s ! current s)
                         Just ti -> P.concat [id3artist ti, P.pack ": ", id3title ti]
                 else let (PMode pm) = draw sz (0,0) s f :: PMode in pm
    
