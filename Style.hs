@@ -188,21 +188,12 @@ setBoldA, setReverseA :: Curses.Attr -> Curses.Attr
 setBoldA      = flip Curses.setBold    True
 setReverseA   = flip Curses.setReverse True
 
--- setUnderlineA, setDimA, setReverseA :: Curses.Attr -> Curses.Attr
--- setUnderlineA = flip Curses.setUnderline True
--- setDimA       = flip Curses.setDim       True
-
 --
 -- | Some attribute constants
 --
 boldA, nullA :: Curses.Attr
 nullA       = Curses.attr0
 boldA       = setBoldA      nullA
-
--- underlineA, dimA, reverseA :: Curses.Attr
--- underlineA  = setUnderlineA nullA
--- dimA        = setDimA       nullA
--- reverseA    = setReverseA   nullA
 
 ------------------------------------------------------------------------
 

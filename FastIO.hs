@@ -50,11 +50,13 @@ basenameP :: P.FastString -> P.FastString
 basenameP fps = case P.elemIndexLast '/' fps of
     Nothing -> fps
     Just i  -> P.drop (i+1) fps
+{-# INLINE basenameP #-}
 
 dirnameP :: P.FastString -> P.FastString
 dirnameP fps = case P.elemIndexLast '/' fps of
     Nothing -> P.pack "."
     Just i  -> P.take i fps
+{-# INLINE dirnameP #-}
 
 --
 -- | Packed version of get args.
