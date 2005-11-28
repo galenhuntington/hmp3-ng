@@ -295,7 +295,7 @@ instance Element HelpScreen where
 
 -- | The time used and time left
 instance Element PTimes where
-    draw _ _ _ Nothing       = PTimes $ Fast (P.pack " ...") (Style Default Default)
+    draw _ _ _ Nothing       = PTimes $ Fast (P.pack "  ...") (Style Default Default)
 
     draw (_,x) _ _ (Just fr) = PTimes $ flip Fast sty $! 
                                     P.concat [spc
