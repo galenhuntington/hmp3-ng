@@ -3,14 +3,18 @@
           ---------------------------------------------------
 
 Dependencies:
-    The mpg321 program  ( http://mpg321.sourceforge.net/ )
-    The fps library     ( http://www.cse.unsw.edu.au/~dons/fps.html )
+    The Glasgow Haskell Compiler        http://haskell.org/ghc
+    mpg321 or mpg123                    http://mpg321.sourceforge.net/
+    The fps library                     http://www.cse.unsw.edu.au/~dons/fps.html
 
 Building:
     $ chmod +x configure Setup.lhs
     $ ./Setup.lhs configure --prefix=/home/dons
     $ ./Setup.lhs build
     $ ./Setup.lhs install
+
+This assumes you have Cabal installed. Cabal is installed by default
+with newer GHC's.
 
 Use:
     To populate a playlist, and start:
