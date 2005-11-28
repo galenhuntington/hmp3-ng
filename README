@@ -12,10 +12,6 @@ Building:
     $ ./Setup.lhs build
     $ ./Setup.lhs install
 
-If you like, you can:
-    $ strip dist/build/hmp3/hmp3
-before you install.
-
 Use:
     To populate a playlist, and start:
 
