@@ -50,7 +50,7 @@ data State = State {
        ,size            :: !Int             -- cache size of list
        ,current         :: !Int             -- currently playing mp3
        ,cursor          :: !Int             -- mp3 under the cursor
-       ,mp3pid          :: !ProcessID        -- pid of decoder
+       ,mp3pid          :: !(Maybe ProcessID)       -- pid of decoder
        ,writeh          :: !(MVar Handle)     --  handle to mp3 (should be MVars?)
        ,errh            :: !(MVar Handle)     --  error handle to mp3
        ,readf           :: !(MVar (Ptr CFile))-- r/w pipe to mp3
@@ -80,7 +80,7 @@ emptySt = State {
         music        = listArray (0,0) []
        ,folders      = listArray (0,0) []
        ,size         = 0
-       ,mp3pid       = 0
+       ,mp3pid       = Nothing
        ,writeh       = unsafePerformIO newEmptyMVar
        ,errh         = unsafePerformIO newEmptyMVar
        ,readf        = unsafePerformIO newEmptyMVar
@@ -169,8 +169,8 @@ touchState :: IO ()
 touchState = modifyState_ $ return . id
 
 -- | Variation on modifyState_ that won't trigger a refresh
-unsafeModifyState :: (State -> IO State) -> IO ()
-unsafeModifyState f = modifyMVar_ state $ \r -> do
+silentlyModifyState :: (State -> IO State) -> IO ()
+silentlyModifyState f = modifyMVar_ state $ \r -> do
     v  <- readIORef r
     v' <- f v
     writeIORef r v'

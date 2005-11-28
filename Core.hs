@@ -70,8 +70,7 @@ import GHC.IOBase               (unsafeInterleaveIO)
 ------------------------------------------------------------------------
 
 start :: Either (FileArray,DirArray,Int) [P.FastString] -> IO ()
-start ms = Control.Exception.handle 
-    (\e -> (warnA $ "hmp3.Core: " ++ show e) >> throwIO e) $ do
+start ms = Control.Exception.handle (\e -> shutdown (Just (show e))) $ do
 
     t0 <- forkIO mpgLoop    -- start this off early, to give mpg321 a time to settle
 
@@ -134,7 +133,7 @@ mpgLoop :: IO ()
 mpgLoop = forever $ do
     mmpg <- findExecutable (MPG321 :: String)
     case mmpg of
-      Nothing  -> quit (Just $ "Cannot find " ++ MPG321 ++ " in path")
+      Nothing     -> quit (Just $ "Cannot find " ++ MPG321 ++ " in path")
       Just mpg321 -> do 
 
         mv <- catch (popen (mpg321 :: String) ["-R","-"] >>= return . Just)
@@ -152,7 +151,7 @@ mpgLoop = forever $ do
             mfilep      <- newMVar filep
 
             modifyState_ $ \st ->
-                    return st { mp3pid    = pid
+                    return st { mp3pid    = Just pid
                               , writeh    = mhw
                               , errh      = mew
                               , readf     = mfilep 
@@ -199,9 +198,9 @@ clockLoop = forever $ threadDelay delay >> UI.refreshClock
 errorLoop :: IO ()
 errorLoop = forever $ do
     s <- readState errh >>= readMVar >>= hGetLine
-    warnA s
-    when (s == "No default libao driver available.") $ do
-        quit $ Just $ s ++ " Perhaps another instance of hmp3 is running?"
+    if s == "No default libao driver available."
+        then quit $ Just $ s ++ " Perhaps another instance of hmp3 is running?"
+        else warnA s
 
 ------------------------------------------------------------------------
 
@@ -233,42 +232,24 @@ run = forever $ sequence_ . (keymap config) =<< getKeys
 
 -- | Close most things. Important to do all the jobs:
 shutdown :: Maybe String -> IO ()
-shutdown ms = handle 
-    (\e -> do UI.end True
-              hPutStrLn stderr (show e)
-              exitImmediately (ExitFailure 1)) $ do
+shutdown ms = 
+    (do silentlyModifyState $ \st -> return st { doNotResuscitate = True }
+        catch writeSt (\e -> warnA (show e))
+        withState $ \st -> do
+            case mp3pid st of
+                Nothing  -> return ()
+                Just pid -> do
+                    h <- readMVar (writeh st)
+                    send h Quit                        -- ask politely
+                    waitForProcess $ pid2phdl pid
+                    return ())
 
-    unsafeModifyState $ \st -> return st { doNotResuscitate = True }
+    `finally` 
 
-    catch writeSt (\e -> hPutStrLn stderr (show e))
-
-    unsafeModifyState $ \st -> do
-
-        let pid = mp3pid st
-        --  tds = threads st
-
-        -- now shtudown mpg321
-        handle (\_ -> return ()) $ do
-            h <- readMVar (writeh st)
-            send h Quit                        -- ask politely
-            waitForProcess $ pid2phdl pid
-            return ()
-
-        -- we have daemonic main threads, so who cares:
-        -- flip mapM_ tds $ \t -> 
-        --     catch (killThread t) (\_ -> return ())      -- and kill threads
-
-        return st
-
-    isXterm <- readState xterm
-    UI.end isXterm
-
-    -- we don't want any threads writing to the gui now.
-    -- still to do: sometimes we still get the screen messed up
-    when (isJust ms) $
-        hPutStrLn stderr (fromJust ms) >> hFlush stderr
-
-    exitImmediately ExitSuccess -- we end here
+    (do isXterm <- readState xterm
+        UI.end isXterm
+        when (isJust ms) $ hPutStrLn stderr (fromJust ms) >> hFlush stderr
+        exitImmediately ExitSuccess)    -- race. a thread might touch the screen
 
 ------------------------------------------------------------------------
 -- 
@@ -484,17 +465,6 @@ nextMode = modifyState_ $ \st -> return st { mode = next (mode st) }
 
 ------------------------------------------------------------------------
 
--- | Add a tree to the playlist
-{-
-add :: String -> IO ()
-add f = do 
-    new <- buildTree [P.pack f]
-    modifyState_ $ \st -> return st { music = music st ++ [ (n,basenameP n) | n <- new ]
-                                    , size = size st + length new }
--}
-
-------------------------------------------------------------------------
-
 -- | Saving the playlist 
 writeSt :: IO ()
 writeSt = do
@@ -527,11 +497,11 @@ toggleFocus :: IO ()
 toggleFocus = modifyState_ $ \st -> return st { miniFocused = not (miniFocused st) }
 
 putmsg :: StringA -> IO ()
-putmsg s = unsafeModifyState $ \st -> return st { minibuffer = s }
+putmsg s = silentlyModifyState $ \st -> return st { minibuffer = s }
 
 -- Modify without triggering a refresh
 clrmsg :: IO ()
-clrmsg = unsafeModifyState $ \s -> return s { minibuffer = empty }
+clrmsg = silentlyModifyState $ \s -> return s { minibuffer = empty }
     where empty = Plain []
 
 -- showA :: Show a => a -> IO ()

@@ -35,8 +35,6 @@ import System.IO
 import System.Exit
 import System.Posix.Signals
 
-import GHC.Exception            ( Exception(ExitException) )
-
 -- ---------------------------------------------------------------------
 -- | Set up the signal handlers
 
@@ -103,14 +101,5 @@ main = do
     args  <- packedGetArgs
     files <- do_args args
     initSignals
-    Control.Exception.catch (start files) $ \e -> do
-        releaseSignals      -- only if an exception gets tossed out
-        Control.Exception.catch (shutdown Nothing) (\f -> hPutStrLn stderr (show f))
-        when (not $ isExitCall e) $ hPutStrLn stderr (show e)
-        return ()
-    return ()
-
-    where
-      isExitCall (ExitException _) = True
-      isExitCall _ = False
+    start files -- never returns
 
