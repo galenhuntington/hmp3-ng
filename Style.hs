@@ -48,18 +48,16 @@ data UIStyle = UIStyle { window     :: !Style
 
 -- | Foreground and background color pairs
 data Style = Style {-# UNPACK #-} !Color !Color
-    deriving (Show,Eq)
+    deriving Eq
 
 -- | A List of characters with styles attached
 data CharA = C {-# UNPACK #-} !Char
            | A {-# UNPACK #-} !Char !Style
-    deriving (Show,Eq)
 
 -- | A list of such values (the representation is optimised)
 data StringA = Fancy {-# UNPACK #-} ![CharA]   -- lines with colours in them
              | Plain {-# UNPACK #-} !String    -- plain text, no attributes set
              | Fast  {-# UNPACK #-} !P.FastString !Style
-    deriving Eq
 
 instance Show StringA where
   show (Fancy cs)   = show $ map (\c -> case c of C d -> d ; A d _ -> d) cs
@@ -69,7 +67,7 @@ instance Show StringA where
 data Color
     = RGB {-# UNPACK #-} !Word8 !Word8 !Word8
     | Default
-    deriving (Show,Eq)
+    deriving Eq
 
 ------------------------------------------------------------------------
 --

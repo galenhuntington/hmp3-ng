@@ -53,13 +53,11 @@ data Dir  =
         , dsize :: !Int              -- ^ number of file entries
         , dlo   :: !Int              -- ^ index of first entry
         , dhi   :: !Int }            -- ^ index of last entry
-    deriving Show
 
 -- Most data is allocated in this structure
 data File = 
     File { fbase :: !FilePathP      -- ^ basename of file
          , fdir  :: !Int }          -- ^ index of Dir entry 
-    deriving Show
 
 --
 -- | Given the start directories, populate the dirs and files arrays

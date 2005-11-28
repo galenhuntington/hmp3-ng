@@ -209,13 +209,11 @@ data Cont s t = -- on top of the tree, where entries are dense, we use arrays
                 -- end of a automaton
                 --
               | Done
---            deriving Show
 
 -- lexical action (EXPORTED ABSTRACTLY)
 --
 data LexAction s t = Action   (Meta s t)
                    | NoAction
---                 deriving Show
 
 -- a regular expression (EXPORTED)
 --

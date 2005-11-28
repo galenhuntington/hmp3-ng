@@ -36,7 +36,6 @@ import qualified Data.FastPackedString as P (unpack, FastString)
 -- Loads and starts playing <file>
 --
 data Load = Load {-# UNPACK #-} !P.FastString
-        deriving Show
 
 instance Pretty Load where
     ppr (Load f) = text "LOAD" <+> (text . P.unpack $ f)  -- todo unbox
@@ -45,21 +44,18 @@ instance Pretty Load where
 -- respectively, in the the mp3 file.  If neither is specifies, jumps to
 -- absolute frame <frames> in the mp3 file.
 data Jump = Jump {-# UNPACK #-} !Int
-        deriving Show
 
 instance Pretty Jump where
     ppr (Jump i) = text "JUMP" <+> (text . show $ i)
 
 -- Pauses the playback of the mp3 file; if already paused, restarts playback.
 data Pause = Pause
-        deriving Show
 
 instance Pretty Pause where
     ppr Pause = text "PAUSE"
 
 -- Quits mpg321.
 data Quit = Quit
-        deriving Show
 
 instance Pretty Quit where
     ppr Quit = text "QUIT"
@@ -70,11 +66,9 @@ instance Pretty Quit where
 
 -- mpg123 tagline. Output at startup.
 data Tag = Tag
-        deriving Show
 
 -- Track info if ID fields are in the file, otherwise file name.
 data File = File {-# UNPACK #-} !(Either P.FastString Id3)
-        deriving Show
 
 -- ID3 info 
 data Id3 = Id3 
@@ -86,7 +80,6 @@ data Id3 = Id3
 --      , year   :: Maybe P.FastString
 --      , genre  :: Maybe P.FastString }
 
-        deriving Show
 
 
 -- Outputs information about the mp3 file after loading.
@@ -119,7 +112,6 @@ data Info = Info {
            --   bitrate       :: !Int,
            --   extension     :: !Int 
             }
-        deriving Show
 
 -- @F <current-frame> <frames-remaining> <current-time> <time-remaining>
 -- Frame decoding status updates (once per frame).
@@ -135,7 +127,6 @@ data Frame = Frame {
                 currentTime    :: (Int,Int),
                 timeLeft       :: (Int,Int)
              }
-        deriving Show
 
 -- @P {0, 1, 2}
 -- Stop/pause status.
@@ -145,7 +136,7 @@ data Frame = Frame {
 data Status = Stopped
             | Paused
             | Playing
-        deriving (Eq, Show)
+        deriving Eq
                 
 ------------------------------------------------------------------------
 
@@ -163,7 +154,6 @@ data Msg = T {-# UNPACK #-} !Tag
          | I {-# UNPACK #-} !Info
          | R {-# UNPACK #-} !Frame
          | S {-# UNPACK #-} !Status
-        deriving Show
 
 draw :: Pretty a => a -> String
 draw = render . ppr 
