@@ -183,12 +183,7 @@ class Element a where
 --
 -- | The elements of the play mode widget
 --
-data PlayScreen = 
-        PlayScreen {
-               _ptrack :: !PPlaying
-              ,_pbar   :: !ProgressBar
-              ,_ptime  :: !PTimes
-        }
+data PlayScreen = PlayScreen !PPlaying !ProgressBar !PTimes 
 
 -- How does this all work? Firstly, we mostly want to draw fast strings
 -- directly to the screen. To break the drawing problem down, you need
