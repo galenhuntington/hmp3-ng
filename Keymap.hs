@@ -134,7 +134,7 @@ keyTable =
     ,(p "Jump to currently playing song"#, 
         ['t'],   jumpToPlaying)
     ,(p "Quit (or close help screen)"#, 
-        ['q'],   do b <- helpIsVisible ; if b then toggleHelp else quit)
+        ['q'],   do b <- helpIsVisible ; if b then toggleHelp else quit Nothing)
     ,(p "Select and play next track"#, 
         ['d'],   playNext)
     ,(p "Cycle through normal, random and loop modes"#,

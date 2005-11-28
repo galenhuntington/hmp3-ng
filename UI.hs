@@ -121,8 +121,8 @@ initcolours sty = do
 -- | Clean up and go home. Refresh is needed on linux. grr.
 --
 end :: Bool -> IO ()
-end isXterm = do Curses.endWin
-                 when isXterm $ setXtermTitle (P.pack "xterm")
+end isXterm = do when isXterm $ setXtermTitle (P.pack "xterm")
+                 Curses.endWin
 
 --
 -- | Suspend the program

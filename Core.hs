@@ -44,19 +44,20 @@ import qualified UI             (start, refreshClock, refresh, getKey, end)
 import qualified Data.FastPackedString as P
 
 import Data.Array               ((!), bounds)
-import Data.Maybe               (isJust)
+import Data.Maybe               (isJust,fromJust)
 
 import Control.Monad            (liftM, when)
 
 import System.Directory         (doesFileExist,findExecutable)
 import System.Environment       (getEnv)
 import System.Exit              (ExitCode(..),exitWith)
-import System.IO                (IO, hPutStrLn, hGetLine, stderr)
-import System.Posix.Process     (exitImmediately)
-import System.Posix.User        (getUserEntryForID, getRealUserID, homeDirectory)
+import System.IO                (IO, hPutStrLn, hGetLine, stderr, hFlush)
 import System.Process           (waitForProcess)
 import System.Random            (getStdRandom, randomR)
 import System.Time              (getClockTime)
+
+import System.Posix.Process     (exitImmediately)
+import System.Posix.User        (getUserEntryForID, getRealUserID, homeDirectory)
 
 import Control.Concurrent
 import Control.Exception
@@ -133,30 +134,36 @@ mpgLoop :: IO ()
 mpgLoop = forever $ do
     mmpg <- findExecutable (MPG321 :: String)
     case mmpg of
-      Nothing  -> warnA ("Cannot find " ++ MPG321 ++ " in path") >> quit
+      Nothing  -> quit (Just $ "Cannot find " ++ MPG321 ++ " in path")
       Just mpg321 -> do 
 
-        (r,w,e,pid) <- popen (mpg321 :: String) ["-R","-"]
-        hw          <- fdToHandle (fdToInt w)  -- so we can use Haskell IO
-        ew          <- fdToHandle (fdToInt e)  -- so we can use Haskell IO
-        filep       <- fdToCFile r                   -- so we can use C IO
-        mhw         <- newMVar hw
-        mew         <- newMVar ew
-        mfilep      <- newMVar filep
+        mv <- catch (popen (mpg321 :: String) ["-R","-"] >>= return . Just)
+                    (\e -> do warnA ("Unable to start " ++ MPG321 ++ ": " ++ show e)
+                              return Nothing)
+        case mv of
+            Nothing -> threadDelay (1000 * 500) >> mpgLoop
+            Just (r,w,e,pid) -> do
 
-        modifyState_ $ \st ->
-                return st { mp3pid    = pid
-                          , writeh    = mhw
-                          , errh      = mew
-                          , readf     = mfilep 
-                          , status    = Stopped
-                          , info      = Nothing
-                          , id3       = Nothing }
-      
-        catch (waitForProcess (pid2phdl pid)) (\_ -> return ExitSuccess)
-        stop <- readState doNotResuscitate
-        when (stop) $ exitWith ExitSuccess
-        warnA $ "Restarting " ++ mpg321 ++ " ..."
+            hw          <- fdToHandle (fdToInt w)  -- so we can use Haskell IO
+            ew          <- fdToHandle (fdToInt e)  -- so we can use Haskell IO
+            filep       <- fdToCFile r                   -- so we can use C IO
+            mhw         <- newMVar hw
+            mew         <- newMVar ew
+            mfilep      <- newMVar filep
+
+            modifyState_ $ \st ->
+                    return st { mp3pid    = pid
+                              , writeh    = mhw
+                              , errh      = mew
+                              , readf     = mfilep 
+                              , status    = Stopped
+                              , info      = Nothing
+                              , id3       = Nothing }
+          
+            catch (waitForProcess (pid2phdl pid)) (\_ -> return ExitSuccess)
+            stop <- readState doNotResuscitate
+            when (stop) $ exitWith ExitSuccess
+            warnA $ "Restarting " ++ mpg321 ++ " ..."
 
 ------------------------------------------------------------------------
 
@@ -190,7 +197,11 @@ clockLoop = forever $ threadDelay delay >> UI.refreshClock
 
 -- | Handle, and display errors produced by mpg321
 errorLoop :: IO ()
-errorLoop = forever $ readState errh >>= readMVar >>= hGetLine >>= warnA
+errorLoop = forever $ do
+    s <- readState errh >>= readMVar >>= hGetLine
+    warnA s
+    when (s == "No default libao driver available.") $ do
+        quit $ Just $ s ++ " Perhaps another instance of hmp3 is running?"
 
 ------------------------------------------------------------------------
 
@@ -221,10 +232,10 @@ run = forever $ sequence_ . (keymap config) =<< getKeys
 ------------------------------------------------------------------------
 
 -- | Close most things. Important to do all the jobs:
-shutdown :: IO ()
-shutdown = handle 
-    (\e -> do hPutStrLn stderr (show e)
-              UI.end True
+shutdown :: Maybe String -> IO ()
+shutdown ms = handle 
+    (\e -> do UI.end True
+              hPutStrLn stderr (show e)
               exitImmediately (ExitFailure 1)) $ do
 
     unsafeModifyState $ \st -> return st { doNotResuscitate = True }
@@ -234,6 +245,7 @@ shutdown = handle
     unsafeModifyState $ \st -> do
 
         let pid = mp3pid st
+        --  tds = threads st
 
         -- now shtudown mpg321
         handle (\_ -> return ()) $ do
@@ -243,15 +255,18 @@ shutdown = handle
             return ()
 
         -- we have daemonic main threads, so who cares:
-        {-
-        flip mapM_ tds $ \t -> 
-            catch (killThread t) (\_ -> return ())      -- and kill threads
-        -}
+        -- flip mapM_ tds $ \t -> 
+        --     catch (killThread t) (\_ -> return ())      -- and kill threads
 
         return st
 
     isXterm <- readState xterm
     UI.end isXterm
+
+    -- we don't want any threads writing to the gui now.
+    -- still to do: sometimes we still get the screen messed up
+    when (isJust ms) $
+        hPutStrLn stderr (fromJust ms) >> hFlush stderr
 
     exitImmediately ExitSuccess -- we end here
 
@@ -394,7 +409,7 @@ playRandom = modifyState_ $ \st -> do
 ------------------------------------------------------------------------
 
 -- | Shutdown and exit
-quit :: IO ()
+quit :: Maybe String -> IO ()
 quit = shutdown
 
 -- | Move cursor to currently playing song
@@ -524,3 +539,4 @@ clrmsg = unsafeModifyState $ \s -> return s { minibuffer = empty }
 
 warnA :: String -> IO ()
 warnA x = putmsg $ Fast (P.pack x) (warnings . style $ config)
+

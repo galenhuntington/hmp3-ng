@@ -58,7 +58,7 @@ initSignals = do
     -- and exit if we get the following:
     flip mapM_ [sigINT, sigHUP, sigABRT, sigTERM] $ \sig -> do
             installHandler sig (Catch (do
-                Control.Exception.catch shutdown (\f -> hPutStrLn stderr (show f))
+                Control.Exception.catch (shutdown Nothing) (\f -> hPutStrLn stderr (show f))
                 exitWith (ExitFailure 1) )) Nothing
 
 releaseSignals :: IO ()
@@ -105,7 +105,7 @@ main = do
     initSignals
     Control.Exception.catch (start files) $ \e -> do
         releaseSignals      -- only if an exception gets tossed out
-        Control.Exception.catch shutdown (\f -> hPutStrLn stderr (show f))
+        Control.Exception.catch (shutdown Nothing) (\f -> hPutStrLn stderr (show f))
         when (not $ isExitCall e) $ hPutStrLn stderr (show e)
         return ()
     return ()
