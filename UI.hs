@@ -652,16 +652,20 @@ redraw =
 --
 drawLine :: Int -> StringA -> IO ()
 
-drawLine _ (Fancy s) =
+drawLine _ (Fancy s) =  -- progress bar
     flip mapM_ s $ \fs -> case fs of
-        C c     -> Curses.wAddChar Curses.stdScr c
-        A c sty -> withStyle sty $ Curses.wAddChar Curses.stdScr c
+        C c     ->  Curses.waddch Curses.stdScr (fromIntegral.ord$ c) >> return ()
+        A c sty -> withStyle sty $
+                    (Curses.waddch Curses.stdScr (fromIntegral.ord$ c) >> return ())
+        -- XXX also optimise Fancy s.
 
 drawLine _ (Plain s) = Curses.wAddStr Curses.stdScr s
 
 drawLine _ (Fast ps sty) = withStyle sty $ P.unsafeUseAsCString ps $ \cstr -> 
-    Curses.throwIfErr_ "drawLine"# $
+    Curses.throwIfErr_ msg $
         Curses.waddnstr Curses.stdScr cstr (fromIntegral . P.length $ ps)
+    where
+        msg = P.pack "drawLine"
 
 ------------------------------------------------------------------------
 

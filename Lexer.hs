@@ -43,15 +43,16 @@ doP s = S $! case P.head . P.tail $ s of
 -- ~10% of allocs happen here
 doF :: P.FastString -> Msg
 doF s = R $ Frame {
-                currentFrame = read $ P.unpack (fs !! 0)
-              , framesLeft   = read $ P.unpack (fs !! 1)
+                currentFrame = read $! P.unpack (fs !! 0)
+              , framesLeft   = read $! P.unpack (fs !! 1)
               , currentTime  = f 2
               , timeLeft     = f 3
            }
         where
           fs  = P.split ' ' . P.tail $ s
-          f n = (read $ P.unpack x, read $ P.unpack y) 
-            where [x,y] = P.split '.' (fs !! n)
+          f n = case P.split '.' (fs !! n) of { [x,y] -> 
+                case read . P.unpack $ x   of { rx    -> 
+                case read . P.unpack $ y   of { ry    -> (rx,ry) }}}
 
 -- Outputs information about the mp3 file after loading.
 doS :: P.FastString -> Msg

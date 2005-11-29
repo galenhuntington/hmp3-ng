@@ -59,7 +59,7 @@ module Curses (
 
     -- * Line drawing
     wAddStr,        -- :: Window -> [Char] -> IO ()
-    wAddChar,       -- :: Window -> Char -> IO ()
+    waddch,         -- :: Window -> Char -> IO ()
     waddnstr,       -- :: Window -> CString -> CInt -> IO CInt
     bkgrndSet,      -- :: Attr -> Pair -> IO ()
     clrToEol,       -- :: IO ()
@@ -118,8 +118,6 @@ import Foreign.C
 
 import System.IO
 
-import GHC.Base                 ( Addr## )
-
 #ifdef SIGWINCH
 import System.Posix.Signals
 #endif
@@ -177,30 +175,22 @@ fi = fromIntegral
 --
 
 -- | Like throwIf, but for packed error messages
-throwPackedIf :: (a -> Bool) 
-              -> (a -> P.FastString)
-              -> (IO a)
-              -> (IO a)
-throwPackedIf p msgfn action = do
+throwPackedIf :: (a -> Bool) -> P.FastString -> (IO a) -> (IO a)
+throwPackedIf p msg action = do
     v <- action
-    if p v then do let s = (P.unpack . msgfn) v
-                   fail s
-           else return v
+    if p v then P.hPut stderr msg >> fail "curses exception" else return v
 
 -- | packed throwIfNull
-throwPackedIfNull :: Addr## -> IO (Ptr a) -> IO (Ptr a)
-throwPackedIfNull str = throwPackedIf (== nullPtr) (const $ P.packAddress str)
+throwPackedIfNull :: P.FastString -> IO (Ptr a) -> IO (Ptr a)
+throwPackedIfNull str = throwPackedIf (== nullPtr) str
 
 -- | Arbitrary test 
-throwIfErr :: Num a => Addr## -> IO a -> IO a
-throwIfErr str = throwPackedIf (== (#const ERR)) msgfn
-    where
-      msg     = "curses exception: "##
-      msgfn _ = (P.packAddress msg) `P.append` (P.packAddress str)
+throwIfErr :: Num a => P.FastString -> IO a -> IO a
+throwIfErr str act = throwPackedIf (== (#const ERR)) str act
 {-# INLINE throwIfErr #-}
 
 -- | Discard result
-throwIfErr_ :: Num a => Addr## -> IO a -> IO ()
+throwIfErr_ :: Num a => P.FastString -> IO a -> IO ()
 throwIfErr_ name act = void $ throwIfErr name act
 
 ------------------------------------------------------------------------
@@ -233,7 +223,7 @@ foreign import ccall "static curses.h &stdscr"
 -- > to stdscr.
 --
 initScr :: IO Window
-initScr = throwPackedIfNull "initscr"## initscr
+initScr = throwPackedIfNull (P.packAddress "initscr"##) initscr
 
 foreign import ccall unsafe "curses.h initscr" 
     initscr :: IO Window
@@ -247,8 +237,8 @@ foreign import ccall unsafe "curses.h initscr"
 -- > the terminal to normal (cooked) mode.
 --
 cBreak :: Bool -> IO ()
-cBreak True  = throwIfErr_ "cbreak"##   cbreak
-cBreak False = throwIfErr_ "nocbreak"## nocbreak
+cBreak True  = throwIfErr_ (P.packAddress "cbreak"##)   cbreak
+cBreak False = throwIfErr_ (P.packAddress "nocbreak"##) nocbreak
 
 foreign import ccall unsafe "curses.h cbreak"     cbreak :: IO CInt
 foreign import ccall unsafe "curses.h nocbreak" nocbreak :: IO CInt
@@ -265,8 +255,8 @@ foreign import ccall unsafe "curses.h nocbreak" nocbreak :: IO CInt
 -- > routines interact with cbreak and nocbreak.]
 --
 echo :: Bool -> IO ()
-echo False = throwIfErr_ "noecho"## noecho
-echo True  = throwIfErr_ "echo"##   echo_c
+echo False = throwIfErr_ (P.packAddress "noecho"##) noecho
+echo True  = throwIfErr_ (P.packAddress "echo"##)   echo_c
 
 foreign import ccall unsafe "curses.h noecho" noecho :: IO CInt
 foreign import ccall unsafe "curses.h echo"   echo_c :: IO CInt
@@ -284,8 +274,8 @@ foreign import ccall unsafe "curses.h echo"   echo_c :: IO CInt
 -- > the return key.
 -- > 
 nl :: Bool -> IO ()
-nl True  = throwIfErr_ "nl"##   nl_c
-nl False = throwIfErr_ "nonl"## nonl
+nl True  = throwIfErr_ (P.packAddress "nl"##) nl_c
+nl False = throwIfErr_ (P.packAddress "nonl"##) nonl
 
 foreign import ccall unsafe "curses.h nl" nl_c :: IO CInt
 foreign import ccall unsafe "curses.h nonl" nonl :: IO CInt
@@ -294,7 +284,7 @@ foreign import ccall unsafe "curses.h nonl" nonl :: IO CInt
 -- | Enable the keypad of the user's terminal.
 --
 keypad :: Window -> Bool -> IO ()
-keypad win bf = throwIfErr_ "keypad"## $ 
+keypad win bf = throwIfErr_ (P.packAddress "keypad"##) $ 
     keypad_c win (if bf then 1 else 0)
 
 foreign import ccall unsafe "curses.h keypad" 
@@ -305,7 +295,7 @@ foreign import ccall unsafe "curses.h keypad"
 -- > is FALSE), getch waits until a key is pressed.
 --
 noDelay :: Window -> Bool -> IO ()
-noDelay win bf = throwIfErr_ "nodelay"## $ 
+noDelay win bf = throwIfErr_ (P.packAddress "nodelay"##) $ 
     nodelay win (if bf then 1 else 0)
 
 foreign import ccall unsafe "curses.h"
@@ -338,7 +328,7 @@ foreign import ccall unsafe "curses.h use_default_colors"
 -- > exiting from curses.
 --
 endWin :: IO ()
-endWin = throwIfErr_ "endwin"## endwin
+endWin = throwIfErr_ (P.packAddress "endwin"##) endwin
 
 foreign import ccall unsafe "curses.h endwin" 
     endwin :: IO CInt
@@ -361,7 +351,7 @@ foreign import ccall "curses.h &COLS"  colsPtr  :: Ptr CInt
 -- | refresh curses windows and lines. curs_refresh(3)
 --
 refresh :: IO ()
-refresh = throwIfErr_ "refresh"## refresh_c
+refresh = throwIfErr_ (P.packAddress "refresh"##) refresh_c
 
 foreign import ccall unsafe "curses.h refresh" 
     refresh_c :: IO CInt
@@ -379,7 +369,7 @@ foreign import ccall unsafe "curses.h has_colors"
 -- default colors (white on black)
 --
 startColor :: IO ()
-startColor = throwIfErr_ "start_color"## start_color
+startColor = throwIfErr_ (P.packAddress "start_color"##) start_color
 
 foreign import ccall unsafe start_color :: IO CInt
 
@@ -429,7 +419,7 @@ color _ =  Nothing
 --
 initPair :: Pair -> Color -> Color -> IO ()
 initPair (Pair p) (Color f) (Color b) =
-    throwIfErr_ "init_pair"## $
+    throwIfErr_ (P.packAddress "init_pair"##) $
         init_pair (fromIntegral p) (fromIntegral f) (fromIntegral b)
 
 foreign import ccall unsafe 
@@ -445,7 +435,7 @@ foreign import ccall unsafe "curses.h wattr_set"
 --
 wAttrSet :: Window -> (Attr,Pair) -> IO ()
 wAttrSet w (a,(Pair p)) = 
-    throwIfErr_ "wattr_set"## $!
+    throwIfErr_ (P.packAddress "wattr_set"##) $!
         wattr_set w a (fromIntegral p) nullPtr
 {-# INLINE wAttrSet #-}
 
@@ -486,7 +476,7 @@ attrPlus (Attr a) (Attr b) = Attr (a .|. b)
 --
 wAddStr :: Window -> [Char] -> IO ()
 wAddStr _   [] = return ()
-wAddStr win s  = throwIfErr_ "waddnstr"## $
+wAddStr win s  = throwIfErr_ (P.packAddress "waddnstr"##) $
     withCStringLen (s) (\(ws,len) -> waddnstr win ws (fi len))
 
 foreign import ccall threadsafe
@@ -495,8 +485,10 @@ foreign import ccall threadsafe
 foreign import ccall threadsafe
     waddch :: Window -> (#type chtype) -> IO CInt
 
+{-
 wAddChar :: Window -> Char -> IO ()
-wAddChar w c = throwIfErr_ "waddch"## $ waddch w (fromIntegral . ord $ c)
+wAddChar w c = throwIfErr_ (P.packAddress "waddch"##) $ waddch w (fromIntegral . ord $! c)
+-}
 
 ------------------------------------------------------------------------
 
@@ -524,7 +516,7 @@ foreign import ccall unsafe "utils.h get_color_pair"
 foreign import ccall unsafe bkgdset :: (#type chtype) -> IO ()
 
 clrToEol :: IO ()
-clrToEol = throwIfErr_ "clrtoeol"## clrtoeol
+clrToEol = throwIfErr_ (P.packAddress "clrtoeol"##) clrtoeol
 
 foreign import ccall unsafe clrtoeol :: IO CInt
 
@@ -536,7 +528,7 @@ foreign import ccall unsafe clrtoeol :: IO CInt
 --   >    corner of the window, which is (0,0).
 --
 wMove :: Window -> Int -> Int -> IO ()
-wMove w y x = throwIfErr_ "wmove"## $ wmove w (fi y) (fi x)
+wMove w y x = throwIfErr_ (P.packAddress "wmove"##) $ wmove w (fi y) (fi x)
 
 foreign import ccall unsafe  
     wmove :: Window -> CInt -> CInt -> IO CInt
@@ -634,7 +626,7 @@ keyResize       = chr (#const KEY_RESIZE)
 -- try to set the upper bits
 
 meta :: Window -> Bool -> IO ()
-meta win bf = throwIfErr_ "meta"## $
+meta win bf = throwIfErr_ (P.packAddress "meta"##) $
     c_meta win (if bf then 1 else 0)
 
 foreign import ccall unsafe "curses.h meta" 
