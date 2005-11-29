@@ -6,6 +6,7 @@ Dependencies:
     The Glasgow Haskell Compiler        http://haskell.org/ghc
     mpg321 or mpg123                    http://mpg321.sourceforge.net/
     The fps library                     http://www.cse.unsw.edu.au/~dons/fps.html
+    A newer Cabal than 1.0              http://haskell.org/cabal
 
 Building:
     $ chmod +x configure Setup.lhs
