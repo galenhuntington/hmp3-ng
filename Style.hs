@@ -48,7 +48,7 @@ data UIStyle = UIStyle { window     :: !Style
 
 -- | Foreground and background color pairs
 data Style = Style {-# UNPACK #-} !Color !Color
-    deriving Eq
+    deriving (Eq,Ord)
 
 -- | A List of characters with styles attached
 data CharA = C {-# UNPACK #-} !Char
@@ -67,7 +67,7 @@ instance Show StringA where
 data Color
     = RGB {-# UNPACK #-} !Word8 !Word8 !Word8
     | Default
-    deriving Eq
+    deriving (Eq,Ord)
 
 ------------------------------------------------------------------------
 --
@@ -102,6 +102,7 @@ withStyle sty fn = uiAttr sty >>= setAttribute >> fn >> reset
 
 --
 -- | manipulate the current attributes of the standard screen
+-- Only set attr if it's different to the current one?
 --
 setAttribute :: (Curses.Attr, Curses.Pair) -> IO ()
 setAttribute = Curses.wAttrSet Curses.stdScr
@@ -122,44 +123,44 @@ reset = setAttribute (Curses.attr0, Curses.Pair 0)
 -- associated with the terminal color pair that has been defined for
 -- those colors.
 --
--- TODO remember to update this if new fields are added to the ui
---
-initUiColors :: [Style] -> IO (M.Map (Curses.Color, Curses.Color) Curses.Pair)
+initUiColors :: [Style] -> IO PairMap
 initUiColors stys = do 
     ls <- sequence [ uncurry fn m | m <- zip stys [1..] ]
     return (M.fromList ls)
-    where
-        fn :: Style -> Int -> IO ((Curses.Color, Curses.Color), Curses.Pair)
-        fn sty p = case style2curses sty of
-            (CColor (_,fgc), CColor (_,bgc)) -> do
-                  handle (\_ -> return ()) $    -- ignore any problems
-                       Curses.initPair (Curses.Pair p) fgc bgc
-                  return ((fgc,bgc), (Curses.Pair p))
+  where
+    fn :: Style -> Int -> IO (Style, (Curses.Attr,Curses.Pair))
+    fn sty p = do
+        let (CColor (a,fgc),CColor (b,bgc)) = style2curses sty
+        handle (\_ -> return ()) $ Curses.initPair (Curses.Pair p) fgc bgc
+        return (sty, (a `Curses.attrPlus` b, Curses.Pair p))
 
 ------------------------------------------------------------------------
 --
 -- | Getting from nice abstract colours to ncurses-settable values
+-- 
+-- 20% of allocss occur here! But there's only 3 or 4 colours :/
+-- Every call to uiAttr
 --
 uiAttr :: Style -> IO (Curses.Attr, Curses.Pair)
-uiAttr sty = case style2curses sty of 
-        (CColor (a,fgc), CColor (b,bgc)) -> do 
-            m <- readIORef pairMap
-            return $! (a `Curses.attrPlus` b, lookupPair m (fgc,bgc))
+uiAttr sty = do
+    m <- readIORef pairMap
+    return $ lookupPair m sty
 {-# INLINE uiAttr #-}
 
 -- | Given a curses color pair, find the Curses.Pair (i.e. the pair
 -- curses thinks these colors map to) from the state
-lookupPair :: PairMap -> (Curses.Color, Curses.Color) -> Curses.Pair
-lookupPair m p = case M.lookup p m of
-                    Nothing   -> Curses.Pair 0 -- default settings
-                    Just pair -> pair
+lookupPair :: PairMap -> Style -> (Curses.Attr, Curses.Pair)
+lookupPair m s = case M.lookup s m of
+                    Nothing   -> (Curses.attr0, Curses.Pair 0) -- default settings
+                    Just v    -> v
 {-# INLINE lookupPair #-}
 
-type PairMap = M.Map (Curses.Color, Curses.Color) Curses.Pair
+-- | Keep a map of nice style defs to underlying curses pairs, created at init time
+type PairMap = M.Map Style (Curses.Attr, Curses.Pair)
 
 -- | map of Curses.Color pairs to ncurses terminal Pair settings
 pairMap :: IORef PairMap
-pairMap = unsafePerformIO $ newIORef (M.empty)
+pairMap = unsafePerformIO $ newIORef M.empty
 {-# NOINLINE pairMap #-}
 
 ------------------------------------------------------------------------

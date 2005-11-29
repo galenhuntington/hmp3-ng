@@ -116,6 +116,7 @@ initcolours sty = do
         
     pairs <- initUiColors (ls ++ [Style bg bg, Style fg fg])
     writeIORef pairMap pairs
+
     uiAttr (window (style config)) >>= \(_,p) -> Curses.bkgrndSet nullA p
 
 --
