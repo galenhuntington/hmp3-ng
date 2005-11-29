@@ -55,14 +55,9 @@ data CharA = C {-# UNPACK #-} !Char
            | A {-# UNPACK #-} !Char !Style
 
 -- | A list of such values (the representation is optimised)
-data StringA = Fancy {-# UNPACK #-} ![CharA]   -- lines with colours in them
-             | Plain {-# UNPACK #-} !String    -- plain text, no attributes set
-             | Fast  {-# UNPACK #-} !P.FastString !Style
-
-instance Show StringA where
-  show (Fancy cs)   = show $ map (\c -> case c of C d -> d ; A d _ -> d) cs
-  show (Plain cs)   = show cs
-  show (Fast  cs _) = show cs
+data StringA = Plain  {-# UNPACK #-} !String    -- plain text, no attributes set
+             | Fast   {-# UNPACK #-} !P.FastString !Style
+             | FancyS {-# UNPACK #-} ![(P.FastString,Style)]  -- one line made up of segments
 
 data Color
     = RGB {-# UNPACK #-} !Word8 !Word8 !Word8

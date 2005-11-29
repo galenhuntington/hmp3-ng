@@ -240,6 +240,16 @@ readIntPS (P.PS x s l) = unsafePerformIO $ withForeignPtr x $ \p->
 
 -- ---------------------------------------------------------------------
 
+-- replicateP w c = P.unfoldr w (\u -> Just (u,u)) c
+replicatePS :: Int -> Char -> P.FastString
+replicatePS w c = unsafePerformIO $ P.generate w $ \ptr -> go ptr w
+    where 
+        x = fromIntegral . ord $ c
+        go _   0 = return w
+        go ptr n = poke ptr x >> go (ptr `plusPtr` 1) (n-1)
+
+-- ---------------------------------------------------------------------
+
 foreign import ccall safe "utils.h getline" 
     c_getline :: Ptr Word8 -> Ptr CFile -> IO Int
 

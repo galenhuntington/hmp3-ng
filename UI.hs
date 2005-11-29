@@ -47,7 +47,7 @@ module UI (
   )   where
 
 import Style
-import FastIO           (basenameP)
+import FastIO           (basenameP, replicatePS)
 import Tree             (File(fdir, fbase), Dir(dname))
 import State
 import Syntax hiding (draw)
@@ -58,7 +58,6 @@ import {-# SOURCE #-} Keymap (extraTable, keyTable)
 
 import Data.IORef               (writeIORef)
 import Data.List                (intersperse,isPrefixOf)
-import Data.Char                (ord)
 import Data.Array               ((!), bounds, Array)
 import Data.Array.Base          (unsafeAt)
 import System.IO                (IO, stderr, hFlush)
@@ -237,12 +236,11 @@ instance (Element a, Element b) => Element (a,b) where
 
 -- Info about the current track
 instance Element PPlaying where
-    draw w@(_,x') x st z = PPlaying $ 
-            Fast (pad `P.append` alignLR (x'-4) a b) sty
+    draw w@(_,x') x st z = PPlaying . FancyS $ 
+            [(pad, defaultStyle)
+            ,(alignLR (x'-4) a b, defaultStyle)]
         where
             pad = P.pack "  "
-            sty = Style Default Default
-
             (PId3 a)  = draw w x st z :: PId3 
             (PInfo b) = draw w x st z :: PInfo
 
@@ -298,17 +296,20 @@ instance Element HelpScreen where
 ------------------------------------------------------------------------
 
 -- | The time used and time left
--- 12% allocs
 instance Element PTimes where
-    draw _ _ _ Nothing       = PTimes $ Fast (P.pack "     ") (Style Default Default)
-    draw (_,x) _ _ (Just fr) = PTimes $ flip Fast sty $! 
-        P.concat [spc ,elapsed ,gap ,remaining ]
+    draw _ _ _ Nothing       = PTimes $ Fast (P.pack "     ") defaultStyle
+    draw (_,x) _ _ (Just fr) = PTimes $ FancyS $
+                                    [(spc,      defaultStyle)
+                                    ,(elapsed,  defaultStyle)
+                                    ,(gap,      defaultStyle)
+                                    ,(remaining,defaultStyle)]
       where
-        sty       = Style Default Default
         spc       = P.pack "  "
+
+        -- todo: use real snprintf
         elapsed   = P.pack $! ((printf  "%01d:%02d" lm lm') :: String)
         remaining = P.pack $! ((printf "-%01d:%02d" rm rm') :: String)
-        gap       = P.unfoldr distance (\c -> Just (c,c)) ' '
+        gap       = replicatePS distance ' '
         distance  = x - 4{-2 on each end-} - P.length elapsed - P.length remaining
         (lm,lm')  = quotRem (fst . currentTime $ fr) 60
         (rm,rm')  = quotRem (fst . timeLeft    $ fr) 60
@@ -317,21 +318,19 @@ instance Element PTimes where
 
 -- | A progress bar
 instance Element ProgressBar where
-    draw (_,w) _ _ Nothing = ProgressBar . Fancy $
-          A ' ' df : A ' ' df : replicate (w-4) (A ' ' bgs)
-
+    draw (_,w) _ _ Nothing = ProgressBar . FancyS $
+          [(spc,defaultStyle) ,(replicatePS (w-4) ' ', bgs)]
         where 
+          spc      = P.pack "  "
           (Style _ bg) = progress (style config)
-          df           = Style Default Default
           bgs          = Style bg bg
 
-    draw (_,w) _ _ (Just fr) = ProgressBar . Fancy $
-          A ' ' df : A ' ' df :
-          replicate distance (A ' ' fgs) ++
-          replicate (width - distance) (A ' ' bgs)
-
+    draw (_,w) _ _ (Just fr) = ProgressBar . FancyS $
+          [(spc,defaultStyle)
+          ,((replicatePS distance           ' '),fgs)
+          ,((replicatePS (width - distance) ' '),bgs)]
         where 
-          df           = Style Default Default
+          spc      = P.pack "  "
           width    = w - 4
           total    = curr + left
           distance = round ((curr / total) * fromIntegral width)
@@ -416,9 +415,9 @@ instance Element PlayTitle where
         PlayTitle $ flip Fast hl $ P.concat 
               [space
               ,inf
-              ,P.unfoldr gapl (\u -> Just (u,u)) ' '
+              ,replicatePS gapl ' '
               ,modes
-              ,P.unfoldr gapr (\u -> Just (u,u)) ' '
+              ,replicatePS gapr ' '
               ,time
               ,space
               ,ver
@@ -490,11 +489,10 @@ instance Element PlayList where
                 | i == select && i == playing = f sty3
                 | i == select                 = f sty2
                 | i == playing                = f sty1
-                | otherwise                   = (m,Fast s (Style Default Default))
+                | otherwise                   = (m,Fast s defaultStyle)
                 where
                     f sty = (m, Fast (s `P.append` 
-                                        (P.unfoldr (x-indent-1-P.length s) (\c -> Just (c,c)) ' '))
-
+                                        (replicatePS (x-indent-1-P.length s) ' '))
                                 sty)
             
             sty1 = selected . style $ config
@@ -504,20 +502,18 @@ instance Element PlayList where
             -- must mchop before drawing.
             drawIt :: (Maybe Int, StringA) -> StringA
             drawIt (Nothing,Fast v sty) = 
-                Fast ((P.unfoldr (1 + indent) (\c -> Just (c,c)) ' ') `P.append` v) sty
+                Fast ((replicatePS (1 + indent) ' ') `P.append` v) sty
 
-            drawIt (Just i ,Fast b sty) = Fancy (pref ++ post)
+            drawIt (Just i,Fast b sty) = FancyS [pref, post]
               where
-                pref = if sty == sty2 || sty == sty3
-                        then map (flip A sty2) . P.unpack $ d' 
-                        else map C . P.unpack $ d' 
-                post = map (flip A sty) . P.unpack $ b
+                pref = (d', if sty == sty2 || sty == sty3 then sty2 else defaultStyle)
+                post = (b,sty)
 
                 d   = basenameP $ case size st of
                                     0 -> P.pack "(empty)"
                                     _ -> dname $ folders st ! i
 
-                spc = P.unfoldr (indent - P.length d) (\c -> Just (c,c)) ' '
+                spc = replicatePS (indent - P.length d) ' '
 
                 d' | P.length d > indent-1 
                    = P.concat [ P.take (indent+1-4) d 
@@ -546,10 +542,10 @@ printPlayList (PlayList s) = s
 
 -- | Take two strings, and pad them in the middle
 alignLR :: Int -> P.FastString -> P.FastString -> P.FastString
-alignLR w l r | padding >= 0 = l `P.append` gap `P.append` r 
-              | otherwise    = P.take (w - P.length r - 4) l `P.append` ellipsis `P.append` r
+alignLR w l r | padding >= 0 = P.concat [l, gap, r]
+              | otherwise    = P.take (w - P.length r - 4) $ P.concat [l, ellipsis, r]
     where padding = w - P.length l - P.length r
-          gap     = P.unfoldr padding (\c -> Just (c,c)) ' '
+          gap     = replicatePS padding ' '
 
 ellipsis :: P.FastString
 ellipsis = P.pack "... "
@@ -567,7 +563,7 @@ redrawJustClock = do
    st      <- readState id
    fr      <- readClock id
    s@(h,w) <- screenSize
-   let (ProgressBar bar) = {-# SCC "redrawJustClock.progressbar" #-} draw s undefined st fr :: ProgressBar
+   let (ProgressBar bar) = draw s undefined st fr :: ProgressBar
        (PTimes times)    = {-# SCC "redrawJustClock.times" #-} draw s undefined st fr :: PTimes
    Curses.wMove Curses.stdScr 1 0   -- hardcoded!
    drawLine w bar
@@ -650,12 +646,13 @@ redraw =
 --
 drawLine :: Int -> StringA -> IO ()
 
-drawLine _ (Fancy s) =  -- progress bar
+{-
+drawLine _ (Fancy s) =
     flip mapM_ s $ \fs -> case fs of
         C c     ->  Curses.waddch Curses.stdScr (fromIntegral.ord$ c) >> return ()
         A c sty -> withStyle sty $
                     (Curses.waddch Curses.stdScr (fromIntegral.ord$ c) >> return ())
-        -- XXX also optimise Fancy s.
+-}
 
 drawLine _ (Plain s) = Curses.wAddStr Curses.stdScr s
 
@@ -665,11 +662,22 @@ drawLine _ (Fast ps sty) = withStyle sty $ P.unsafeUseAsCString ps $ \cstr ->
     where
         msg = P.pack "drawLine"
 
+drawLine _ (FancyS []) = return ()
+drawLine _ (FancyS ls) =
+    let loop []             = return ()
+        loop ((l,sty):xs)   = do
+            withStyle sty $ P.unsafeUseAsCString l $ \cstr -> 
+                Curses.throwIfErr_ msg $
+                    Curses.waddnstr Curses.stdScr cstr (fromIntegral . P.length $ l)
+            loop xs
+    in loop ls
+    where
+        msg = P.pack "drawLine.FancyS"
+
 ------------------------------------------------------------------------
 
 maybeLineDown :: StringA -> Int -> Int -> Int -> IO ()
 maybeLineDown (Plain []) h y _ = lineDown h y
-maybeLineDown (Fancy []) h y _ = lineDown h y
 maybeLineDown _ h y x
     | x == 0    = return ()     -- already moved down
     | otherwise = lineDown h y
@@ -708,3 +716,6 @@ setXtermTitle :: P.FastString -> IO ()
 setXtermTitle s = P.hPut stderr pstr >> hFlush stderr
   where
     pstr = P.pack (printf "\ESC]0;%s\007" (P.unpack s))
+
+defaultStyle :: Style
+defaultStyle = Style Default Default
