@@ -60,7 +60,7 @@ import Data.IORef               (writeIORef)
 import Data.List                (intersperse,isPrefixOf)
 import Data.Array               ((!), bounds, Array)
 import Data.Array.Base          (unsafeAt)
-import System.IO                (IO, stderr, hFlush, hPutStrLn)
+import System.IO                (IO, stderr, hFlush)
 import Text.Printf              (printf)
 
 import Control.Monad            (mapM_, when)
