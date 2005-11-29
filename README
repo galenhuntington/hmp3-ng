@@ -43,6 +43,12 @@ Limitations:
     It only plays mp3 files (and variants supported by mpg{321,123}.
     So no ogg files for now. This is on the todo list though.
 
+Platforms:
+    hmp3 has been confirmed to work on:
+        OpenBSD/x86
+        Linux/x86
+        MacOSX/ppc
+
 License:
     GPL
 
