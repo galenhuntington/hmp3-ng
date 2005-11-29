@@ -399,18 +399,18 @@ jumpToPlaying = modifyState_ $ \st -> return st { cursor = (current st) }
 
 -- | Move cursor to first song in next directory (or wrap)
 jumpToNextDir :: IO ()
-jumpToNextDir = modifyState_ $ \st -> do
+jumpToNextDir = modifyState_ $ \st -> return $ if size st == 0 then st else
     let i   = fdir (music st ! cursor st)
         len = 1 + (snd . bounds $ folders st)
         d   = min (i + 1) (len - 1)
-    return st { cursor = dlo ((folders st) ! d) }
+    in st { cursor = dlo ((folders st) ! d) }
 
 -- | Move cursor to first song in next directory (or wrap)
 jumpToPrevDir :: IO ()
-jumpToPrevDir = modifyState_ $ \st -> do
+jumpToPrevDir = modifyState_ $ \st -> return $ if size st == 0 then st else
     let i   = fdir (music st ! cursor st)
         d   = max (i - 1) 0
-    return st { cursor = dlo ((folders st) ! d) }
+    in st { cursor = dlo ((folders st) ! d) }
 
 ------------------------------------------------------------------------
 

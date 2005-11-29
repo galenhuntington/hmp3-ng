@@ -563,7 +563,7 @@ ellipsis = P.pack "... "
 --
 redrawJustClock :: IO ()
 redrawJustClock = do 
-   Control.Exception.handle (\e -> hPutStrLn stderr ("CLOCK " ++ show e) >> return ()) $ do
+   Control.Exception.handle (\_ -> return ()) $ do
 
    st      <- readState id
    fr      <- readClock id
@@ -596,7 +596,7 @@ redrawJustClock = do
 redraw :: IO ()
 redraw = 
    -- linux ncurses, in particular, seems to complain a lot. this is an easy solution
-   Control.Exception.handle (\e -> hPutStrLn stderr ("REFRESH: " ++ show e) >> return ()) $ do
+   Control.Exception.handle (\_ -> return ()) $ do
 
 
    s <- readState id    -- another refresh could be triggered?
