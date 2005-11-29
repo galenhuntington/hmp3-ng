@@ -430,7 +430,7 @@ jumpToMatch re = do
             Just (p,forwards) -> do
 
             let fs = folders st
-                cur= fdir (music st ! cursor st)
+                cur= if size st == 0 then -1 else fdir (music st ! cursor st)
                 m  = 1 + (snd . bounds $ folders st)
 
                 loop fn inc n
@@ -441,8 +441,8 @@ jumpToMatch re = do
                             Nothing -> loop fn inc $! inc n
                             Just _  -> return $ Just n
 
-            mi <- if forwards then loop (>=m) (+1) (cur+1) 
-                              else loop (<0) (subtract 1) (cur-1)
+            mi <- if forwards then loop (>=m) (+1)         (cur+1) 
+                              else loop (<0)  (subtract 1) (cur-1)
 
             let st' = st { regex = Just (p,forwards) }
             return $ case mi of
