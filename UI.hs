@@ -384,7 +384,7 @@ instance Element PlayModes where
             (PMode  m ) = draw a b c d :: PMode
             (PMode2 m') = draw a b c d :: PMode2
 
-instance Element PlayInfo where
+instance Element PlayInfo where     -- could FancyS it
     draw _ _ st _ = PlayInfo $ P.concat
          [percent
          ,P.pack " ("
