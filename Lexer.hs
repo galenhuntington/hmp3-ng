@@ -22,7 +22,7 @@
 module Lexer ( parser ) where
 
 import Syntax
-import FastIO           (getFilteredPacket)
+import FastIO           (readIntPS,getFilteredPacket)
 
 import qualified Data.FastPackedString as P
 
@@ -40,19 +40,24 @@ doP s = S $! case P.head . P.tail $ s of
                 _ -> error "Invalid Status"
 
 -- Frame decoding status updates (once per frame).
--- ~10% of allocs happen here
+-- ~30% of allocs happen here. Try a packed read. Or scanf?
 doF :: P.FastString -> Msg
 doF s = R $ Frame {
-                currentFrame = read $! P.unpack (fs !! 0)
-              , framesLeft   = read $! P.unpack (fs !! 1)
+                currentFrame = readPS (fs !! 0)
+              , framesLeft   = readPS (fs !! 1)
               , currentTime  = f 2
               , timeLeft     = f 3
            }
         where
+          readPS ps = case readIntPS ps of
+                Nothing    -> error "doF.readPS"
+                Just (i,_) -> i
+
           fs  = P.split ' ' . P.tail $ s
           f n = case P.split '.' (fs !! n) of { [x,y] -> 
-                case read . P.unpack $ x   of { rx    -> 
-                case read . P.unpack $ y   of { ry    -> (rx,ry) }}}
+                case readPS x              of { rx    -> 
+                case readPS y              of { ry    -> (rx,ry) }}
+                                              ; _ -> error "doF.f" }
 
 -- Outputs information about the mp3 file after loading.
 doS :: P.FastString -> Msg

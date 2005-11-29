@@ -27,10 +27,11 @@ import qualified Data.FastPackedString as P
 
 import Foreign.C.Error
 import Foreign.C.String         (CString)
-import Foreign.C.Types          (CFile, CInt)
+import Foreign.C.Types          (CFile, CInt, CLong)
 import Foreign.ForeignPtr       (withForeignPtr, mallocForeignPtrArray)
 import Foreign.Marshal          (peekArray, advancePtr, allocaBytes, alloca)
-import Foreign.Ptr              (Ptr, nullPtr, plusPtr, castPtr)
+import Foreign.Marshal.Utils    (with)
+import Foreign.Ptr              (Ptr, nullPtr, minusPtr, plusPtr, castPtr)
 import Foreign.Storable         (poke, peek)
 
 import System.Directory         (Permissions(..))
@@ -219,6 +220,26 @@ joinPathP f g =
 
 -- ---------------------------------------------------------------------
 
+-- readIntPS
+
+-- | readIntPS skips any whitespace at the beginning of its argument, and
+-- reads an Int from the beginning of the PackedString.  If there is no
+-- integer at the beginning of the string, it returns Nothing, otherwise it
+-- just returns the int read, along with a PackedString containing the
+-- remainder of its input.  The actual parsing is done by the standard C
+-- library function strtol.
+
+readIntPS :: P.FastString -> Maybe (Int, P.FastString)
+readIntPS (P.PS x s l) = unsafePerformIO $ withForeignPtr x $ \p-> 
+    with p $ \endpp -> do 
+       val     <- c_strtol (p `plusPtr` s) endpp 0
+       skipped <- (`minusPtr` (p `plusPtr` s)) `liftM` peek endpp
+       return $ if skipped == 0
+          then Nothing
+          else Just (fromIntegral val, P.PS x (s+skipped) (l-skipped))
+
+-- ---------------------------------------------------------------------
+
 foreign import ccall safe "utils.h getline" 
     c_getline :: Ptr Word8 -> Ptr CFile -> IO Int
 
@@ -235,3 +256,5 @@ foreign import ccall unsafe "__hscore_R_OK" r_OK :: CMode
 foreign import ccall unsafe "__hscore_W_OK" w_OK :: CMode
 foreign import ccall unsafe "__hscore_X_OK" x_OK :: CMode
 
+foreign import ccall unsafe "static stdlib.h strtol" c_strtol
+    :: Ptr Word8 -> Ptr (Ptr Word8) -> Int -> IO CLong
