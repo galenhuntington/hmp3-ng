@@ -178,7 +178,7 @@ fi = fromIntegral
 throwPackedIf :: (a -> Bool) -> P.FastString -> (IO a) -> (IO a)
 throwPackedIf p msg action = do
     v <- action
-    if p v then P.hPut stderr msg >> fail "curses exception" else return v
+    if p v then (fail . P.unpack $ msg) else return v
 {-# INLINE throwPackedIf #-}
 
 -- | Arbitrary test 
