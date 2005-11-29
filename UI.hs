@@ -298,23 +298,20 @@ instance Element HelpScreen where
 ------------------------------------------------------------------------
 
 -- | The time used and time left
+-- 12% allocs
 instance Element PTimes where
     draw _ _ _ Nothing       = PTimes $ Fast (P.pack "     ") (Style Default Default)
-
     draw (_,x) _ _ (Just fr) = PTimes $ flip Fast sty $! 
-                                    P.concat [spc
-                                             ,elapsed
-                                             ,gap
-                                             ,remaining ]
-      where  -- 8.3 %
+        P.concat [spc ,elapsed ,gap ,remaining ]
+      where
         sty       = Style Default Default
         spc       = P.pack "  "
         elapsed   = P.pack $! ((printf  "%01d:%02d" lm lm') :: String)
         remaining = P.pack $! ((printf "-%01d:%02d" rm rm') :: String)
         gap       = P.unfoldr distance (\c -> Just (c,c)) ' '
         distance  = x - 4{-2 on each end-} - P.length elapsed - P.length remaining
-        (lm,lm')  = quotRem (fst $ currentTime fr) 60
-        (rm,rm')  = quotRem (fst $ timeLeft fr) 60
+        (lm,lm')  = quotRem (fst . currentTime $ fr) 60
+        (rm,rm')  = quotRem (fst . timeLeft    $ fr) 60
 
 ------------------------------------------------------------------------
 
@@ -600,13 +597,12 @@ redraw =
    -- linux ncurses, in particular, seems to complain a lot. this is an easy solution
    Control.Exception.handle (\_ -> return ()) $ do
 
-
    s <- readState id    -- another refresh could be triggered?
    f <- readClock id
    sz@(h,w) <- screenSize
 
-   let x = {-# SCC "redraw.playscreen" #-} printPlayScreen (draw sz (0,0) s f :: PlayScreen)
-       y = {-# SCC "redraw.playlist" #-} printPlayList   (draw sz (length x,0) s f :: PlayList)
+   let x = printPlayScreen (draw sz (0,0) s f :: PlayScreen)
+       y = printPlayList   (draw sz (length x,0) s f :: PlayList)
        a = x ++ y
 
    -- set xterm title (should have an instance Element)
@@ -621,14 +617,14 @@ redraw =
                 else let (PMode pm) = draw sz (0,0) s f :: PMode in pm
    
    gotoTop
-   {-# SCC "redraw.draw" #-}mapM_ (\t -> do drawLine w t
-                                            (y',x') <- Curses.getYX Curses.stdScr
-                                            fillLine
-                                            maybeLineDown t h y' x' )
+   mapM_ (\t -> do drawLine w t
+                   (y',x') <- Curses.getYX Curses.stdScr
+                   fillLine
+                   maybeLineDown t h y' x' )
          (take (h-1) (init a))
 
    when (helpVisible s) $ do
-       let (HelpScreen help) = {-# SCC "redraw.help" #-} draw sz (0,0) s f :: HelpScreen
+       let (HelpScreen help) = draw sz (0,0) s f :: HelpScreen
            (Fast fps _) = head help
            offset = (w - (P.length fps)) `div` 2
            height = (h - length help) `div` 2

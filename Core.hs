@@ -120,6 +120,7 @@ exitTime e | isJust . ioErrors $ e   = False -- ignore
            | isJust . errorCalls $ e = False -- ignore
            | isJust . userErrors $ e = False -- ignore
            | otherwise               = True
+-- exitTime _ = True
 
 ------------------------------------------------------------------------
 
@@ -136,6 +137,7 @@ mpgLoop = forever $ do
       Nothing     -> quit (Just $ "Cannot find " ++ MPG321 ++ " in path")
       Just mpg321 -> do 
 
+        -- if we're never able to start mpg321, do something sensible
         mv <- catch (popen (mpg321 :: String) ["-R","-"] >>= return . Just)
                     (\e -> do warnA ("Unable to start " ++ MPG321 ++ ": " ++ show e)
                               return Nothing)
@@ -250,6 +252,7 @@ shutdown ms =
         UI.end isXterm
         when (isJust ms) $ hPutStrLn stderr (fromJust ms) >> hFlush stderr
         exitImmediately ExitSuccess)    -- race. a thread might touch the screen
+--      return ())
 
 ------------------------------------------------------------------------
 -- 

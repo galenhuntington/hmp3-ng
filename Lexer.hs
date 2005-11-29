@@ -40,7 +40,6 @@ doP s = S $! case P.head . P.tail $ s of
                 _ -> error "Invalid Status"
 
 -- Frame decoding status updates (once per frame).
--- ~30% of allocs happen here. Try a packed read. Or scanf?
 doF :: P.FastString -> Msg
 doF s = R $ Frame {
                 currentFrame = readPS (fs !! 0)
