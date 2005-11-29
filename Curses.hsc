@@ -179,19 +179,22 @@ throwPackedIf :: (a -> Bool) -> P.FastString -> (IO a) -> (IO a)
 throwPackedIf p msg action = do
     v <- action
     if p v then P.hPut stderr msg >> fail "curses exception" else return v
-
--- | packed throwIfNull
-throwPackedIfNull :: P.FastString -> IO (Ptr a) -> IO (Ptr a)
-throwPackedIfNull str = throwPackedIf (== nullPtr) str
+{-# INLINE throwPackedIf #-}
 
 -- | Arbitrary test 
 throwIfErr :: Num a => P.FastString -> IO a -> IO a
-throwIfErr str act = throwPackedIf (== (#const ERR)) str act
+throwIfErr = throwPackedIf (== (#const ERR))
 {-# INLINE throwIfErr #-}
 
 -- | Discard result
 throwIfErr_ :: Num a => P.FastString -> IO a -> IO ()
-throwIfErr_ name act = void $ throwIfErr name act
+throwIfErr_ a b = void $ throwIfErr a b
+{-# INLINE throwIfErr_ #-}
+
+-- | packed throwIfNull
+throwPackedIfNull :: P.FastString -> IO (Ptr a) -> IO (Ptr a)
+throwPackedIfNull = throwPackedIf (== nullPtr)
+{-# INLINE throwPackedIfNull #-}
 
 ------------------------------------------------------------------------
 

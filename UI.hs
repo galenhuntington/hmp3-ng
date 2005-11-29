@@ -58,6 +58,7 @@ import {-# SOURCE #-} Keymap (extraTable, keyTable)
 
 import Data.IORef               (writeIORef)
 import Data.List                (intersperse,isPrefixOf)
+import Data.Char                (ord)
 import Data.Array               ((!), bounds, Array)
 import Data.Array.Base          (unsafeAt)
 import System.IO                (IO, stderr, hFlush)
