@@ -122,10 +122,10 @@ data Info = Info {
 -- there's no need to evaluate all the others. 
 -- 
 data Frame = Frame {
-                currentFrame   :: Int,
-                framesLeft     :: Int,
-                currentTime    :: (Int,Int),
-                timeLeft       :: (Int,Int)
+                currentFrame   :: !Int,
+                framesLeft     :: !Int,
+                currentTime    :: !(Int,Int),
+                timeLeft       :: !(Int,Int)
              }
 
 -- @P {0, 1, 2}
