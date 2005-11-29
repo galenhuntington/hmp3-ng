@@ -47,7 +47,7 @@ module UI (
   )   where
 
 import Style
-import FastIO           (basenameP, replicatePS)
+import FastIO           (basenameP, replicatePS, printfPS)
 import Tree             (File(fdir, fbase), Dir(dname))
 import State
 import Syntax hiding (draw)
@@ -299,20 +299,20 @@ instance Element HelpScreen where
 instance Element PTimes where
     draw _ _ _ Nothing       = PTimes $ Fast (P.pack "     ") defaultStyle
     draw (_,x) _ _ (Just fr) = PTimes $ FancyS $
-                                    [(spc,      defaultStyle)
-                                    ,(elapsed,  defaultStyle)
-                                    ,(gap,      defaultStyle)
-                                    ,(remaining,defaultStyle)]
+                                [(spc,      defaultStyle)
+                                ,(elapsed,  defaultStyle)
+                                ,(gap,      defaultStyle)
+                                ,(remaining,defaultStyle)]
       where
+        elapsed   = printfPS fmt1 lm lm'
+        remaining = printfPS fmt2 rm rm'
+        fmt1      = P.pack  "%01d:%02d" 
+        fmt2      = P.pack "-%01d:%02d" 
         spc       = P.pack "  "
-
-        -- todo: use real snprintf
-        elapsed   = P.pack $! ((printf  "%01d:%02d" lm lm') :: String)
-        remaining = P.pack $! ((printf "-%01d:%02d" rm rm') :: String)
-        gap       = replicatePS distance ' '
-        distance  = x - 4{-2 on each end-} - P.length elapsed - P.length remaining
         (lm,lm')  = quotRem (fst . currentTime $ fr) 60
         (rm,rm')  = quotRem (fst . timeLeft    $ fr) 60
+        gap       = replicatePS distance ' '
+        distance  = x - 2 - P.length elapsed - P.length remaining
 
 ------------------------------------------------------------------------
 

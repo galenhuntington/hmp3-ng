@@ -27,7 +27,7 @@ import qualified Data.FastPackedString as P
 
 import Foreign.C.Error
 import Foreign.C.String         (CString)
-import Foreign.C.Types          (CFile, CInt, CLong)
+import Foreign.C.Types          (CFile, CInt, CLong, CSize)
 import Foreign.ForeignPtr       (withForeignPtr, mallocForeignPtrArray)
 import Foreign.Marshal          (peekArray, advancePtr, allocaBytes, alloca)
 import Foreign.Marshal.Utils    (with)
@@ -268,3 +268,20 @@ foreign import ccall unsafe "__hscore_X_OK" x_OK :: CMode
 
 foreign import ccall unsafe "static stdlib.h strtol" c_strtol
     :: Ptr Word8 -> Ptr (Ptr Word8) -> Int -> IO CLong
+
+------------------------------------------------------------------------ 
+
+-- 
+-- A wrapper over printf for use in UI.PTimes
+-- 
+printfPS :: P.FastString -> Int -> Int -> P.FastString
+printfPS fmt arg1 arg2 =
+    unsafePerformIO $ P.generate 10{-!-} $ \ptr ->
+        P.unsafeUseAsCString fmt $ \c_fmt -> do
+            sz' <- c_printf2d ptr 10 (castPtr c_fmt)
+                        (fromIntegral arg1) (fromIntegral arg2)
+            return (fromIntegral $ sz' + 1)
+
+foreign import ccall unsafe "static stdio.h snprintf" 
+    c_printf2d :: Ptr Word8 -> CSize -> Ptr Word8 -> CInt -> CInt -> IO CInt
+
