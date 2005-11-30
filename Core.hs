@@ -180,9 +180,7 @@ uptimeLoop :: IO ()
 uptimeLoop = forever $ do
     threadDelay delay 
     now <- getClockTime 
-    modifyState_ $ \st -> 
-        case drawUptime (boottime st) now of
-            t -> return st { uptime = t }
+    modifyState_ $ \st -> return st { uptime = drawUptime (boottime st) now }
   where
     delay = 60 * 1000 * 1000 -- 1 minute
 

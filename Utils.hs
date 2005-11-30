@@ -32,12 +32,12 @@
 
 module Utils where
 
+import FastIO                   (printfPS)
+
 import Data.Char                (isSpace)
 import Data.List                (isPrefixOf)
 
 import qualified Data.FastPackedString as P
-
-import Text.Printf              (printf)
 
 import System.Time              (diffClockTimes, TimeDiff(tdSec), ClockTime)
 import System.IO                (IO, FilePath)
@@ -134,11 +134,13 @@ breakOnGlue glue rest@(x:xs)
 
 drawUptime :: ClockTime -> ClockTime -> P.FastString
 drawUptime before now =
-    let r = diffClockTimes now before
-        s = tdSec  r
+    let r      = diffClockTimes now before
+        s      = tdSec  r
         (h,sr) = quotRem s (60 * 60)
-        m     = quot sr 60
-    in P.pack $! ((printf "%3d:%02d" (h::Int) (m::Int)) :: String)
+        m      = quot sr 60
+    in printfPS fmt h m
+  where
+    fmt = P.pack "%3d:%02d"
         
 ------------------------------------------------------------------------
 -- | Repeat an action

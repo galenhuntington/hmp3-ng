@@ -280,7 +280,7 @@ printfPS fmt arg1 arg2 =
         P.unsafeUseAsCString fmt $ \c_fmt -> do
             sz' <- c_printf2d ptr 10 (castPtr c_fmt)
                         (fromIntegral arg1) (fromIntegral arg2)
-            return (fromIntegral $ sz' + 1)
+            return (fromIntegral sz')
 
 foreign import ccall unsafe "static stdio.h snprintf" 
     c_printf2d :: Ptr Word8 -> CSize -> Ptr Word8 -> CInt -> CInt -> IO CInt

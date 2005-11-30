@@ -61,7 +61,6 @@ import Data.List                (intersperse,isPrefixOf)
 import Data.Array               ((!), bounds, Array)
 import Data.Array.Base          (unsafeAt)
 import System.IO                (IO, stderr, hFlush)
-import Text.Printf              (printf)
 
 import Control.Monad            (mapM_, when)
 import qualified Control.Exception (catch, handle)
@@ -312,7 +311,7 @@ instance Element PTimes where
         (lm,lm')  = quotRem (fst . currentTime $ fr) 60
         (rm,rm')  = quotRem (fst . timeLeft    $ fr) 60
         gap       = replicatePS distance ' '
-        distance  = x - 2 - P.length elapsed - P.length remaining
+        distance  = x - 4 - P.length elapsed - P.length remaining
 
 ------------------------------------------------------------------------
 
@@ -713,9 +712,14 @@ slice i j arr =
 -- | magics for setting xterm titles using ansi escape sequences
 --
 setXtermTitle :: P.FastString -> IO ()
-setXtermTitle s = P.hPut stderr pstr >> hFlush stderr
+setXtermTitle str = do
+    P.hPut stderr before
+    P.hPut stderr str
+    P.hPut stderr after
+    hFlush stderr 
   where
-    pstr = P.pack (printf "\ESC]0;%s\007" (P.unpack s))
+    before = P.pack "\ESC]0;"
+    after  = P.pack "\007"
 
 defaultStyle :: Style
 defaultStyle = Style Default Default
