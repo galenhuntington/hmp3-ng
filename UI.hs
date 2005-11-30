@@ -39,7 +39,6 @@ module UI (
 
         -- * Construction, destruction
         start, end, suspend, screenSize, refresh, refreshClock, resetui,
-        setXtermTitle,
 
         -- * Input
         getKey
@@ -121,7 +120,7 @@ initcolours sty = do
 -- | Clean up and go home. Refresh is needed on linux. grr.
 --
 end :: Bool -> IO ()
-end isXterm = do when isXterm $ setXtermTitle (P.pack "xterm")
+end isXterm = do when isXterm $ setXtermTitle [P.pack "xterm"]
                  Curses.endWin
 
 --
@@ -606,10 +605,14 @@ redraw =
             if status s == Playing
                 then case id3 s of
                         Nothing -> case size s of
-                                        0 -> P.pack "hmp3"
-                                        _ -> (fbase $ music s ! current s)
-                        Just ti -> P.concat [id3artist ti, P.pack ": ", id3title ti]
-                else let (PMode pm) = draw sz (0,0) s f :: PMode in pm
+                                        0 -> [P.pack "hmp3"]
+                                        _ -> [(fbase $ music s ! current s)]
+                        Just ti -> id3artist ti :
+                                   if P.null (id3title ti) 
+                                        then [] 
+                                        else [P.pack ": ", id3title ti]
+
+                else let (PMode pm) = draw sz (0,0) s f :: PMode in [pm]
    
    gotoTop
    mapM_ (\t -> do drawLine w t
@@ -711,11 +714,9 @@ slice i j arr =
 --
 -- | magics for setting xterm titles using ansi escape sequences
 --
-setXtermTitle :: P.FastString -> IO ()
-setXtermTitle str = do
-    P.hPut stderr before
-    P.hPut stderr str
-    P.hPut stderr after
+setXtermTitle :: [P.FastString] -> IO ()
+setXtermTitle strs = do
+    mapM_ (P.hPut stderr) (before : strs ++ [after])
     hFlush stderr 
   where
     before = P.pack "\ESC]0;"
