@@ -236,6 +236,7 @@ run = forever $ sequence_ . (keymap config) =<< getKeys
 shutdown :: Maybe String -> IO ()
 shutdown ms = 
     (do silentlyModifyState $ \st -> return st { doNotResuscitate = True }
+        catch writeSt (\_ -> return ())
         withState $ \st -> do
             case mp3pid st of
                 Nothing  -> return ()
