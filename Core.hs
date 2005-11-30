@@ -236,7 +236,6 @@ run = forever $ sequence_ . (keymap config) =<< getKeys
 shutdown :: Maybe String -> IO ()
 shutdown ms = 
     (do silentlyModifyState $ \st -> return st { doNotResuscitate = True }
-        catch writeSt (\e -> warnA (show e))
         withState $ \st -> do
             case mp3pid st of
                 Nothing  -> return ()
@@ -469,6 +468,8 @@ nextMode = modifyState_ $ \st -> return st { mode = next (mode st) }
 ------------------------------------------------------------------------
 
 -- | Saving the playlist 
+-- Only save if there's something to save. Should preven dbs being wiped
+-- if curses crashes before the state is read.
 writeSt :: IO ()
 writeSt = do
     home <- getHome
@@ -476,7 +477,7 @@ writeSt = do
     withState $ \st -> do
         let arr1 = music st
             arr2 = folders st
-        writeTree f (arr1,arr2) (current st)
+        when (size st > 0) $ writeTree f (arr1,arr2) (current st)
 
 -- | Read the playlist back
 readSt :: IO (Maybe (FileArray, DirArray, Int))
