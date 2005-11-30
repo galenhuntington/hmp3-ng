@@ -20,6 +20,11 @@ GHC 6.4.x is too old), or if you see:
       dist/build/hmp3-tmp/cbits/utils.o: No such file or directory
 errors, then you need to download a newer Cabal version first.
 
+If you're using GHC 6.4.1 or later, you may wish to build with the C
+backend (the resulting binary will be a bit faster, and seems to use a
+bit less space). In this case, replace "-fasm" with "-fvia-C -optc-O3"
+in the ghc-options: lines of hmp3.cabal
+
 Use:
     To populate a playlist, and start:
 
