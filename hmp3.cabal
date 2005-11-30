@@ -12,6 +12,7 @@ extensions:          CPP, ForeignFunctionInterface
 include-dirs:        cbits
 c-sources:           cbits/utils.c cbits/hooks.c
 other-modules:       Curses Regex
-ghc-options:         -Wall -fglasgow-exts -O2 -funbox-strict-fields -optc-O3 -optl-Wl,-s -Icbits -threaded -lncurses
+ghc-options:         -Wall -fglasgow-exts -O2 -funbox-strict-fields -fasm -optl-Wl,-s -Icbits -threaded -lncurses
+
 -- ghc-options:         -prof -auto-all -Wall -fglasgow-exts -O2 -optc-O3 -funbox-strict-fields -Icbits -threaded -lncurses
 -- ghc-options:         -Wall -fglasgow-exts -Onot -Icbits -threaded -lncurses
