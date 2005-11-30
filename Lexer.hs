@@ -48,15 +48,17 @@ doF s = R $ Frame {
               , timeLeft     = f 3
            }
         where
-          readPS ps = case readIntPS ps of
-                Nothing    -> error "doF.readPS"
-                Just (i,_) -> i
 
           fs  = P.split ' ' . P.tail $ s
           f n = case P.split '.' (fs !! n) of { [x,y] -> 
                 case readPS x              of { rx    -> 
                 case readPS y              of { ry    -> (rx,ry) }}
                                               ; _ -> error "doF.f" }
+
+readPS :: P.FastString -> Int
+readPS ps = case readIntPS ps of
+    Nothing    -> error "doF.readPS"
+    Just (i,_) -> i
 
 -- Outputs information about the mp3 file after loading.
 doS :: P.FastString -> Msg
@@ -82,7 +84,7 @@ doS s = let fs = P.split ' ' . P.tail $ s
                        ,P.pack " "
                        ,fs !! 10
                        ,P.pack "kbit/s "
-                       ,(P.pack . show) ((read . P.unpack $ fs !! 2) `div` 1000 :: Int)
+                       ,(P.pack . show) ((readPS (fs !! 2)) `div` 1000 :: Int)
                        ,P.pack "kHz"]
                 }
 
