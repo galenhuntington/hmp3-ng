@@ -145,7 +145,8 @@ drawUptime before now =
         m      = quot sr 60
     in printfPS fmt h m
   where
-    fmt = P.pack "%3d:%02d"
+    fmt = P.packAddress "%3d:%02d"# -- sometimes ghc doesn't want to fire a RULE here, why?
+                                    -- its crucial for snprintf that this is unpacked
         
 ------------------------------------------------------------------------
 -- | Repeat an action

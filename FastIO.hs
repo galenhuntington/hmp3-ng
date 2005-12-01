@@ -276,11 +276,13 @@ foreign import ccall unsafe "static stdlib.h strtol" c_strtol
 -- 
 printfPS :: P.FastString -> Int -> Int -> P.FastString
 printfPS fmt arg1 arg2 =
-    unsafePerformIO $ P.generate 10{-!-} $ \ptr ->
+    unsafePerformIO $ P.generate lim $ \ptr ->
         P.unsafeUseAsCString fmt $ \c_fmt -> do
-            sz' <- c_printf2d ptr 10 (castPtr c_fmt)
+            sz' <- c_printf2d ptr lim (castPtr c_fmt)
                         (fromIntegral arg1) (fromIntegral arg2)
-            return (fromIntegral sz')
+            return (min lim (fromIntegral sz')) -- snprintf might truncate
+    where
+      lim = 10 -- NB
 
 foreign import ccall unsafe "static stdio.h snprintf" 
     c_printf2d :: Ptr Word8 -> CSize -> Ptr Word8 -> CInt -> CInt -> IO CInt
