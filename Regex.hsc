@@ -46,10 +46,8 @@ module Regex (
 # include <regex.h>
 #endif
 
-import Foreign.C            (CSize, CInt, CChar, withCString, CString)
-import Foreign.ForeignPtr   (withForeignPtr, ForeignPtr, 
-                             addForeignPtrFinalizer, mallocForeignPtrBytes)
-import Foreign    (Int,Int64,Ptr,FunPtr,Storable(peekByteOff),allocaBytes,plusPtr)
+import Foreign.C
+import Foreign
 
 type CRegex = ()
 
