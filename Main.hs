@@ -30,7 +30,7 @@ import Keymap ({-# bogus import to work around 6.4 rec modules bug #-})
 import qualified Data.FastPackedString as P
 
 import Control.Monad
-import Control.Exception        ( catch )
+import Control.Exception        (catch)
 
 import System.IO
 import System.Exit

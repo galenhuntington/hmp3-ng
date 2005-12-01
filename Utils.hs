@@ -40,7 +40,6 @@ import Data.List                (isPrefixOf)
 import qualified Data.FastPackedString as P
 
 import System.Time              (diffClockTimes, TimeDiff(tdSec), ClockTime)
-import System.IO                (IO, FilePath)
 
 import System.Posix.Types       (Fd(..),ProcessID)
 import System.Process.Internals (ProcessHandle(..))

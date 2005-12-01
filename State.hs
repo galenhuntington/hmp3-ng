@@ -38,7 +38,7 @@ import Control.Concurrent       (ThreadId)
 import Control.Concurrent.MVar
 
 import System.Time              (ClockTime(..))
-import System.IO                (IO, Handle, hFlush)
+import System.IO                (Handle, hFlush)
 import System.Posix.Types       (ProcessID)
 
 ------------------------------------------------------------------------

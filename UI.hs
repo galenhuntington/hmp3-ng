@@ -46,20 +46,20 @@ module UI (
   )   where
 
 import Style
-import FastIO           (basenameP, replicatePS, printfPS)
-import Tree             (File(fdir, fbase), Dir(dname))
+import FastIO                   (basenameP, replicatePS, printfPS)
+import Tree                     (File(fdir, fbase), Dir(dname))
 import State
 import Syntax
-import Config           (config, versinfo, Config(style))
+import Config                   (config, versinfo, Config(style))
 import qualified Curses
 
-import {-# SOURCE #-} Keymap (extraTable, keyTable)
+import {-# SOURCE #-} Keymap    (extraTable, keyTable)
 
 import Data.IORef               (writeIORef)
 import Data.List                (intersperse,isPrefixOf)
 import Data.Array               ((!), bounds, Array)
 import Data.Array.Base          (unsafeAt)
-import System.IO                (IO, stderr, hFlush)
+import System.IO                (stderr, hFlush)
 
 import Control.Monad            (mapM_, when)
 import qualified Control.Exception (catch, handle)

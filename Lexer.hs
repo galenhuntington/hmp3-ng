@@ -28,7 +28,6 @@ import qualified Data.FastPackedString as P
 
 import Foreign.C.Types  (CFile)
 import Foreign.Ptr      (Ptr)
-import System.IO        (IO)
 
 ------------------------------------------------------------------------
 
