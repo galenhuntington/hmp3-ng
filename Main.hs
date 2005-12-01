@@ -84,7 +84,7 @@ do_args []  = do    -- attempt to read db
 do_args [s] | s == P.pack "-V" 
             = do putStrLn versinfo; putStrLn darcsinfo; exitWith ExitSuccess
             | s == P.pack "-h" 
-            = do mapM_ putStrLn usage; exitWith ExitSuccess
+            = do putStrLn versinfo; mapM_ putStrLn usage; exitWith ExitSuccess
 
 do_args xs = return $ Right xs
 

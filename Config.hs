@@ -56,10 +56,13 @@ package :: String
 package = "hmp3"
 
 versinfo :: String
-versinfo  = package++" "++ version
+versinfo  = package++" "++ version ++ " " ++ info
     where 
       version :: String
       version = "0.2"
+
+      info :: String
+      info = "- curses-based MP3 player"
 
 darcsinfo :: String
 darcsinfo = "darcs get --partial http://www.cse.unsw.edu.au/~dons/code/hmp3"
