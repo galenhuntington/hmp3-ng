@@ -21,8 +21,6 @@ module Config where
 import Style
 import {-# SOURCE #-} qualified Keymap as Default (keymap)
 
-#include "config.h"
-
 data Config = Config {
         keymap :: [Char] -> [IO ()],    -- ^ user-configurable keymap
         style  :: UIStyle               -- ^ colours
@@ -58,9 +56,11 @@ package :: String
 package = "hmp3"
 
 versinfo :: String
-versinfo  = package++" "++ version++"p"++(show (PATCH_COUNT :: Int))
-        where version :: String
-              version = "0.1"
+versinfo  = package++" "++ version
+    where 
+      version :: String
+      version = "0.2"
 
 darcsinfo :: String
-darcsinfo = "darcs get "++ REPO_PATH
+darcsinfo = "darcs get --partial http://www.cse.unsw.edu.au/~dons/code/hmp3"
+

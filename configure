@@ -2462,20 +2462,6 @@ fi
 
 fi
 
-REPO_PATH_=`sed -n 1p _darcs/prefs/repos`
-
-cat >>confdefs.h <<_ACEOF
-#define REPO_PATH "$REPO_PATH_"
-_ACEOF
-
-
-PATCH_COUNT_=`darcs changes --xml-output | sed -n '/^<patch/p;/TAG/q' | wc -l | sed 's/ *//g'`
-
-cat >>confdefs.h <<_ACEOF
-#define PATCH_COUNT $PATCH_COUNT_
-_ACEOF
-
-
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
