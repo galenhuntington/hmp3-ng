@@ -278,7 +278,7 @@ printfPS :: P.FastString -> Int -> Int -> P.FastString
 printfPS fmt arg1 arg2 =
     unsafePerformIO $ P.generate lim $ \ptr ->
         P.unsafeUseAsCString fmt $ \c_fmt -> do
-            sz' <- c_printf2d ptr lim (castPtr c_fmt)
+            sz' <- c_printf2d ptr (fromIntegral lim) (castPtr c_fmt)
                         (fromIntegral arg1) (fromIntegral arg2)
             return (min lim (fromIntegral sz')) -- snprintf might truncate
     where
