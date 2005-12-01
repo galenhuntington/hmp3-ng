@@ -49,7 +49,7 @@ import Style
 import FastIO           (basenameP, replicatePS, printfPS)
 import Tree             (File(fdir, fbase), Dir(dname))
 import State
-import Syntax hiding (draw)
+import Syntax
 import Config           (config, versinfo, Config(style))
 import qualified Curses
 

@@ -22,11 +22,11 @@
 --
 module State where
 
-import Syntax                   (draw, Pretty, Status(Stopped), Frame, Info,Id3)
+import Syntax                   (Pretty(ppr),Status(Stopped), Frame, Info,Id3)
 import Tree                     (FileArray, DirArray)
 import Style                    (StringA(Plain))
 import Regex                    (Regex)
-import qualified Data.FastPackedString as P (empty, FastString)
+import qualified Data.FastPackedString as P (empty,FastString,hPut,pack)
 
 import Data.Array               (listArray)
 import Data.IORef               (newIORef,readIORef,writeIORef,IORef)
@@ -38,7 +38,7 @@ import Control.Concurrent       (ThreadId)
 import Control.Concurrent.MVar
 
 import System.Time              (ClockTime(..))
-import System.IO                (IO, Handle, hPutStrLn, hFlush)
+import System.IO                (IO, Handle, hFlush)
 import System.Posix.Types       (ProcessID)
 
 ------------------------------------------------------------------------
@@ -189,5 +189,7 @@ modifyState f = modifyMVar state $ \r -> do
 
 -- | Send a msg over the channel to the decoder
 send :: Pretty a => Handle -> a -> IO ()
-send h m = hPutStrLn h (draw m) >> hFlush h
+send h m = P.hPut h (ppr m) >> P.hPut h nl >> hFlush h
+    where
+      nl = P.pack "\n"
 

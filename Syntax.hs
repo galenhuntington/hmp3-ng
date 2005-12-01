@@ -26,8 +26,7 @@
 
 module Syntax where
 
-import Text.PrettyPrint                     ((<+>), text, render, Doc)
-import qualified Data.FastPackedString as P (unpack, FastString)
+import qualified Data.FastPackedString as P
 
 ------------------------------------------------------------------------
 --
@@ -38,7 +37,7 @@ import qualified Data.FastPackedString as P (unpack, FastString)
 data Load = Load {-# UNPACK #-} !P.FastString
 
 instance Pretty Load where
-    ppr (Load f) = text "LOAD" <+> (text . P.unpack $ f)  -- todo unbox
+    ppr (Load f) = P.concat [P.packAddress "LOAD "#, f]
 
 -- If '+' or '-' is specified, jumps <frames> frames forward, or backwards,
 -- respectively, in the the mp3 file.  If neither is specifies, jumps to
@@ -46,19 +45,19 @@ instance Pretty Load where
 data Jump = Jump {-# UNPACK #-} !Int
 
 instance Pretty Jump where
-    ppr (Jump i) = text "JUMP" <+> (text . show $ i)
+    ppr (Jump i) = P.concat [P.packAddress "JUMP "#, P.pack . show $ i]
 
 -- Pauses the playback of the mp3 file; if already paused, restarts playback.
 data Pause = Pause
 
 instance Pretty Pause where
-    ppr Pause = text "PAUSE"
+    ppr Pause = P.packAddress "PAUSE"#
 
 -- Quits mpg321.
 data Quit = Quit
 
 instance Pretty Quit where
-    ppr Quit = text "QUIT"
+    ppr Quit = P.packAddress "QUIT"#
 
 ------------------------------------------------------------------------
 --
@@ -144,7 +143,7 @@ data Status = Stopped
 -- a pretty printing class
 --
 class Pretty a where
-    ppr :: a -> Doc
+    ppr :: a -> P.FastString
 
 --
 -- And a wrapper type 
@@ -154,6 +153,3 @@ data Msg = T {-# UNPACK #-} !Tag
          | I {-# UNPACK #-} !Info
          | R {-# UNPACK #-} !Frame
          | S {-# UNPACK #-} !Status
-
-draw :: Pretty a => a -> String
-draw = render . ppr 
