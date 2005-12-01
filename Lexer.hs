@@ -21,8 +21,8 @@
 
 module Lexer ( parser ) where
 
-import Syntax
-import FastIO           (readIntPS,getFilteredPacket)
+import Syntax   (Msg(..),Status(..),Frame(..),Info(..),Id3(..),File(..),Tag(..))
+import FastIO   (readIntPS,getFilteredPacket)
 
 import qualified Data.FastPackedString as P
 

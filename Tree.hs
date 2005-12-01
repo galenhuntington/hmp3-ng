@@ -26,15 +26,15 @@ module Tree where
 
 import FastIO
 import Binary           (openBinIO_, Binary(put_, get))
-import qualified Data.FastPackedString as P
+import qualified Data.FastPackedString as P (drop,map,length,pack,FastString)
 
 import Data.Maybe       (catMaybes)
 import Data.Array       (listArray, elems, bounds, Array)
 import Data.Char        (toLower)
 import Data.List        (sortBy,sort,foldl',groupBy)
 
-import System.IO
-import System.Directory (readable)
+import System.IO        (IOMode(..),hPutStrLn,stderr,openFile,hClose)
+import System.Directory (Permissions(readable))
 import Control.Exception(handle)
 import Control.Monad    (liftM,mapM_)
 

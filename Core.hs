@@ -31,27 +31,26 @@ module Core (
 import Prelude hiding (catch)
 
 import Syntax
-import Lexer                    (parser)
+import Lexer                (parser)
 import State
-import Style                    (StringA(..), warnings, defaultSty)
-import Config                   (config, Config(style, keymap))
-import Utils
-import FastIO                   (fdToCFile, joinPathP)
+import Style                (StringA(..), warnings, defaultSty)
+import Config               (config, Config(style, keymap))
+import Utils                ((</>),popen,pid2phdl,fdToInt,repeatM_,drawUptime)
+import FastIO               (fdToCFile,joinPathP)
 import Tree hiding (File)
 import Regex
-import qualified UI             (start, refreshClock, refresh, getKey, end)
+import qualified UI         (start, refreshClock, refresh, getKey, end)
 
-import qualified Data.FastPackedString as P
+import qualified Data.FastPackedString as P (unsafeUseAsCString,pack,empty,FastString)
 
 import Data.Array               ((!), bounds)
 import Data.Maybe               (isJust,fromJust)
-
 import Control.Monad            (liftM, when)
-
 import System.Directory         (doesFileExist,findExecutable)
 import System.Environment       (getEnv)
-import System.Exit              (ExitCode(..),exitWith)
+import System.Exit              (ExitCode(ExitSuccess),exitWith)
 import System.IO                (hPutStrLn, hGetLine, stderr, hFlush)
+import System.IO.Unsafe         (unsafeInterleaveIO)
 import System.Process           (waitForProcess)
 import System.Random            (getStdRandom, randomR)
 import System.Time              (getClockTime)
@@ -63,7 +62,6 @@ import Control.Concurrent
 import Control.Exception
 
 import GHC.Handle               (fdToHandle)
-import GHC.IOBase               (unsafeInterleaveIO)
 
 #include "config.h"
 
@@ -259,22 +257,18 @@ shutdown ms =
 --
 handleMsg :: Msg -> IO ()
 handleMsg (T _)                = return ()
-
-handleMsg (F (File (Left  _))) =
-    modifyState_ $! \s -> return s { id3 = Nothing }
-handleMsg (F (File (Right i))) =
-    modifyState_ $! \s -> return s { id3 = Just i }
-
-handleMsg (I i) = modifyState_ $! \s -> return s { info = Just i }
+handleMsg (I i)                = modifyState_ $ \s -> return s { info = Just i }
+handleMsg (F (File (Left  _))) = modifyState_ $ \s -> return s { id3 = Nothing }
+handleMsg (F (File (Right i))) = modifyState_ $ \s -> return s { id3 = Just i  }
 
 handleMsg (S t) = do
-    modifyState_ $! \s -> return s { status  = t }
+    modifyState_ $ \s -> return s { status  = t }
     when (t == Stopped) $ do   -- transition to next song
         r <- modifyState $ \st -> return (st, mode st) -- race
         if r == Random then playRandom else playNext
 
 handleMsg (R f) = do
-    modifyClock $! \_ -> return $ Just f
+    modifyClock $ \_ -> return $ Just f
     x <- tryTakeMVar clockModified   -- immediate update
     when (isJust x) UI.refreshClock
 
@@ -330,9 +324,7 @@ jump i = modifyState_ $ \st -> do
 
 -- | Toggle pause on the current song
 pause :: IO ()
-pause = withState $ \st -> do
-    h <- readMVar (writeh st)
-    send h Pause
+pause = withState $ \st -> readMVar (writeh st) >>= flip send Pause
 
 -- | Load and play the song under the cursor
 play :: IO ()
@@ -393,24 +385,28 @@ playRandom = modifyState_ $ \st -> do
 -- | Shutdown and exit
 quit :: Maybe String -> IO ()
 quit = shutdown
+{-# INLINE quit #-}
 
 -- | Move cursor to currently playing song
 jumpToPlaying :: IO ()
 jumpToPlaying = modifyState_ $ \st -> return st { cursor = (current st) }
 
+------------------------------------------------------------------------
+
 -- | Move cursor to first song in next directory (or wrap)
 jumpToNextDir :: IO ()
-jumpToNextDir = modifyState_ $ \st -> return $ if size st == 0 then st else
-    let i   = fdir (music st ! cursor st)
-        len = 1 + (snd . bounds $ folders st)
-        d   = min (i + 1) (len - 1)
-    in st { cursor = dlo ((folders st) ! d) }
+jumpToNextDir = jumpToDir (\i len -> min (i+1) (len-1))
 
 -- | Move cursor to first song in next directory (or wrap)
 jumpToPrevDir :: IO ()
-jumpToPrevDir = modifyState_ $ \st -> return $ if size st == 0 then st else
+jumpToPrevDir = jumpToDir (\i _ -> max (i-1) 0)
+
+-- | Generic jump to dir
+jumpToDir :: (Int -> Int -> Int) -> IO ()
+jumpToDir fn = modifyState_ $ \st -> return $ if size st == 0 then st else
     let i   = fdir (music st ! cursor st)
-        d   = max (i - 1) 0
+        len = 1 + (snd . bounds $ folders st)
+        d   = fn i len
     in st { cursor = dlo ((folders st) ! d) }
 
 ------------------------------------------------------------------------
@@ -458,6 +454,10 @@ jumpToMatch re = do
 toggleHelp :: IO ()
 toggleHelp = modifyState_ $ \st -> return st { helpVisible = not (helpVisible st) }
 
+-- | Focus the minibuffer
+toggleFocus :: IO ()
+toggleFocus = modifyState_ $ \st -> return st { miniFocused = not (miniFocused st) }
+
 -- | Toggle the mode flag
 nextMode :: IO ()
 nextMode = modifyState_ $ \st -> return st { mode = next (mode st) }
@@ -495,17 +495,12 @@ getHome = Control.Exception.catch
 ------------------------------------------------------------------------
 -- Editing the minibuffer
 
--- | Focus the minibuffer
-toggleFocus :: IO ()
-toggleFocus = modifyState_ $ \st -> return st { miniFocused = not (miniFocused st) }
-
 putmsg :: StringA -> IO ()
 putmsg s = silentlyModifyState $ \st -> return st { minibuffer = s }
 
 -- Modify without triggering a refresh
 clrmsg :: IO ()
-clrmsg = silentlyModifyState $ \s -> return s { minibuffer = empty }
-    where empty = Fast P.empty defaultSty
+clrmsg = putmsg (Fast P.empty defaultSty)
 
 warnA :: String -> IO ()
 warnA x = putmsg $ Fast (P.pack x) (warnings . style $ config)

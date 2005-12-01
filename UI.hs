@@ -52,22 +52,20 @@ import State
 import Syntax
 import Config                   (config, versinfo, Config(style))
 import qualified Curses
-
 import {-# SOURCE #-} Keymap    (extraTable, keyTable)
 
-import Data.IORef               (writeIORef)
 import Data.List                (intersperse,isPrefixOf)
 import Data.Array               ((!), bounds, Array)
 import Data.Array.Base          (unsafeAt)
-import System.IO                (stderr, hFlush)
-
 import Control.Monad            (mapM_, when)
 import qualified Control.Exception (catch, handle)
-
+import System.IO                (stderr, hFlush)
 import System.Posix.Signals     (raiseSignal, sigTSTP)
 import System.Posix.Env         (getEnv, putEnv)
 
 import qualified Data.FastPackedString as P
+
+------------------------------------------------------------------------
 
 --
 -- | how to initialise the ui
@@ -99,21 +97,6 @@ nocursor :: IO ()
 nocursor = do
     Control.Exception.catch (Curses.cursSet (fromIntegral (0::Int)) >> return ()) 
                             (\_ -> return ())
-
---
--- | And turn on the colours
---
-initcolours :: UIStyle -> IO ()
-initcolours sty = do
-    let ls  = [helpscreen sty, warnings sty, window sty, 
-               selected sty, highlight sty, progress sty,
-               cursors sty, combined sty ]
-        (Style fg bg) = progress sty    -- bonus style
-        
-    pairs <- initUiColors (ls ++ [Style bg bg, Style fg fg])
-    writeIORef pairMap pairs
-
-    uiAttr (window (style config)) >>= \(_,p) -> Curses.bkgrndSet nullA p
 
 --
 -- | Clean up and go home. Refresh is needed on linux. grr.

@@ -20,21 +20,22 @@
 
 module Main where
 
-import Core
-import Tree
-import Utils   ((<+>))
-import Config
-import FastIO
-import Keymap ({-# bogus import to work around 6.4 rec modules bug #-})
+import Core     (start, readSt, shutdown)
+import Tree     (FileArray, DirArray)
+import Utils    ((<+>))
+import Config   (darcsinfo, help, versinfo)
+import FastIO   (packedGetArgs)
+import Keymap   ({-# bogus import to work around 6.4 rec modules bug #-})
 
-import qualified Data.FastPackedString as P
+import qualified Data.FastPackedString as P (pack,FastString)
 
-import Control.Monad
-import Control.Exception        (catch)
+import Control.Monad        (mapM_)
+import Control.Exception    (catch)
 
-import System.IO
-import System.Exit
-import System.Posix.Signals
+import System.IO            (putStrLn, hPutStrLn, stderr)
+import System.Exit          (ExitCode(..), exitWith)
+import System.Posix.Signals (installHandler, sigTERM, sigPIPE, sigINT, sigHUP
+                            ,sigALRM, sigABRT, Handler(Ignore, Default, Catch))
 
 -- ---------------------------------------------------------------------
 -- | Set up the signal handlers

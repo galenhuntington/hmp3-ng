@@ -18,8 +18,9 @@
 -- 
 module Config where
 
-import Style
 import {-# SOURCE #-} qualified Keymap as Default (keymap)
+import Style        (black,blue,cyan,white,brightWhite,darkRed,red
+                    ,green,Style(..),Color(Default),UIStyle(..))
 
 #include "config.h"
 

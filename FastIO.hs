@@ -21,8 +21,8 @@
 
 module FastIO where
 
-import Data.Char        (ord)
-import Data.Word        (Word8)
+import Data.Char                (ord)
+import Data.Word                (Word8)
 import qualified Data.FastPackedString as P
 
 import Foreign.C.Error

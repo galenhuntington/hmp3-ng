@@ -95,19 +95,19 @@ module Curses (
 
 import qualified Data.FastPackedString as P
 
-import Prelude hiding           ( pi )
-import Data.Char
+import Prelude hiding       (pi)
+import Data.Char            (ord, chr)
 
-import Control.Monad
-import Control.Concurrent       ( yield, threadWaitRead )
+import Control.Monad        (liftM, when)
+import Control.Concurrent   (yield, threadWaitRead)
 
-import Foreign
-import Foreign.C
-
-import System.IO
+import Foreign.C.Types      (CInt, CShort)
+import Foreign.C.String     (CString)
+import Foreign              (Word8, Word32, Ptr, Bits(complement,(.|.),(.&.))
+	                        ,Storable(peek),void,alloca,nullPtr,unsafePerformIO)
 
 #ifdef SIGWINCH
-import System.Posix.Signals
+import System.Posix.Signals (installHandler, Signal, Handler(Catch))
 #endif
 
 --
@@ -155,6 +155,7 @@ resetParams = do
 
 fi :: (Integral a, Num b) => a -> b
 fi = fromIntegral
+{-# INLINE fi #-}
 
 ------------------------------------------------------------------------
 -- 

@@ -26,7 +26,7 @@
 
 module Syntax where
 
-import qualified Data.FastPackedString as P
+import qualified Data.FastPackedString as P (packAddress,concat,pack,FastString)
 
 ------------------------------------------------------------------------
 --

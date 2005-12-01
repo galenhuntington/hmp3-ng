@@ -33,19 +33,15 @@
 module Utils where
 
 import FastIO                   (printfPS)
-
 import Data.Char                (isSpace)
 import Data.List                (isPrefixOf)
-
-import qualified Data.FastPackedString as P
-
+import qualified Data.FastPackedString as P (packAddress,init,tail,FastString)
 import System.Time              (diffClockTimes, TimeDiff(tdSec), ClockTime)
-
 import System.Posix.Types       (Fd(..),ProcessID)
 import System.Process.Internals (ProcessHandle(..))
-import System.Posix.Process     ( forkProcess, executeFile )
-import System.Posix.IO          ( createPipe, stdInput, stdError,
-                                  stdOutput, closeFd, dupTo )
+import System.Posix.Process     (forkProcess,executeFile)
+import System.Posix.IO          (createPipe,stdInput,stdError
+                                ,stdOutput,closeFd,dupTo)
 
 ------------------------------------------------------------------------
 

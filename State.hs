@@ -30,16 +30,15 @@ import qualified Data.FastPackedString as P (empty,FastString,hPut,pack)
 
 import Data.Array               (listArray)
 import Data.IORef               (newIORef,readIORef,writeIORef,IORef)
+import System.IO                (Handle, hFlush)
 import System.IO.Unsafe         (unsafePerformIO)
+import System.Posix.Types       (ProcessID)
+import System.Time              (ClockTime(..))
 import Foreign.C.Types          (CFile)
 import Foreign.Ptr              (Ptr)
 
 import Control.Concurrent       (ThreadId)
 import Control.Concurrent.MVar
-
-import System.Time              (ClockTime(..))
-import System.IO                (Handle, hFlush)
-import System.Posix.Types       (ProcessID)
 
 ------------------------------------------------------------------------
 

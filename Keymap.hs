@@ -24,19 +24,19 @@ module Keymap where
 
 import Prelude hiding (all)
 
-import Lexers
 import Core
-import Curses
 import State        (modifyState, touchState, State(helpVisible))
-import Style        (StringA(..), defaultSty)
+import Style        (defaultSty, StringA(Fast))
 import qualified UI (resetui)
+import Curses       (keyEnd,keyPPage,keyNPage,keyBackspace,keyHome
+                    ,keyRight,keyLeft,keyUp,keyDown)
+import Lexers       ((>|<),(>||<),action,meta,execLexer
+                    ,alt,with,char,Regexp,Lexer)
 
 import Data.List    (init, (\\))
 
 import qualified Data.FastPackedString as P (packAddress,FastString,pack)
 import qualified Data.Map as M (fromList, lookup, Map)
-
-import GHC.Base (Addr#)
 
 type LexerS = Lexer (Bool,[Char]) (IO ())
 
@@ -144,15 +144,21 @@ keyTable =
     ,(p "Repeat last regex search"#, 
         ['n'],   jumpToMatch Nothing)
     ]
-
--- Keep as Addr#. If we try the pack/packAddress rule, ghc seems to get
--- confused and want to *unpack* the strings :/
-p :: Addr# -> P.FastString
-p = P.packAddress
+  where
+    -- Keep as Addr#. If we try the pack/packAddress rule, ghc seems to get
+    -- confused and want to *unpack* the strings :/
+    p = P.packAddress
+    {-# INLINE p #-}
 
 extraTable :: [(P.FastString, [Char])]
 extraTable = [(p "Search for directory matching regex"#, ['/'])
              ,(p "Search backwards for directory"#, ['?'])]
+  where
+    -- Keep as Addr#. If we try the pack/packAddress rule, ghc seems to get
+    -- confused and want to *unpack* the strings :/
+    p = P.packAddress
+    {-# INLINE p #-}
+
 
 helpIsVisible :: IO Bool
 helpIsVisible = modifyState $ \st -> return (st, helpVisible st)

@@ -28,7 +28,7 @@ import qualified Data.FastPackedString as P (FastString)
 
 import Data.Word                (Word8)
 import Data.Maybe               (fromJust)
-import Data.IORef               (readIORef, newIORef, IORef)
+import Data.IORef               (readIORef, writeIORef, newIORef, IORef)
 import qualified Data.Map as M  (fromList, empty, lookup, Map)
 
 import System.IO.Unsafe         (unsafePerformIO)
@@ -108,6 +108,20 @@ setAttribute = Curses.wAttrSet Curses.stdScr
 reset :: IO ()
 reset = setAttribute (Curses.attr0, Curses.Pair 0)
 {-# INLINE reset #-}
+
+--
+-- | And turn on the colours
+--
+initcolours :: UIStyle -> IO ()
+initcolours sty = do
+    let ls  = [helpscreen sty, warnings sty, window sty, 
+               selected sty, highlight sty, progress sty,
+               cursors sty, combined sty ]
+        (Style fg bg) = progress sty    -- bonus style
+        
+    pairs <- initUiColors (ls ++ [Style bg bg, Style fg fg])
+    writeIORef pairMap pairs
+    uiAttr (window sty) >>= \(_,p) -> Curses.bkgrndSet nullA p
     
 ------------------------------------------------------------------------
 --
