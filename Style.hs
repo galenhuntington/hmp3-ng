@@ -55,8 +55,7 @@ data CharA = C {-# UNPACK #-} !Char
            | A {-# UNPACK #-} !Char !Style
 
 -- | A list of such values (the representation is optimised)
-data StringA = Plain  {-# UNPACK #-} !String    -- plain text, no attributes set
-             | Fast   {-# UNPACK #-} !P.FastString !Style
+data StringA = Fast   {-# UNPACK #-} !P.FastString !Style
              | FancyS {-# UNPACK #-} ![(P.FastString,Style)]  -- one line made up of segments
 
 data Color
@@ -242,3 +241,5 @@ bgCursCol c = case c of
     Default           -> CColor (nullA, defaultColor)
     _                 -> CColor (nullA, cwhite)    -- NB
 
+defaultSty :: Style
+defaultSty = Style Default Default

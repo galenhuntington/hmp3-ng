@@ -28,12 +28,12 @@ import Lexers
 import Core
 import Curses
 import State        (modifyState, touchState, State(helpVisible))
-import Style        (StringA(Plain))
+import Style        (StringA(..), defaultSty)
 import qualified UI (resetui)
 
 import Data.List    (init, (\\))
 
-import qualified Data.FastPackedString as P (packAddress,FastString)
+import qualified Data.FastPackedString as P (packAddress,FastString,pack)
 import qualified Data.Map as M (fromList, lookup, Map)
 
 import GHC.Base (Addr#)
@@ -59,7 +59,7 @@ commands = (alt keys) `action` \[c] -> Just $ case M.lookup c keyMap of
 
 search :: LexerS
 search = (char '/' >|< char '?') `meta` \[c] _ -> 
-                (with (toggleFocus >> putmsg (Plain [c]) >> touchState)
+                (with (toggleFocus >> putmsg (Fast (P.pack [c]) defaultSty) >> touchState)
                 ,((c == '/'), [c]) ,Just dosearch)
 
 dosearch :: LexerS
@@ -67,7 +67,7 @@ dosearch = search_char >||< search_edit >||< search_esc >||< search_eval
 
 search_char :: LexerS
 search_char = anyButDelNL
-    `meta` \c (d,st) -> (with (putmsg (Plain $ st++c) >> touchState), (d,st++c), Just dosearch)
+    `meta` \c (d,st) -> (with (putmsg (Fast (P.pack(st++c)) defaultSty) >> touchState), (d,st++c), Just dosearch)
     where
         anyButDelNL = alt $ any' \\ (enter' ++ delete' ++ ['\ESC'])
 
@@ -77,7 +77,7 @@ search_edit = delete
         let st' = case st of 
                     [c] -> [c]
                     xs  -> init xs
-        in (with (putmsg (Plain st') >> touchState), (d,st'), Just dosearch)
+        in (with (putmsg (Fast (P.pack st') defaultSty) >> touchState), (d,st'), Just dosearch)
 
 -- escape exits ex mode immediately
 search_esc :: LexerS

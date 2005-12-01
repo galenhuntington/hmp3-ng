@@ -1,6 +1,3 @@
-{-# OPTIONS -fglasgow-exts #-}
--- glaexts needed for newtype deriving 
-
 --
 -- Copyright (c) 2002-2004 John Meacham (john at repetae dot net)
 -- Copyright (c) 2004-2005 Don Stewart - http://www.cse.unsw.edu.au/~dons
@@ -58,8 +55,6 @@ module Curses (
     getCh,          -- :: IO Char
 
     -- * Line drawing
-    wAddStr,        -- :: Window -> [Char] -> IO ()
-    waddch,         -- :: Window -> Char -> IO ()
     waddnstr,       -- :: Window -> CString -> CInt -> IO CInt
     bkgrndSet,      -- :: Attr -> Pair -> IO ()
     clrToEol,       -- :: IO ()
@@ -91,12 +86,6 @@ module Curses (
 
     -- * error handling
     throwIfErr_,    -- :: Num a => String -> IO a -> IO ()
-
-#ifdef SIGWINCH
-    cursesSigWinch,
-#endif
-
-    throwPackedIfNull,
     
   ) where 
 
@@ -108,7 +97,6 @@ import qualified Data.FastPackedString as P
 
 import Prelude hiding           ( pi )
 import Data.Char
-import Data.Maybe               ( fromJust )
 
 import Control.Monad
 import Control.Concurrent       ( yield, threadWaitRead )
@@ -141,8 +129,7 @@ initCurses fn = do
     resetParams
 #ifdef SIGWINCH
     -- does this still work?
-    installHandler (fromJust cursesSigWinch) 
-                   (Catch fn) Nothing >> return ()
+    installHandler cursesSigWinch (Catch fn) Nothing >> return ()
 #endif
 
 -- | A bunch of settings we need
@@ -377,7 +364,7 @@ startColor = throwIfErr_ (P.packAddress "start_color"##) start_color
 foreign import ccall unsafe start_color :: IO CInt
 
 newtype Pair  = Pair Int
-newtype Color = Color Int deriving (Eq,Ord)
+newtype Color = Color Int
 
 color :: String -> Maybe Color
 color "default"  = Just $ Color (-1)
@@ -464,34 +451,8 @@ setAttr b (Attr a) True  = Attr (a .|.            b)
 attrPlus :: Attr -> Attr -> Attr
 attrPlus (Attr a) (Attr b) = Attr (a .|. b)
 
-------------------------------------------------------------------------
---
--- This is heavily called, and does a lot of allocs.  We walk over all
--- the string accumulating a list of characters to be drawn.
---
--- Got it down to:
---
---      wAddStr Yi.Curses 20.0   38.1
---      wAddStr Yi.Curses 10.0   32.5
--- 
--- TODO make this way less expensive. That accum sucks.
--- use difference lists for O(1) append
---
-wAddStr :: Window -> [Char] -> IO ()
-wAddStr _   [] = return ()
-wAddStr win s  = throwIfErr_ (P.packAddress "waddnstr"##) $
-    withCStringLen (s) (\(ws,len) -> waddnstr win ws (fi len))
-
 foreign import ccall threadsafe
     waddnstr :: Window -> CString -> CInt -> IO CInt
-
-foreign import ccall threadsafe
-    waddch :: Window -> (#type chtype) -> IO CInt
-
-{-
-wAddChar :: Window -> Char -> IO ()
-wAddChar w c = throwIfErr_ (P.packAddress "waddch"##) $ waddch w (fromIntegral . ord $! c)
--}
 
 ------------------------------------------------------------------------
 
@@ -659,7 +620,7 @@ getCh = do
 ------------------------------------------------------------------------
 
 #ifdef SIGWINCH
-cursesSigWinch :: Maybe Signal
-cursesSigWinch = Just (#const SIGWINCH)
+cursesSigWinch :: Signal
+cursesSigWinch = #const SIGWINCH
 #endif
 

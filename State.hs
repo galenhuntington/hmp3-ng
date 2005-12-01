@@ -24,7 +24,7 @@ module State where
 
 import Syntax                   (Pretty(ppr),Status(Stopped), Frame, Info,Id3)
 import Tree                     (FileArray, DirArray)
-import Style                    (StringA(Plain))
+import Style                    (StringA(Fast), defaultSty)
 import Regex                    (Regex)
 import qualified Data.FastPackedString as P (empty,FastString,hPut,pack)
 
@@ -90,7 +90,7 @@ emptySt = State {
        ,info         = Nothing
        ,id3          = Nothing
        ,status       = Stopped
-       ,minibuffer   = Plain []
+       ,minibuffer   = Fast P.empty defaultSty
        ,helpVisible  = False
        ,miniFocused  = False
        ,mode         = Normal

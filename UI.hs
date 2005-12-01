@@ -84,7 +84,6 @@ start = do
 
     Curses.initCurses resetui
 
-    -- working out if we can do colours
     b <- Curses.hasColors
     initcolours $ if b then style config else {- do something better -} style config
 
@@ -235,10 +234,9 @@ instance (Element a, Element b) => Element (a,b) where
 -- Info about the current track
 instance Element PPlaying where
     draw w@(_,x') x st z = PPlaying . FancyS $ 
-            [(pad, defaultStyle)
-            ,(alignLR (x'-4) a b, defaultStyle)]
+            [(spc2, defaultSty)
+            ,(alignLR (x'-4) a b, defaultSty)]
         where
-            pad = P.pack "  "
             (PId3 a)  = draw w x st z :: PId3 
             (PInfo b) = draw w x st z :: PInfo
 
@@ -247,14 +245,20 @@ instance Element PId3 where
     draw _ _ st _ = case id3 st of
         Just i  -> PId3 $ id3str i
         Nothing -> PId3 $ case size st of
-                                0 -> P.pack "(empty)"
+                                0 -> emptyVal
                                 _ -> fbase $ (music st) ! (current st)
 
 -- | mp3 information
 instance Element PInfo where
     draw _ _ st _ = PInfo $ case info st of
-        Nothing  -> P.pack "(empty)"
+        Nothing  -> emptyVal
         Just i   -> userinfo i
+
+emptyVal :: P.FastString
+emptyVal = P.pack "(empty)"
+
+spc2 :: P.FastString
+spc2 = P.pack "  "
 
 ------------------------------------------------------------------------
 
@@ -295,21 +299,20 @@ instance Element HelpScreen where
 
 -- | The time used and time left
 instance Element PTimes where
-    draw _ _ _ Nothing       = PTimes $ Fast (P.pack "     ") defaultStyle
+    draw _ _ _ Nothing       = PTimes $ Fast (P.pack "     ") defaultSty
     draw (_,x) _ _ (Just fr) = PTimes $ FancyS $
-                                [(spc,      defaultStyle)
-                                ,(elapsed,  defaultStyle)
-                                ,(gap,      defaultStyle)
-                                ,(remaining,defaultStyle)]
+                                [(spc2,     defaultSty)
+                                ,(elapsed,  defaultSty)
+                                ,(gap,      defaultSty)
+                                ,(remaining,defaultSty)]
       where
         elapsed   = printfPS fmt1 lm lm'
         remaining = printfPS fmt2 rm rm'
         fmt1      = P.pack  "%01d:%02d" 
         fmt2      = P.pack "-%01d:%02d" 
-        spc       = P.pack "  "
         (lm,lm')  = quotRem (fst . currentTime $ fr) 60
         (rm,rm')  = quotRem (fst . timeLeft    $ fr) 60
-        gap       = replicatePS distance ' '
+        gap       = spaces distance
         distance  = x - 4 - P.length elapsed - P.length remaining
 
 ------------------------------------------------------------------------
@@ -317,18 +320,16 @@ instance Element PTimes where
 -- | A progress bar
 instance Element ProgressBar where
     draw (_,w) _ _ Nothing = ProgressBar . FancyS $
-          [(spc,defaultStyle) ,(replicatePS (w-4) ' ', bgs)]
+          [(spc2,defaultSty) ,(spaces (w-4), bgs)]
         where 
-          spc      = P.pack "  "
           (Style _ bg) = progress (style config)
           bgs          = Style bg bg
 
     draw (_,w) _ _ (Just fr) = ProgressBar . FancyS $
-          [(spc,defaultStyle)
-          ,((replicatePS distance           ' '),fgs)
-          ,((replicatePS (width - distance) ' '),bgs)]
+          [(spc2,defaultSty)
+          ,((spaces distance),fgs)
+          ,((spaces (width - distance)),bgs)]
         where 
-          spc      = P.pack "  "
           width    = w - 4
           total    = curr + left
           distance = round ((curr / total) * fromIntegral width)
@@ -413,9 +414,9 @@ instance Element PlayTitle where
         PlayTitle $ flip Fast hl $ P.concat 
               [space
               ,inf
-              ,replicatePS gapl ' '
+              ,spaces gapl
               ,modes
-              ,replicatePS gapr ' '
+              ,spaces gapr
               ,time
               ,space
               ,ver
@@ -442,7 +443,7 @@ instance Element PlayList where
     draw p@(y,x) q@(o,_) st z =
         PlayList $! title 
                  : list 
-                 ++ (replicate (height - length list - 2) (Plain []))
+                 ++ (replicate (height - length list - 2) (Fast P.empty defaultSty))
                  ++ [minibuffer st]
         where
             (PlayTitle title)       = draw p q st z :: PlayTitle
@@ -487,10 +488,10 @@ instance Element PlayList where
                 | i == select && i == playing = f sty3
                 | i == select                 = f sty2
                 | i == playing                = f sty1
-                | otherwise                   = (m,Fast s defaultStyle)
+                | otherwise                   = (m,Fast s defaultSty)
                 where
                     f sty = (m, Fast (s `P.append` 
-                                        (replicatePS (x-indent-1-P.length s) ' '))
+                                        (spaces (x-indent-1-P.length s)))
                                 sty)
             
             sty1 = selected . style $ config
@@ -500,18 +501,18 @@ instance Element PlayList where
             -- must mchop before drawing.
             drawIt :: (Maybe Int, StringA) -> StringA
             drawIt (Nothing,Fast v sty) = 
-                Fast ((replicatePS (1 + indent) ' ') `P.append` v) sty
+                Fast ((spaces (1 + indent)) `P.append` v) sty
 
             drawIt (Just i,Fast b sty) = FancyS [pref, post]
               where
-                pref = (d', if sty == sty2 || sty == sty3 then sty2 else defaultStyle)
+                pref = (d', if sty == sty2 || sty == sty3 then sty2 else defaultSty)
                 post = (b,sty)
 
                 d   = basenameP $ case size st of
                                     0 -> P.pack "(empty)"
                                     _ -> dname $ folders st ! i
 
-                spc = replicatePS (indent - P.length d) ' '
+                spc = spaces (indent - P.length d)
 
                 d' | P.length d > indent-1 
                    = P.concat [ P.take (indent+1-4) d 
@@ -535,6 +536,7 @@ instance Element PlayList where
 --
 printPlayList :: PlayList -> [StringA]
 printPlayList (PlayList s) = s
+{-# INLINE printPlayList #-}
                 
 ------------------------------------------------------------------------
 
@@ -543,7 +545,11 @@ alignLR :: Int -> P.FastString -> P.FastString -> P.FastString
 alignLR w l r | padding >= 0 = P.concat [l, gap, r]
               | otherwise    = P.take (w - P.length r - 4) $ P.concat [l, ellipsis, r]
     where padding = w - P.length l - P.length r
-          gap     = replicatePS padding ' '
+          gap     = spaces padding
+
+spaces :: Int -> P.FastString
+spaces n = replicatePS n ' '
+{-# INLINE spaces #-}
 
 ellipsis :: P.FastString
 ellipsis = P.pack "... "
@@ -560,21 +566,26 @@ redrawJustClock = do
 
    st      <- readState id
    fr      <- readClock id
-   s@(h,w) <- screenSize
+   s@(_,w) <- screenSize
    let (ProgressBar bar) = draw s undefined st fr :: ProgressBar
        (PTimes times)    = {-# SCC "redrawJustClock.times" #-} draw s undefined st fr :: PTimes
    Curses.wMove Curses.stdScr 1 0   -- hardcoded!
    drawLine w bar
    Curses.wMove Curses.stdScr 2 0   -- hardcoded!
    drawLine w times
+   drawHelp st fr s
 
-   -- and draw the help screen if it is up
+------------------------------------------------------------------------
+--
+-- work for drawing help. draw the help screen if it is up
+--
+drawHelp :: State -> Maybe Frame -> (Int,Int) -> IO ()
+drawHelp st fr s@(h,w) =
    when (helpVisible st) $ do
        let (HelpScreen help) = draw s (0,0) st fr :: HelpScreen
            (Fast fps _)      = head help
            offset            = (w - (P.length fps)) `div` 2
            height            = (h - length help) `div` 2
-
        when (height > 0) $ do
             Curses.wMove Curses.stdScr ((h - length help) `div` 2) offset
             mapM_ (\t -> do drawLine w t
@@ -582,7 +593,6 @@ redrawJustClock = do
                             Curses.wMove Curses.stdScr (y'+1) offset) help
 
 ------------------------------------------------------------------------
-
 --
 -- | Draw the screen
 --
@@ -620,18 +630,7 @@ redraw =
                    fillLine
                    maybeLineDown t h y' x' )
          (take (h-1) (init a))
-
-   when (helpVisible s) $ do
-       let (HelpScreen help) = draw sz (0,0) s f :: HelpScreen
-           (Fast fps _) = head help
-           offset = (w - (P.length fps)) `div` 2
-           height = (h - length help) `div` 2
-
-       when (height > 0) $ do
-            Curses.wMove Curses.stdScr ((h - length help) `div` 2) offset
-            mapM_ (\t -> do drawLine w t
-                            (y',_) <- Curses.getYX Curses.stdScr
-                            Curses.wMove Curses.stdScr (y'+1) offset) help
+   drawHelp s f sz
 
    -- minibuffer
 
@@ -647,39 +646,26 @@ redraw =
 -- | Draw a coloured (or not) string to the screen
 --
 drawLine :: Int -> StringA -> IO ()
-
-{-
-drawLine _ (Fancy s) =
-    flip mapM_ s $ \fs -> case fs of
-        C c     ->  Curses.waddch Curses.stdScr (fromIntegral.ord$ c) >> return ()
-        A c sty -> withStyle sty $
-                    (Curses.waddch Curses.stdScr (fromIntegral.ord$ c) >> return ())
--}
-
-drawLine _ (Plain s) = Curses.wAddStr Curses.stdScr s
-
-drawLine _ (Fast ps sty) = withStyle sty $ P.unsafeUseAsCString ps $ \cstr -> 
-    Curses.throwIfErr_ msg $
-        Curses.waddnstr Curses.stdScr cstr (fromIntegral . P.length $ ps)
-    where
-        msg = P.pack "drawLine"
-
+drawLine _ (Fast ps sty) = drawPackedString ps sty
 drawLine _ (FancyS []) = return ()
-drawLine _ (FancyS ls) =
-    let loop []             = return ()
-        loop ((l,sty):xs)   = do
-            withStyle sty $ P.unsafeUseAsCString l $ \cstr -> 
-                Curses.throwIfErr_ msg $
-                    Curses.waddnstr Curses.stdScr cstr (fromIntegral . P.length $ l)
-            loop xs
-    in loop ls
+drawLine _ (FancyS ls) = loop ls
+    where loop []             = return ()
+          loop ((l,sty):xs)   = drawPackedString l sty >> loop xs
+
+-- worker
+drawPackedString :: P.FastString -> Style -> IO ()
+drawPackedString ps sty = 
+    withStyle sty $ P.unsafeUseAsCString ps $ \cstr -> 
+        Curses.throwIfErr_ msg $
+            Curses.waddnstr Curses.stdScr cstr (fromIntegral . P.length $ ps)
     where
-        msg = P.pack "drawLine.FancyS"
+        msg = P.packAddress "drawPackedString"#
+
 
 ------------------------------------------------------------------------
 
 maybeLineDown :: StringA -> Int -> Int -> Int -> IO ()
-maybeLineDown (Plain []) h y _ = lineDown h y
+maybeLineDown (Fast s _) h y _ | s == P.empty = lineDown h y
 maybeLineDown _ h y x
     | x == 0    = return ()     -- already moved down
     | otherwise = lineDown h y
@@ -700,7 +686,7 @@ fillLine = Control.Exception.catch (Curses.clrToEol) (\_ -> return ()) -- harmle
 --
 gotoTop :: IO ()
 gotoTop = Curses.wMove Curses.stdScr 0 0
-
+{-# INLINE gotoTop #-}
 
 -- | Take a slice of an array efficiently
 slice :: Int -> Int -> Array Int e -> [e]
@@ -721,6 +707,3 @@ setXtermTitle strs = do
   where
     before = P.pack "\ESC]0;"
     after  = P.pack "\007"
-
-defaultStyle :: Style
-defaultStyle = Style Default Default
