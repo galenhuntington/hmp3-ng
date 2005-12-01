@@ -22,6 +22,7 @@ module Main where
 
 import Core
 import Tree
+import Utils   ((<+>))
 import Config
 import FastIO
 import Keymap ({-# bogus import to work around 6.4 rec modules bug #-})
@@ -82,9 +83,9 @@ do_args []  = do    -- attempt to read db
         Just st -> return $ Left st
 
 do_args [s] | s == P.pack "-V" 
-            = do putStrLn versinfo; putStrLn darcsinfo; exitWith ExitSuccess
+            = do putStrLn (versinfo <+> help); putStrLn darcsinfo; exitWith ExitSuccess
             | s == P.pack "-h" 
-            = do putStrLn versinfo; mapM_ putStrLn usage; exitWith ExitSuccess
+            = do putStrLn (versinfo <+> help); mapM_ putStrLn usage; exitWith ExitSuccess
 
 do_args xs = return $ Right xs
 
