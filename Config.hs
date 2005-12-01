@@ -21,6 +21,8 @@ module Config where
 import Style
 import {-# SOURCE #-} qualified Keymap as Default (keymap)
 
+#include "config.h"
+
 data Config = Config {
         keymap :: [Char] -> [IO ()],    -- ^ user-configurable keymap
         style  :: UIStyle               -- ^ colours
@@ -59,7 +61,9 @@ versinfo :: String
 versinfo  = package++" "++ version
     where 
       version :: String
-      version = "0.2"
+      version = "0.1" ++ if not . null $ (PATCH_COUNT :: String)
+                         then "p" ++ PATCH_COUNT
+                         else ""
 
 help :: String
 help = "- curses-based MP3 player"

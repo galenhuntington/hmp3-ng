@@ -2462,6 +2462,18 @@ fi
 
 fi
 
+# only scan _darcs if we're in a devel branch
+if test -d "_darcs" ; then
+    PATCH_COUNT_=`darcs changes --xml-output | sed -n '/^<patch/p;/TAG/q' | wc -l | sed 's/ *//g'`
+else
+    PATCH_COUNT_=""
+fi
+
+cat >>confdefs.h <<_ACEOF
+#define PATCH_COUNT "$PATCH_COUNT_"
+_ACEOF
+
+
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
