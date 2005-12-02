@@ -55,7 +55,7 @@ import qualified Curses
 import {-# SOURCE #-} Keymap    (extraTable, keyTable)
 
 import Data.List                (intersperse,isPrefixOf)
-import Data.Array               ((!), bounds, Array)
+import Data.Array               ((!), bounds, Array, listArray)
 import Data.Array.Base          (unsafeAt)
 import Control.Monad            (mapM_, when)
 import qualified Control.Exception (catch, handle)
@@ -530,9 +530,17 @@ alignLR w l r | padding >= 0 = P.concat [l, gap, r]
     where padding = w - P.length l - P.length r
           gap     = spaces padding
 
+-- | Calculate whitespaces, very common, so precompute likely values
 spaces :: Int -> P.FastString
-spaces n = replicatePS n ' '
-{-# INLINE spaces #-}
+spaces n
+    | n > 100   = replicatePS n ' ' -- unlikely
+    | otherwise = arr ! n
+  where
+    arr :: Array Int P.FastString   -- precompute some whitespace strs
+    arr = listArray (0,100) [ P.take i s100 | i <- [0..100] ]
+
+    s100 :: P.FastString
+    s100 = replicatePS 100 ' '  -- seems reasonable
 
 ellipsis :: P.FastString
 ellipsis = P.pack "... "
