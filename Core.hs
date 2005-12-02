@@ -301,25 +301,65 @@ seek fn = do
 
 ------------------------------------------------------------------------
 
--- | Move cursor up
-up :: IO ()
-up = modifyState_ $ \st -> do
-    let i = cursor st
-    return $ if i > 0 then st { cursor = i - 1 } else st
-
--- | Move cursor down list
-down :: IO ()
-down = modifyState_ $ \st -> do
-    let i = cursor st
-        l = max 0 (size st - 1)
-    return $ if i == l then st else st { cursor = i + 1 }
+-- | Move cursor up or down
+up, down :: IO ()
+up   = modifyState_ $ flip jumpTo (subtract 1)
+down = modifyState_ $ flip jumpTo (+1)
 
 -- | Move cursor to specified index
 jump :: Int -> IO ()
-jump i = modifyState_ $ \st -> do
+jump i = modifyState_ $ flip jumpTo (const i)
+
+-- | Generic jump
+jumpTo :: State -> (Int -> Int) -> IO State
+jumpTo st fn = do
     let l = max 0 (size st - 1)
+        i = fn (cursor st)
         n = if i > l then l else if i < 0 then 0 else i
     return st { cursor = n }
+
+------------------------------------------------------------------------
+
+-- | Load and play the song under the cursor
+play :: IO ()
+play = modifyState_ $ \st -> playAtN st (const $ cursor st)
+
+-- | Play a random song
+playRandom :: IO ()
+playRandom = modifyState_ $ \st -> do
+    n <- getStdRandom (randomR (0, max 0 (size st -1)))
+    playAtN st (const n)
+
+-- | Play the song following the current song, if we're not at the end
+-- If we're at the end, and loop mode is on, then loop to the start
+-- If we're in random mode, play the next random track
+playNext :: IO ()
+playNext = do
+    md <- readState mode
+    if md == Random then playRandom else
+      modifyState_ $ \st -> do
+      let i   = current st
+      case () of {_
+        | i < size st - 1   -> playAtN st (+ 1)      -- just the next track
+        | mode st == Loop   -> playAtN st (const 0)  -- maybe loop
+        | otherwise         -> return  st            -- else stop at end
+      }
+
+-- | Generic next song selection
+-- If the cursor and current are currently the same, continue that.
+playAtN :: State -> (Int -> Int) -> IO State
+playAtN st fn = do
+    let m   = music st
+        i   = current st
+        fe  = m ! (fn i)
+        f   = (dname $ folders st ! fdir fe) `joinPathP` (fbase fe)
+        j   = cursor  st
+        st' = st { current = fn i
+                 , status  = Playing
+                 , cursor  = if i == cursor st then fn i else j }
+    h <- readMVar (writeh st)
+    send h (Load f)
+    return st'
 
 ------------------------------------------------------------------------
 
@@ -327,85 +367,22 @@ jump i = modifyState_ $ \st -> do
 pause :: IO ()
 pause = withState $ \st -> readMVar (writeh st) >>= flip send Pause
 
--- | Load and play the song under the cursor
-play :: IO ()
-play = modifyState_ $ \st -> do
-    let i    = cursor st
-        m    = music st
-        f    = let fe = m ! i in (dname $ folders st ! fdir fe) `joinPathP` (fbase fe)
-        st'  = st { current = i, status = Playing }
-    h <- readMVar (writeh st)
-    send h (Load f)
-    return st'
-
--- | Play the song following the current song, if we're not at the end
--- If we're at the end, and loop mode is on, then loop to the start
--- If we're in random mode, play the next random track
--- If the cursor and current are currently the same, continue that.
-playNext :: IO ()
-playNext = do
-    md <- readState mode
-    if md == Random then playRandom else
-      modifyState_ $ \st -> do
-      let i   = current st
-          j   = cursor  st
-          m   = music st
-      case () of {_         -- todo, refactor the next two chunks
-        | i < size st - 1          -- successor
-        -> let f  = let fe = m ! (i + 1) 
-                    in (dname $ folders st ! fdir fe) `joinPathP` (fbase fe)
-               st' = st { current = i + 1
-                        , status = Playing
-                        , cursor = if i == j then i + 1 else j } 
-           in do h <- readMVar (writeh st)
-                 send h (Load f) >> return st'
-
-        | mode st == Loop           -- else loop (factor into playLoop)
-        -> let  f    = let fe = m ! 0 
-                       in (dname $ folders st ! fdir fe) `joinPathP` (fbase fe)
-                st'  = st { current = 0, status = Playing
-                          , cursor = if i == j then 0 else j } 
-           in do h <- readMVar (writeh st)
-                 send h (Load f) >> return st'
-
-        | otherwise -> return st    -- else stop
-      }
-
--- | Play a random song
-playRandom :: IO ()
-playRandom = modifyState_ $ \st -> do
-    let i   = current st
-        j   = cursor  st
-        m   = music st
-    n <- getStdRandom (randomR (0, max 0 (size st -1)))
-    let  f    = let fe = m ! n in (dname $ folders st ! fdir fe) `joinPathP` (fbase fe)
-         st'  = st { current = n
-                   , status = Playing
-                   , cursor = if i == j then n else j }
-    h <- readMVar (writeh st)
-    send h (Load f)
-    return st'
-
-------------------------------------------------------------------------
-
 -- | Shutdown and exit
 quit :: Maybe String -> IO ()
 quit = shutdown
 {-# INLINE quit #-}
 
+------------------------------------------------------------------------
+
 -- | Move cursor to currently playing song
 jumpToPlaying :: IO ()
 jumpToPlaying = modifyState_ $ \st -> return st { cursor = (current st) }
 
-------------------------------------------------------------------------
-
 -- | Move cursor to first song in next directory (or wrap)
-jumpToNextDir :: IO ()
+-- | Move cursor to first song in next directory (or wrap)
+jumpToNextDir, jumpToPrevDir :: IO ()
 jumpToNextDir = jumpToDir (\i len -> min (i+1) (len-1))
-
--- | Move cursor to first song in next directory (or wrap)
-jumpToPrevDir :: IO ()
-jumpToPrevDir = jumpToDir (\i _ -> max (i-1) 0)
+jumpToPrevDir = jumpToDir (\i _   -> max (i-1) 0)
 
 -- | Generic jump to dir
 jumpToDir :: (Int -> Int -> Int) -> IO ()
