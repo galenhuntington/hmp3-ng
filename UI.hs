@@ -241,7 +241,7 @@ emptyVal :: P.FastString
 emptyVal = P.pack "(empty)"
 
 spc2 :: P.FastString
-spc2 = P.pack "  "
+spc2 = spaces 2
 
 ------------------------------------------------------------------------
 
@@ -282,7 +282,7 @@ instance Element HelpScreen where
 
 -- | The time used and time left
 instance Element PTimes where
-    draw _ _ _ Nothing       = PTimes $ Fast (P.pack "     ") defaultSty
+    draw _ _ _ Nothing       = PTimes $ Fast (spaces 5) defaultSty
     draw (_,x) _ _ (Just fr) = PTimes $ FancyS $
                                 [(spc2,     defaultSty)
                                 ,(elapsed,  defaultSty)
@@ -415,7 +415,7 @@ instance Element PlayTitle where
         gapr    = gap - gapl
         padding = 3
         modlen  = P.length modes
-        space   = P.pack " "
+        space   = spaces 1
         hl     = highlight (style config)
 
 -- | Playlist, TODO this should do threading-style rendering of filesystem trees
@@ -600,20 +600,7 @@ redraw =
        y = printPlayList   (draw sz (length x,0) s f :: PlayList)
        a = x ++ y
 
-   -- set xterm title (should have an instance Element)
-   when (xterm s) $ do
-       setXtermTitle $ 
-            if status s == Playing
-                then case id3 s of
-                        Nothing -> case size s of
-                                        0 -> [P.pack "hmp3"]
-                                        _ -> [(fbase $ music s ! current s)]
-                        Just ti -> id3artist ti :
-                                   if P.null (id3title ti) 
-                                        then [] 
-                                        else [P.pack ": ", id3title ti]
-
-                else let (PMode pm) = draw sz (0,0) s f :: PMode in [pm]
+   when (xterm s) $ setXterm s sz f
    
    gotoTop
    mapM_ (\t -> do drawLine w t
@@ -624,13 +611,12 @@ redraw =
    drawHelp s f sz
 
    -- minibuffer
-
    Curses.wMove Curses.stdScr (h-1) 0
    fillLine 
    Curses.wMove Curses.stdScr (h-1) 0
    drawLine (w-1) (last a)
    when (miniFocused s) $ -- a fake cursor
-        drawLine 1 (Fast (P.pack " ") (helpscreen . style $  config))
+        drawLine 1 (Fast (spaces 1) (helpscreen . style $  config))
 
 ------------------------------------------------------------------------
 --
@@ -698,3 +684,21 @@ setXtermTitle strs = do
   where
     before = P.pack "\ESC]0;"
     after  = P.pack "\007"
+
+------------------------------------------------------------------------
+
+-- set xterm title (should have an instance Element)
+-- Don't need to do this on each refresh...
+setXterm :: State -> (Int,Int) -> Maybe Frame -> IO ()
+setXterm s sz f = setXtermTitle $ 
+    if status s == Playing
+      then case id3 s of
+            Nothing -> case size s of
+                            0 -> [P.pack "hmp3"]
+                            _ -> [(fbase $ music s ! current s)]
+            Just ti -> id3artist ti :
+                       if P.null (id3title ti) 
+                            then [] 
+                            else [P.pack ": ", id3title ti]
+      else let (PMode pm) = draw sz (0,0) s f :: PMode in [pm]
+

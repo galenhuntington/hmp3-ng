@@ -232,14 +232,12 @@ joinPathP f g =
 -- remainder of its input.  The actual parsing is done by the standard C
 -- library function strtol.
 
-readIntPS :: P.FastString -> Maybe (Int, P.FastString)
-readIntPS (P.PS x s l) = unsafePerformIO $ withForeignPtr x $ \p-> 
+readIntPS :: P.FastString -> Maybe Int
+readIntPS (P.PS x s _) = unsafePerformIO $ withForeignPtr x $ \p-> 
     with p $ \endpp -> do 
        val     <- c_strtol (p `plusPtr` s) endpp 0
        skipped <- (`minusPtr` (p `plusPtr` s)) `liftM` peek endpp
-       return $ if skipped == 0
-          then Nothing
-          else Just (fromIntegral val, P.PS x (s+skipped) (l-skipped))
+       return $ if skipped == 0 then Nothing else Just (fromIntegral val)
 
 -- ---------------------------------------------------------------------
 
@@ -257,6 +255,21 @@ send :: Pretty a => Handle -> a -> IO ()
 send h m = P.hPut h (ppr m) >> P.hPut h nl >> hFlush h
     where
       nl = P.pack "\n"
+
+------------------------------------------------------------------------ 
+
+-- 
+-- A wrapper over printf for use in UI.PTimes
+-- 
+printfPS :: P.FastString -> Int -> Int -> P.FastString
+printfPS fmt arg1 arg2 =
+    unsafePerformIO $ P.generate lim $ \ptr ->
+        P.unsafeUseAsCString fmt $ \c_fmt -> do
+            sz' <- c_printf2d ptr (fromIntegral lim) (castPtr c_fmt)
+                        (fromIntegral arg1) (fromIntegral arg2)
+            return (min lim (fromIntegral sz')) -- snprintf might truncate
+    where
+      lim = 10 -- NB
 
 -- ---------------------------------------------------------------------
 
@@ -282,21 +295,5 @@ foreign import ccall unsafe "__hscore_X_OK" x_OK :: CMode
 foreign import ccall unsafe "static stdlib.h strtol" c_strtol
     :: Ptr Word8 -> Ptr (Ptr Word8) -> Int -> IO CLong
 
------------------------------------------------------------------------- 
-
--- 
--- A wrapper over printf for use in UI.PTimes
--- 
-printfPS :: P.FastString -> Int -> Int -> P.FastString
-printfPS fmt arg1 arg2 =
-    unsafePerformIO $ P.generate lim $ \ptr ->
-        P.unsafeUseAsCString fmt $ \c_fmt -> do
-            sz' <- c_printf2d ptr (fromIntegral lim) (castPtr c_fmt)
-                        (fromIntegral arg1) (fromIntegral arg2)
-            return (min lim (fromIntegral sz')) -- snprintf might truncate
-    where
-      lim = 10 -- NB
-
 foreign import ccall unsafe "static stdio.h snprintf" 
     c_printf2d :: Ptr Word8 -> CSize -> Ptr Word8 -> CInt -> CInt -> IO CInt
-

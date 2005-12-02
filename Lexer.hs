@@ -24,6 +24,7 @@ module Lexer ( parser ) where
 import Syntax   (Msg(..),Status(..),Frame(..),Info(..),Id3(..),File(..),Tag(..))
 import FastIO   (readIntPS,getFilteredPacket)
 
+import Data.Maybe   (fromJust)
 import qualified Data.FastPackedString as P
 
 import Foreign.C.Types  (CFile)
@@ -55,9 +56,7 @@ doF s = R $ Frame {
                                               ; _ -> error "doF.f" }
 
 readPS :: P.FastString -> Int
-readPS ps = case readIntPS ps of
-    Nothing    -> error "doF.readPS"
-    Just (i,_) -> i
+readPS ps = fromJust (readIntPS ps)
 
 -- Outputs information about the mp3 file after loading.
 doS :: P.FastString -> Msg
