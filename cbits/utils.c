@@ -27,8 +27,8 @@ int get_color_pair (int pair) {
 
 #define DROPRATE 10
 
-int FRAME_COUNT = 0;    /* we count frame packets, and drop 19/20 of them */
-                        /* setting this to '25' will force the next
+int FRAME_COUNT = 0;    /* we count frame packets, and drop 9/10 of them */
+                        /* setting this to 10 will force the next
                          * packet to be returned, no matter what */
 
 /* when skipping frames, we want to ensure we don't drop any packets,
