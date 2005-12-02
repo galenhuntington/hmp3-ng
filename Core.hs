@@ -340,39 +340,44 @@ play = modifyState_ $ \st -> do
 
 -- | Play the song following the current song, if we're not at the end
 -- If we're at the end, and loop mode is on, then loop to the start
+-- If we're in random mode, play the next random track
 -- If the cursor and current are currently the same, continue that.
 playNext :: IO ()
-playNext = modifyState_ $ \st -> do
-    let i   = current st
-        j   = cursor  st
-        m   = music st
-    case () of {_ 
+playNext = do
+    md <- readState mode
+    if md == Random then playRandom else
+      modifyState_ $ \st -> do
+      let i   = current st
+          j   = cursor  st
+          m   = music st
+      case () of {_         -- todo, refactor the next two chunks
         | i < size st - 1          -- successor
-        -> let f     = let fe = m ! (i + 1) in (dname $ folders st !  fdir fe) `joinPathP` (fbase fe)
-               st'   = st { current = i + 1
-                          , status = Playing
-                          , cursor = if i == j then i + 1 else j } 
+        -> let f  = let fe = m ! (i + 1) 
+                    in (dname $ folders st ! fdir fe) `joinPathP` (fbase fe)
+               st' = st { current = i + 1
+                        , status = Playing
+                        , cursor = if i == j then i + 1 else j } 
            in do h <- readMVar (writeh st)
                  send h (Load f) >> return st'
 
-        | mode st == Loop           -- else loop
-        -> let  f    = let fe = m ! 0 in (dname $ folders st ! fdir fe) `joinPathP` (fbase fe)
+        | mode st == Loop           -- else loop (factor into playLoop)
+        -> let  f    = let fe = m ! 0 
+                       in (dname $ folders st ! fdir fe) `joinPathP` (fbase fe)
                 st'  = st { current = 0, status = Playing
                           , cursor = if i == j then 0 else j } 
            in do h <- readMVar (writeh st)
                  send h (Load f) >> return st'
 
         | otherwise -> return st    -- else stop
-    }
+      }
 
 -- | Play a random song
--- refactor with the above code.
 playRandom :: IO ()
 playRandom = modifyState_ $ \st -> do
     let i   = current st
         j   = cursor  st
         m   = music st
-    n <- getStdRandom (randomR (0, max 0 (size st -1))) -- memoise length m?
+    n <- getStdRandom (randomR (0, max 0 (size st -1)))
     let  f    = let fe = m ! n in (dname $ folders st ! fdir fe) `joinPathP` (fbase fe)
          st'  = st { current = n
                    , status = Playing
