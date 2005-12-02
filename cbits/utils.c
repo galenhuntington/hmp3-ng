@@ -25,14 +25,16 @@ int get_color_pair (int pair) {
  */
 #define BUFLEN 1024
 
-int frame_count = 0;    /* we count frame packets, and drop 19/20 of them */
+#define DROPRATE 10
+
+int FRAME_COUNT = 0;    /* we count frame packets, and drop 19/20 of them */
                         /* setting this to '25' will force the next
                          * packet to be returned, no matter what */
 
 /* when skipping frames, we want to ensure we don't drop any packets,
  * for reasonable performance on updates. This trick does that */
 void forcenext(void) {
-    frame_count = 25;
+    FRAME_COUNT = DROPRATE ;
 }
 
 /* sometimes we write to the wrong spot after a refresh */
@@ -45,8 +47,8 @@ int getline(char *buf, FILE *hdl) {
     c = getc(hdl);
 
     /* drop packet */
-    if (c == 'F' && frame_count < 25) {
-        frame_count++;
+    if (c == 'F' && FRAME_COUNT < DROPRATE ) {
+        FRAME_COUNT++;
 
         while (c != '\n') 
             c = getc(hdl);
@@ -54,7 +56,7 @@ int getline(char *buf, FILE *hdl) {
 
     /* normal packet */
     } else {
-        if (c == 'F') frame_count = 0;    /* reset frame count */
+        if (c == 'F') FRAME_COUNT = 0;    /* reset frame count */
 
         p = fgets(buf+1, BUFLEN-1, hdl);  /* read rest of line */
         if (p == NULL) {
