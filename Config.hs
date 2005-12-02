@@ -34,14 +34,14 @@ config :: Config
 config = Config { keymap = Default.keymap, style = defaultStyle }
 
 defaultStyle :: UIStyle
-defaultStyle  = UIStyle { window     = Style Default Default
-                        , highlight  = Style brightWhite green
-                        , selected   = Style blue      Default
+defaultStyle  = UIStyle { window     = Style Default      Default
+                        , highlight  = Style brightWhite  green
+                        , selected   = Style blue         Default
                         , cursors    = Style black        cyan
                         , combined   = Style brightWhite  cyan
-                        , warnings   = Style darkRed    Default
-                        , helpscreen = Style black   cyan
-                        , progress   = Style cyan    brightWhite  }
+                        , warnings   = Style darkRed      Default
+                        , helpscreen = Style black        cyan
+                        , progress   = Style cyan         brightWhite  }
 
 blackBgStyle :: UIStyle
 blackBgStyle  = UIStyle { window     = Style white        black
