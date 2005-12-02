@@ -80,13 +80,15 @@ start ms = Control.Exception.handle (\e -> shutdown (Just (show e))) $ do
 
     now   <- getClockTime
     modifyState_ $ \s -> return s 
-        { music     = fs
-        , folders   = ds
-        , size      = 1 + (snd . bounds $ fs)
-        , cursor    = i
-        , current   = i
-        , uptime    = drawUptime now now
-        , boottime  = now }
+        { music        = fs
+        , folders      = ds
+        , size         = 1 + (snd . bounds $ fs)
+        , cursor       = i
+        , current      = i
+        , uptime       = drawUptime now now
+        , boottime     = now 
+        , doWriteState = case ms of Left _ -> False ; _ -> True
+        }
 
     -- fork some threads
     t1 <- forkIO mpgInput
@@ -232,7 +234,8 @@ run = forever $ sequence_ . (keymap config) =<< getKeys
 shutdown :: Maybe String -> IO ()
 shutdown ms = 
     (do silentlyModifyState $ \st -> st { doNotResuscitate = True }
-        catch writeSt (\_ -> return ())
+        doWrite <- readState doWriteState
+        when doWrite $ catch writeSt (\_ -> return ())
         withState $ \st -> do
             case mp3pid st of
                 Nothing  -> return ()

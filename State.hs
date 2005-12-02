@@ -66,6 +66,7 @@ data State = State {
        ,regex           :: !(Maybe (Regex,Bool))   -- most recent search pattern and direction
        ,xterm           :: !Bool
        ,doNotResuscitate:: !Bool            -- should we just let mpg321 die?
+       ,doWriteState    :: !Bool            -- whether this is a new state
     }
 
 data Mode = Normal | Loop | Random deriving (Eq,Bounded,Enum) -- for pred,succ
@@ -98,6 +99,7 @@ emptySt = State {
        ,regex        = Nothing
        ,xterm        = False
        ,doNotResuscitate = False    -- mgp321 should be be restarted
+       ,doWriteState = True
     }
 
 --
