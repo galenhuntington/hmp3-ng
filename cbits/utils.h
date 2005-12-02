@@ -12,3 +12,4 @@ extern int get_color_pair (int pair);
 /* packed string IO */
 FILE *openfd(int fd);
 int getline(char *buf, FILE *hdl);
+void forcenext(void);

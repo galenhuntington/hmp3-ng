@@ -19,10 +19,21 @@ int get_color_pair (int pair) {
  * Specialised packed hGetLine. The caller should copy out any string it
  * is interested in. Additionally, we drop redundant @F packets arriving --
  * there's too many anyway
+ *
+ * TODO sometimes we don't want to drop packets. Set a flag to switch
+ * this on and off.
  */
 #define BUFLEN 1024
 
 int frame_count = 0;    /* we count frame packets, and drop 19/20 of them */
+                        /* setting this to '25' will force the next
+                         * packet to be returned, no matter what */
+
+/* when skipping frames, we want to ensure we don't drop any packets,
+ * for reasonable performance on updates. This trick does that */
+void forcenext(void) {
+    frame_count = 25;
+}
 
 /* sometimes we write to the wrong spot after a refresh */
 int getline(char *buf, FILE *hdl) { 

@@ -250,6 +250,9 @@ replicatePS w c = unsafePerformIO $ P.generate w $ \ptr -> go ptr w
 
 -- ---------------------------------------------------------------------
 
+foreign import ccall safe "utils.h forcenext"
+    forceNextPacket :: IO ()
+
 foreign import ccall safe "utils.h getline" 
     c_getline :: Ptr Word8 -> Ptr CFile -> IO Int
 

@@ -36,7 +36,7 @@ import State
 import Style                (StringA(..), warnings, defaultSty)
 import Config               (config, Config(style, keymap))
 import Utils                ((</>),popen,pid2phdl,fdToInt,repeatM_,drawUptime)
-import FastIO               (fdToCFile,joinPathP)
+import FastIO               (fdToCFile,joinPathP,forceNextPacket)
 import Tree hiding (File)
 import Regex
 import qualified UI         (start, refreshClock, refresh, getKey, end)
@@ -295,6 +295,7 @@ seek fn = do
             withState $ \st -> do
                 h <- readMVar (writeh st)
                 send h $ Jump (fn g)
+                forceNextPacket         -- don't drop the next Frame.
             tryPutMVar clockModified () -- touch the modified MVar
             return ()
 
