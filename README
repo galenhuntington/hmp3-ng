@@ -52,6 +52,8 @@ Platforms:
         Linux/x86
         MacOSX/ppc
 
+    You need -threaded.
+
 License:
     GPL
 
