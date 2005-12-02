@@ -33,9 +33,8 @@
 module Utils where
 
 import FastIO                   (printfPS)
-import Data.Char                (isSpace)
-import Data.List                (isPrefixOf)
-import qualified Data.FastPackedString as P (packAddress,init,tail,FastString)
+import qualified Data.FastPackedString as P (packAddress,FastString)
+
 import System.Time              (diffClockTimes, TimeDiff(tdSec), ClockTime)
 import System.Posix.Types       (Fd(..),ProcessID)
 import System.Process.Internals (ProcessHandle(..))
@@ -45,90 +44,18 @@ import System.Posix.IO          (createPipe,stdInput,stdError
 
 ------------------------------------------------------------------------
 
--- some filename manipulation stuff
-
 --
--- | </>, <.> : join two path components
+-- | join two path components
 --
 infixr 6 </>
-infixr 6 <.>
-infixr 6 <>
 infixr 6 <+>
 
-(</>), (<.>), (<>), (<+>) :: FilePath -> FilePath -> FilePath
+(</>), (<+>) :: FilePath -> FilePath -> FilePath
 [] </> b = b
 a  </> b = a ++ "/" ++ b
 
-[] <.> b = b
-a  <.> b = a ++ "." ++ b
-
-[] <> b = b
-a  <> b = a ++ b
-
 [] <+> b = b
 a  <+> b = a ++ " " ++ b
-
-basename :: FilePath -> FilePath
-basename p = reverse $ takeWhile (/= '/') $ reverse p
-
-dirname :: FilePath -> FilePath
-dirname p  =
-    case reverse $ dropWhile (/= '/') $ reverse p of
-        [] -> "."
-        p' -> p'
-
-dropSuffix :: FilePath -> FilePath
-dropSuffix f = reverse . tail . dropWhile (/= '.') $ reverse f
-
-joinPath :: FilePath -> FilePath -> FilePath
-joinPath p q =
-    case reverse p of
-      '/':_ -> p ++ q
-      []    -> q
-      _     -> p ++ "/" ++ q
-
-------------------------------------------------------------------------
-
--- | 'dropSpace' takes as input a String and strips spaces from the
---   prefix as well as the postfix of the String. Example:
---
--- > dropSpace "   abc  " ===> "abc"
-dropSpace :: [Char] -> [Char]
-dropSpace = let f = reverse . dropWhile isSpace in f . f
-
--- | Drop suffix and prefix quotes from a `shown' string
---
-clean :: P.FastString -> P.FastString
-clean = P.tail . P.init
-
--- | Split a list into pieces that were held together by glue.  Example:
---
--- > split ", " "one, two, three" ===> ["one","two","three"]
-split :: Eq a => [a] -- ^ Glue that holds pieces together
-      -> [a]         -- ^ List to break into pieces
-      -> [[a]]       -- ^ Result: list of pieces
-split glue xs = split' xs
-    where
-    split' [] = []
-    split' xs' = piece : split' (dropGlue rest)
-        where (piece, rest) = breakOnGlue glue xs'
-    dropGlue = drop (length glue)
-
-
--- | Break off the first piece of a list held together by glue,
---   leaving the glue attached to the remainder of the list.  Example:
---   Like break, but works with a [a] match.
---
--- > breakOnGlue ", " "one, two, three" ===> ("one", ", two, three")
-breakOnGlue :: (Eq a) => [a] -- ^ Glue that holds pieces together
-            -> [a]           -- ^ List from which to break off a piece
-            -> ([a],[a])     -- ^ Result: (first piece, glue ++ rest of list)
-breakOnGlue _ [] = ([],[])
-breakOnGlue glue rest@(x:xs)
-    | glue `isPrefixOf` rest = ([], rest)
-    | otherwise = (x:piece, rest')
-        where (piece, rest') = breakOnGlue glue xs
-{-# INLINE breakOnGlue #-}
 
 ------------------------------------------------------------------------
 

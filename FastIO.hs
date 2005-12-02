@@ -21,6 +21,8 @@
 
 module FastIO where
 
+import Syntax                   (Pretty(ppr))
+
 import Data.Char                (ord)
 import Data.Word                (Word8)
 import qualified Data.FastPackedString as P
@@ -37,6 +39,7 @@ import Foreign.Storable         (poke, peek)
 import System.Directory         (Permissions(..))
 import System.IO.Error          (modifyIOError, ioeSetFileName)
 import System.IO.Unsafe         (unsafePerformIO)
+import System.IO                (Handle,hFlush)
 import System.Posix.Internals
 import System.Posix.Types       (Fd, CMode)
 
@@ -247,6 +250,13 @@ replicatePS w c = unsafePerformIO $ P.generate w $ \ptr -> go ptr w
         x = fromIntegral . ord $ c
         go _   0 = return w
         go ptr n = poke ptr x >> go (ptr `plusPtr` 1) (n-1)
+
+-- ---------------------------------------------------------------------
+-- | Send a msg over the channel to the decoder
+send :: Pretty a => Handle -> a -> IO ()
+send h m = P.hPut h (ppr m) >> P.hPut h nl >> hFlush h
+    where
+      nl = P.pack "\n"
 
 -- ---------------------------------------------------------------------
 

@@ -22,18 +22,18 @@
 --
 module State where
 
-import Syntax                   (Pretty(ppr),Status(Stopped), Frame, Info,Id3)
+import Syntax                   (Status(Stopped), Frame, Info,Id3)
 import Tree                     (FileArray, DirArray)
 import Style                    (StringA(Fast), defaultSty)
 import Regex                    (Regex)
-import qualified Data.FastPackedString as P (empty,FastString,hPut,pack)
+import qualified Data.FastPackedString as P (empty,FastString)
 
 import Data.Array               (listArray)
 import Data.IORef               (newIORef,readIORef,writeIORef,IORef)
-import System.IO                (Handle, hFlush)
 import System.IO.Unsafe         (unsafePerformIO)
 import System.Posix.Types       (ProcessID)
 import System.Time              (ClockTime(..))
+import System.IO                (Handle)
 import Foreign.C.Types          (CFile)
 import Foreign.Ptr              (Ptr)
 
@@ -147,48 +147,33 @@ clockModified = unsafePerformIO $ newMVar ()
 -- state accessor functions
 
 -- | Read the state, with an IO action
-withState :: (State -> IO ()) -> IO ()
+withState :: (State -> IO a) -> IO a
 withState f = withMVar state $ \ref -> f =<< readIORef ref
 
 -- | Read state
 readState :: (State -> a) -> IO a
-readState f = withMVar state $ \ref -> return . f =<< readIORef ref
+readState f = withState (return . f)
 
 -- | Modify the contents, using an IO action.
 modifyState_ :: (State -> IO State) -> IO ()
-modifyState_ f = modifyMVar_ state $ \r -> do
-    v  <- readIORef r
-    v' <- f v
-    writeIORef r v'
-    tryPutMVar modified ()
-    return r
-
--- | Trigger a refresh
-touchState :: IO ()
-touchState = modifyState_ $ return . id
-
--- | Variation on modifyState_ that won't trigger a refresh
-silentlyModifyState :: (State -> IO State) -> IO ()
-silentlyModifyState f = modifyMVar_ state $ \r -> do
-    v  <- readIORef r
-    v' <- f v
-    writeIORef r v'
-    return r
+modifyState_ f = modifyState $ \st -> do st' <- f st; return (st',())
 
 -- | Variation on modifyState_ that lets you return a value
 modifyState :: (State -> IO (State,b)) -> IO b
-modifyState f = modifyMVar state $ \r -> do
-    v  <- readIORef r
+modifyState f = doModifyState f >>= \b -> touchState >> return b
+
+-- | Variation on modifyState_ that won't trigger a refresh
+silentlyModifyState :: (State -> State) -> IO ()
+silentlyModifyState f = doModifyState $ \st -> return (f st, ())
+
+-- | Trigger a refresh
+touchState :: IO ()
+touchState = tryPutMVar modified () >> return ()
+
+-- worker
+doModifyState :: (State -> IO (State,b)) -> IO b
+doModifyState f = modifyMVar state $ \r -> do
+    v      <- readIORef r
     (v',b) <- f v
     writeIORef r v'
-    tryPutMVar modified ()
     return (r,b)
-
-------------------------------------------------------------------------
-
--- | Send a msg over the channel to the decoder
-send :: Pretty a => Handle -> a -> IO ()
-send h m = P.hPut h (ppr m) >> P.hPut h nl >> hFlush h
-    where
-      nl = P.pack "\n"
-

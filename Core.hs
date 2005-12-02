@@ -36,7 +36,7 @@ import State
 import Style                (StringA(..), warnings, defaultSty)
 import Config               (config, Config(style, keymap))
 import Utils                ((</>),popen,pid2phdl,fdToInt,repeatM_,drawUptime)
-import FastIO               (fdToCFile,joinPathP,forceNextPacket)
+import FastIO               (send,fdToCFile,joinPathP,forceNextPacket)
 import Tree hiding (File)
 import Regex
 import qualified UI         (start, refreshClock, refresh, getKey, end)
@@ -94,7 +94,7 @@ start ms = Control.Exception.handle (\e -> shutdown (Just (show e))) $ do
     t3 <- forkIO clockLoop
     t4 <- forkIO uptimeLoop
     t5 <- forkIO errorLoop
-    silentlyModifyState $ \s -> return s { threads = [t0,t1,t2,t3,t4,t5] } 
+    silentlyModifyState $ \s -> s { threads = [t0,t1,t2,t3,t4,t5] } 
 
     when (0 <= (snd . bounds $ fs)) play -- start the first song
 
@@ -231,7 +231,7 @@ run = forever $ sequence_ . (keymap config) =<< getKeys
 -- | Close most things. Important to do all the jobs:
 shutdown :: Maybe String -> IO ()
 shutdown ms = 
-    (do silentlyModifyState $ \st -> return st { doNotResuscitate = True }
+    (do silentlyModifyState $ \st -> st { doNotResuscitate = True }
         catch writeSt (\_ -> return ())
         withState $ \st -> do
             case mp3pid st of
@@ -264,7 +264,7 @@ handleMsg (F (File (Right i))) = modifyState_ $ \s -> return s { id3 = Just i  }
 handleMsg (S t) = do
     modifyState_ $ \s -> return s { status  = t }
     when (t == Stopped) $ do   -- transition to next song
-        r <- modifyState $ \st -> return (st, mode st) -- race
+        r <- readState mode
         if r == Random then playRandom else playNext
 
 handleMsg (R f) = do
@@ -370,7 +370,6 @@ pause = withState $ \st -> readMVar (writeh st) >>= flip send Pause
 -- | Shutdown and exit
 quit :: Maybe String -> IO ()
 quit = shutdown
-{-# INLINE quit #-}
 
 ------------------------------------------------------------------------
 
@@ -479,7 +478,7 @@ getHome = Control.Exception.catch
 -- Editing the minibuffer
 
 putmsg :: StringA -> IO ()
-putmsg s = silentlyModifyState $ \st -> return st { minibuffer = s }
+putmsg s = silentlyModifyState $ \st -> st { minibuffer = s }
 
 -- Modify without triggering a refresh
 clrmsg :: IO ()
