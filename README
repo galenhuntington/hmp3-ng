@@ -4,7 +4,7 @@
 
 Dependencies:
     The Glasgow Haskell Compiler >= 6.4       http://haskell.org/ghc
-    mpg321 or mpg123                          http://mpg321.sourceforge.net/
+    mpg321                                    http://mpg321.sourceforge.net/
     The darcs version of the FPS library      http://www.cse.unsw.edu.au/~dons/fps.html
     A Cabal newer than 1.0                    http://haskell.org/cabal
 
@@ -43,6 +43,9 @@ Limitations:
     It only plays mp3 files (and variants supported by mpg{321,123}.
     So no ogg files for now. This is on the todo list though.
 
+    It is possible to use mpg123, however it appears to be more error
+    prone, and less stable than mpg321.
+
 Platforms:
     hmp3 has been confirmed to work on:
         OpenBSD/x86
@@ -59,3 +62,4 @@ Contributors:
     Samuel Bronson
     Stefan Wehr
     Tomasz Zielonka
+    David Himmelstrup
