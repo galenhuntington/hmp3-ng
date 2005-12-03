@@ -523,8 +523,10 @@ printPlayList (PlayList s) = s
 
 -- | Take two strings, and pad them in the middle
 alignLR :: Int -> P.FastString -> P.FastString -> P.FastString
-alignLR w l r | padding >= 0 = P.concat [l, gap, r]
-              | otherwise    = P.take (w - P.length r - 4) $ P.concat [l, ellipsis, r]
+alignLR w l r 
+    | padding >  0 = P.concat [l, gap, r]
+    | otherwise    = P.concat [ P.take (w - P.length r - 4 - 1) l, ellipsis, spaces 1, r]
+
     where padding = w - P.length l - P.length r
           gap     = spaces padding
 
