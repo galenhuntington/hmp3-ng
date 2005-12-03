@@ -478,7 +478,7 @@ instance Element PlayList where
                                 sty)
             
             sty1 = selected . style $ config
-            sty2 = cursors  . style  $ config
+            sty2 = cursors  . style $ config
             sty3 = combined . style $ config
 
             -- must mchop before drawing.
@@ -488,8 +488,8 @@ instance Element PlayList where
 
             drawIt (Just i,Fast b sty) = FancyS [pref, post]
               where
-                pref = (d', if sty == sty2 || sty == sty3 then sty2 else defaultSty)
-                post = (b,sty)
+                pref = (d', if sty == sty2 || sty == sty3 then sty2 else sty1)
+                post = (b, sty)
 
                 d   = basenameP $ case size st of
                                     0 -> P.pack "(empty)"
@@ -500,13 +500,11 @@ instance Element PlayList where
                 d' | P.length d > indent-1 
                    = P.concat [ P.take (indent+1-4) d 
                               , (P.init ellipsis) 
-                              , fwd ]
+                              , spaces 1 ]
 
-                   | otherwise = P.concat [ d, fwd, spc ]
+                   | otherwise = P.concat [ d, spaces 1, spc ]
 
             drawIt _ = error "UI.drawIt: color gaves us a non-Fast StringA!"
-
-            fwd      = P.pack "/"
 
             mchop :: ((Maybe Int,P.FastString),Int) -> ((Maybe Int,P.FastString),Int) 
             mchop a@((i,s),j)
@@ -616,7 +614,7 @@ redraw =
    Curses.wMove Curses.stdScr (h-1) 0
    drawLine (w-1) (last a)
    when (miniFocused s) $ -- a fake cursor
-        drawLine 1 (Fast (spaces 1) (helpscreen . style $  config))
+        drawLine 1 (Fast (spaces 1) (progress . style $  config))
 
 ------------------------------------------------------------------------
 --

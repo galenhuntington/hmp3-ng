@@ -19,8 +19,7 @@
 module Config where
 
 import {-# SOURCE #-} qualified Keymap as Default (keymap)
-import Style        (black,blue,cyan,white,brightWhite,darkRed,red
-                    ,green,Style(..),Color(Default),UIStyle(..))
+import Style
 
 #include "config.h"
 
@@ -36,11 +35,11 @@ config = Config { keymap = Default.keymap, style = defaultStyle }
 defaultStyle :: UIStyle
 defaultStyle  = UIStyle { window     = Style Default      Default
                         , highlight  = Style brightWhite  green
-                        , selected   = Style blue         Default
+                        , selected   = Style darkBlue     Default
                         , cursors    = Style black        cyan
                         , combined   = Style brightWhite  cyan
                         , warnings   = Style darkRed      Default
-                        , helpscreen = Style black        cyan
+                        , helpscreen = Style black        brightWhite
                         , progress   = Style cyan         brightWhite  }
 
 blackBgStyle :: UIStyle
