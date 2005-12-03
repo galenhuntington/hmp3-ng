@@ -87,7 +87,6 @@ start ms = Control.Exception.handle (\e -> shutdown (Just (show e))) $ do
         , current      = i
         , uptime       = drawUptime now now
         , boottime     = now 
-        , doWriteState = case ms of Left _ -> False ; _ -> True
         }
 
     -- fork some threads
@@ -234,8 +233,7 @@ run = forever $ sequence_ . (keymap config) =<< getKeys
 shutdown :: Maybe String -> IO ()
 shutdown ms = 
     (do silentlyModifyState $ \st -> st { doNotResuscitate = True }
-        doWrite <- readState doWriteState
-        when doWrite $ catch writeSt (\_ -> return ())
+        catch writeSt (\_ -> return ())
         withState $ \st -> do
             case mp3pid st of
                 Nothing  -> return ()
