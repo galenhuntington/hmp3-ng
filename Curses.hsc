@@ -333,7 +333,7 @@ scrSize :: IO (Int, Int)
 scrSize = do
     lnes <- peek linesPtr
     cols <- peek colsPtr
-    return (fromIntegral lnes, fromIntegral cols)
+    return (fi lnes, fi cols)
 
 foreign import ccall "curses.h &LINES" linesPtr :: Ptr CInt
 foreign import ccall "curses.h &COLS"  colsPtr  :: Ptr CInt
@@ -411,7 +411,7 @@ color _ =  Nothing
 initPair :: Pair -> Color -> Color -> IO ()
 initPair (Pair p) (Color f) (Color b) =
     throwIfErr_ (P.packAddress "init_pair"##) $
-        init_pair (fromIntegral p) (fromIntegral f) (fromIntegral b)
+        init_pair (fi p) (fi f) (fi b)
 
 foreign import ccall unsafe 
     init_pair :: CShort -> CShort -> CShort -> IO CInt
@@ -427,7 +427,7 @@ foreign import ccall unsafe "curses.h wattr_set"
 wAttrSet :: Window -> (Attr,Pair) -> IO ()
 wAttrSet w (a,(Pair p)) = 
     throwIfErr_ (P.packAddress "wattr_set"##) $!
-        wattr_set w a (fromIntegral p) nullPtr
+        wattr_set w a (fi p) nullPtr
 {-# INLINE wAttrSet #-}
 
 newtype Attr = Attr (#type attr_t) 
@@ -463,7 +463,7 @@ foreign import ccall threadsafe
 
 bkgrndSet :: Attr -> Pair -> IO ()
 bkgrndSet (Attr a) p = bkgdset $
-    fromIntegral (ord ' ') .|.
+    fi (ord ' ') .|.
     #translate_attr ALTCHARSET
     #translate_attr BLINK
     #translate_attr BOLD
@@ -529,7 +529,7 @@ getYX w =
             nomacro_getyx w py px   -- writes current cursor coords
             y <- peek py
             x <- peek px
-            return (fromIntegral y, fromIntegral x)
+            return (fi y, fi x)
 
 --
 -- | Get the current cursor coords, written into the two argument ints.
@@ -553,7 +553,7 @@ foreign import ccall threadsafe getch :: IO CInt
 -- | Map curses keys to real chars. The lexer will like this.
 --
 decodeKey :: CInt -> Char
-decodeKey = chr . fromIntegral
+decodeKey = chr . fi
 {-# INLINE decodeKey #-}
 
 --
