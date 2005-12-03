@@ -20,6 +20,7 @@ module Config where
 
 import {-# SOURCE #-} qualified Keymap as Default (keymap)
 import Style
+import Utils    ( hasLightBg )
 
 #include "config.h"
 
@@ -30,27 +31,40 @@ data Config = Config {
 
 -- default instance
 config :: Config
-config = Config { keymap = Default.keymap, style = defaultStyle }
+config = Config { keymap = Default.keymap
+                , style  = if hasLightBg then lightBgStyle else defaultStyle }
 
 defaultStyle :: UIStyle
 defaultStyle  = UIStyle { window     = Style Default      Default
-                        , highlight  = Style brightWhite  green
-                        , selected   = Style darkBlue     Default
+                        , highlight  = Style brightWhite  darkBlue
+                        , selected   = Style blue         Default
                         , cursors    = Style black        cyan
                         , combined   = Style brightWhite  cyan
-                        , warnings   = Style darkRed      Default
+                        , warnings   = Style red          Default
                         , helpscreen = Style black        brightWhite
-                        , progress   = Style cyan         brightWhite  }
-
-blackBgStyle :: UIStyle
-blackBgStyle  = UIStyle { window     = Style white        black
-                        , highlight  = Style green        blue
-                        , selected   = Style brightWhite  black
-                        , cursors    = Style black        cyan
-                        , combined   = Style black        cyan
-                        , warnings   = Style brightWhite  red
-                        , helpscreen = Style black        cyan
+                        , blockcursor= Style black        darkRed
                         , progress   = Style cyan         white  }
+
+-- | A style more suitable for light backgrounds (used if HMP_HAS_LIGHT_BG=true)
+lightBgStyle :: UIStyle
+lightBgStyle = 
+           defaultStyle { highlight  = Style brightWhite  green
+                        , selected   = Style darkBlue     Default
+                        , warnings   = Style darkRed      Default }
+
+--
+-- | Another style for dark backgrounds
+--
+darkStyle2 :: UIStyle
+darkStyle2   = UIStyle { window     = Style white        black
+                       , highlight  = Style green        blue
+                       , selected   = Style brightWhite  black
+                       , cursors    = Style black        cyan
+                       , combined   = Style black        cyan
+                       , warnings   = Style brightWhite  red
+                       , helpscreen = Style black        cyan
+                       , blockcursor= Style black        darkRed
+                       , progress   = Style cyan         white  }
            
 ------------------------------------------------------------------------
 

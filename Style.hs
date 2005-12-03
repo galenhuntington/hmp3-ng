@@ -44,6 +44,7 @@ data UIStyle = UIStyle { window     :: !Style
                        , combined   :: !Style
                        , warnings   :: !Style
                        , helpscreen :: !Style
+                       , blockcursor :: !Style
                        , progress   :: !Style }
 
 -- | Foreground and background color pairs
@@ -116,7 +117,7 @@ initcolours :: UIStyle -> IO ()
 initcolours sty = do
     let ls  = [helpscreen sty, warnings sty, window sty, 
                selected sty, highlight sty, progress sty,
-               cursors sty, combined sty ]
+               blockcursor sty, cursors sty, combined sty ]
         (Style fg bg) = progress sty    -- bonus style
         
     pairs <- initUiColors (ls ++ [Style bg bg, Style fg fg])

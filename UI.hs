@@ -616,7 +616,7 @@ redraw =
    Curses.wMove Curses.stdScr (h-1) 0
    drawLine (w-1) (last a)
    when (miniFocused s) $ -- a fake cursor
-        drawLine 1 (Fast (spaces 1) (progress . style $  config))
+        drawLine 1 (Fast (spaces 1) (blockcursor . style $ config))
 
 ------------------------------------------------------------------------
 --
