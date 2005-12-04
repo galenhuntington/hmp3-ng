@@ -74,7 +74,7 @@ versinfo :: String
 versinfo  = package++" "++ version
     where 
       version :: String
-      version = "0.1" ++ if not . null $ (PATCH_COUNT :: String)
+      version = "0.2" ++ if not . null $ (PATCH_COUNT :: String)
                          then "p" ++ PATCH_COUNT
                          else ""
 
