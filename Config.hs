@@ -36,7 +36,7 @@ config = Config { keymap = Default.keymap
 
 defaultStyle :: UIStyle
 defaultStyle  = UIStyle { window     = Style defaultfg    defaultbg
-                        , titlebar   = Style brightwhite  blue
+                        , titlebar   = Style brightwhite  green
                         , selected   = Style blue         defaultbg
                         , cursors    = Style black        cyan
                         , combined   = Style brightwhite  cyan
@@ -48,8 +48,7 @@ defaultStyle  = UIStyle { window     = Style defaultfg    defaultbg
 -- | A style more suitable for light backgrounds (used if HMP_HAS_LIGHT_BG=true)
 lightBgStyle :: UIStyle
 lightBgStyle = 
-           defaultStyle { titlebar   = Style brightwhite  green
-                        , selected   = Style darkblue     defaultbg
+           defaultStyle { selected   = Style darkblue     defaultbg
                         , warnings   = Style darkred      defaultbg }
 
 --
