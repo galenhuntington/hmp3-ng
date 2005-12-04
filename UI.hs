@@ -416,7 +416,7 @@ instance Element PlayTitle where
         padding = 3
         modlen  = P.length modes
         space   = spaces 1
-        hl     = highlight (style config)
+        hl      = titlebar (style config)
 
 -- | Playlist, TODO this should do threading-style rendering of filesystem trees
 --
@@ -464,7 +464,7 @@ instance Element PlayList where
 
             list   = [ drawIt . color . mchop $ n | n <- zip visible' [0..] ]
 
-            indent = (round $ (0.3 :: Float) * fromIntegral x) :: Int
+            indent = (round $ (0.35 :: Float) * fromIntegral x) :: Int
                 
             color :: ((Maybe Int,P.FastString),Int) -> (Maybe Int, StringA)
             color ((m,s),i) 

@@ -35,36 +35,36 @@ config = Config { keymap = Default.keymap
                 , style  = if hasLightBg then lightBgStyle else defaultStyle }
 
 defaultStyle :: UIStyle
-defaultStyle  = UIStyle { window     = Style Default      Default
-                        , highlight  = Style brightWhite  darkBlue
-                        , selected   = Style blue         Default
+defaultStyle  = UIStyle { window     = Style defaultfg    defaultbg
+                        , titlebar   = Style brightwhite  blue
+                        , selected   = Style blue         defaultbg
                         , cursors    = Style black        cyan
-                        , combined   = Style brightWhite  cyan
-                        , warnings   = Style red          Default
-                        , helpscreen = Style black        brightWhite
-                        , blockcursor= Style black        darkRed
-                        , progress   = Style cyan         white  }
+                        , combined   = Style brightwhite  cyan
+                        , warnings   = Style red          defaultbg
+                        , helpscreen = Style black        white 
+                        , blockcursor= Style black        red
+                        , progress   = Style cyan         white }
 
 -- | A style more suitable for light backgrounds (used if HMP_HAS_LIGHT_BG=true)
 lightBgStyle :: UIStyle
 lightBgStyle = 
-           defaultStyle { highlight  = Style brightWhite  green
-                        , selected   = Style darkBlue     Default
-                        , warnings   = Style darkRed      Default }
+           defaultStyle { titlebar   = Style brightwhite  green
+                        , selected   = Style darkblue     defaultbg
+                        , warnings   = Style darkred      defaultbg }
 
 --
--- | Another style for dark backgrounds
+-- | Another style for dark backgrounds, reminiscent of mutt
 --
-darkStyle2 :: UIStyle
-darkStyle2   = UIStyle { window     = Style white        black
-                       , highlight  = Style green        blue
-                       , selected   = Style brightWhite  black
-                       , cursors    = Style black        cyan
-                       , combined   = Style black        cyan
-                       , warnings   = Style brightWhite  red
-                       , helpscreen = Style black        cyan
-                       , blockcursor= Style black        darkRed
-                       , progress   = Style cyan         white  }
+muttStyle :: UIStyle
+muttStyle   = UIStyle { window     = Style brightwhite  black
+                      , titlebar   = Style green        blue
+                      , selected   = Style brightwhite  black
+                      , cursors    = Style black        cyan
+                      , combined   = Style black        cyan
+                      , warnings   = Style brightwhite  red
+                      , helpscreen = Style black        cyan
+                      , blockcursor= Style black        darkred
+                      , progress   = Style cyan         white  }
            
 ------------------------------------------------------------------------
 

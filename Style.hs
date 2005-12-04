@@ -37,19 +37,24 @@ import Control.Exception        (handle)
 ------------------------------------------------------------------------
 
 -- | User-configurable colours
-data UIStyle = UIStyle { window     :: !Style
-                       , highlight  :: !Style
-                       , selected   :: !Style
-                       , cursors    :: !Style
-                       , combined   :: !Style
-                       , warnings   :: !Style
-                       , helpscreen :: !Style
-                       , blockcursor :: !Style
-                       , progress   :: !Style }
+-- Each component of this structure corresponds to a fg/bg colour pair
+-- for an item in the ui
+data UIStyle = UIStyle { 
+     window      :: !Style  -- default window colour
+   , helpscreen  :: !Style  -- help screen
+   , titlebar    :: !Style  -- titlebar of window
+   , selected    :: !Style  -- currently playing track
+   , cursors     :: !Style  -- the scrolling cursor line
+   , combined    :: !Style  -- the style to use when the cursor is on the current track
+   , warnings    :: !Style  -- style for warnings
+   , blockcursor :: !Style  -- style for the block cursor when typing text
+   , progress    :: !Style  -- style for the progress bar
+   }
+
+------------------------------------------------------------------------
 
 -- | Foreground and background color pairs
-data Style = Style {-# UNPACK #-} !Color !Color
-    deriving (Eq,Ord)
+data Style = Style {-# UNPACK #-} !Color !Color deriving (Eq,Ord)
 
 -- | A List of characters with styles attached
 data CharA = C {-# UNPACK #-} !Char
@@ -68,24 +73,29 @@ data Color
 --
 -- | Some simple colours (derivied from proxima/src/common/CommonTypes.hs)
 --
-black, grey, darkRed, red, darkGreen, green, brown, yellow          :: Color
-darkBlue, blue, purple, magenta, darkCyan, cyan, white, brightWhite :: Color
+-- But we don't have a light blue?
+--
+black, grey, darkred, red, darkgreen, green, brown, yellow          :: Color
+darkblue, blue, purple, magenta, darkcyan, cyan, white, brightwhite :: Color
+defaultfg, defaultbg :: Color
 black       = RGB 0 0 0
 grey        = RGB 128 128 128
-darkRed     = RGB 139 0 0
+darkred     = RGB 139 0 0
 red         = RGB 255 0 0
-darkGreen   = RGB 0 100 0
+darkgreen   = RGB 0 100 0
 green       = RGB 0 128 0
 brown       = RGB 165 42 42
 yellow      = RGB 255 255 0
-darkBlue    = RGB 0 0 139
+darkblue    = RGB 0 0 139
 blue        = RGB 0 0 255
 purple      = RGB 128 0 128
 magenta     = RGB 255 0 255
-darkCyan    = RGB 0 139 139 
+darkcyan    = RGB 0 139 139 
 cyan        = RGB 0 255 255
 white       = RGB 165 165 165
-brightWhite = RGB 255 255 255
+brightwhite = RGB 255 255 255
+defaultfg   = Default
+defaultbg   = Default
 
 ------------------------------------------------------------------------
 --
@@ -116,7 +126,7 @@ reset = setAttribute (Curses.attr0, Curses.Pair 0)
 initcolours :: UIStyle -> IO ()
 initcolours sty = do
     let ls  = [helpscreen sty, warnings sty, window sty, 
-               selected sty, highlight sty, progress sty,
+               selected sty, titlebar sty, progress sty,
                blockcursor sty, cursors sty, combined sty ]
         (Style fg bg) = progress sty    -- bonus style
         
