@@ -125,13 +125,17 @@ screenSize = Curses.scrSize
 getKey :: IO Char
 getKey = do
     k <- Curses.getCh
+#ifdef KEY_RESIZE
     if k == Curses.keyResize 
         then do
-#ifndef SIGWINCH
+# ifndef SIGWINCH
               redraw >> resizeui >> return ()   -- XXX ^L doesn't work
-#endif
+# endif
               getKey
         else return k
+#else
+    return k
+#endif
  
 -- | Resize the window
 -- From "Writing Programs with NCURSES", by Eric S. Raymond and Zeyd M. Ben-Halim

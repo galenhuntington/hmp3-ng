@@ -103,8 +103,7 @@ import Control.Concurrent   (yield, threadWaitRead)
 
 import Foreign.C.Types      (CInt, CShort)
 import Foreign.C.String     (CString)
-import Foreign              (Word8, Word32, Ptr, Bits(complement,(.|.),(.&.))
-	                        ,Storable(peek),void,alloca,nullPtr,unsafePerformIO)
+import Foreign
 
 #ifdef SIGWINCH
 import System.Posix.Signals (installHandler, Signal, Handler(Catch))
