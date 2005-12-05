@@ -7,6 +7,7 @@ Dependencies:
     mpg321                                    http://mpg321.sourceforge.net/
     The darcs version of the FPS library      http://www.cse.unsw.edu.au/~dons/fps.html
     A Cabal newer than 1.0                    http://haskell.org/cabal
+    ncurses or curses (not ocurses)
 
 Building:
     $ chmod +x configure Setup.lhs

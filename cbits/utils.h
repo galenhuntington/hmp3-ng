@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include "curses.h"
+#include "mycurses.h"
 
 /* curses */
 extern void nomacro_getyx(WINDOW *win, int *y, int *x);

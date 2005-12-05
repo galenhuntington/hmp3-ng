@@ -1,6 +1,4 @@
 
-/* arch-tag: d71507ca-a4d9-46ec-ae82-d0f9d6ab1a0f */
-
 #ifndef CONFIG_INCLUDED
 #define CONFIG_INCLUDED
 #undef PACKAGE_NAME
