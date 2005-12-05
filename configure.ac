@@ -27,6 +27,8 @@ else
         AC_CHECK_LIB(curses,  addnstr)
 fi
 
+AC_CHECK_FUNCS(use_default_colors)
+
 # only scan _darcs if we're in a devel branch
 if test -d "_darcs" ; then
     PATCH_COUNT_=`darcs changes --xml-output | sed -n '/^<patch/p;/TAG/q' | wc -l | sed 's/ *//g'`

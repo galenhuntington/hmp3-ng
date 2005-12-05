@@ -36,6 +36,9 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
+/* Define to 1 if you have the `use_default_colors' function. */
+#undef HAVE_USE_DEFAULT_COLORS
+
 /* Which mp3 decoder to use */
 #undef MPG321
 
