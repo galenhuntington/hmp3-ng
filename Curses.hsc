@@ -80,8 +80,8 @@ module Curses (
 
     -- * Attributes
     Attr,
-    attr0, setBold, setReverse, 
-    wAttrSet,           -- :: Window -> (Attr,Pair) -> IO ()
+    attr0, setBold,
+    attrSet,
     attrPlus,           -- :: Attr -> Attr -> Attr
 
     -- * error handling
@@ -308,8 +308,20 @@ foreign import ccall unsafe "mycurses.h leaveok"
 
 ------------------------------------------------------------------------
 
+-- | The use_default_colors() and assume_default_colors() func-
+--   tions are extensions to the curses library.  They are used
+--   with terminals that support ISO 6429 color, or equivalent.
+--
+--  use_default_colors() tells the  curses library  to  assign terminal
+--  default foreground/background colors to color number  -1.
+--
+#if defined(HAVE_USE_DEFAULT_COLORS)
 foreign import ccall unsafe "mycurses.h use_default_colors" 
     useDefaultColors :: IO ()
+#else
+useDefaultColors :: IO ()
+useDefaultColors = return ()
+#endif
 
 ------------------------------------------------------------------------
 
@@ -367,7 +379,9 @@ newtype Pair  = Pair Int
 newtype Color = Color Int
 
 color :: String -> Maybe Color
+#if defined(HAVE_USE_DEFAULT_COLORS)
 color "default"  = Just $ Color (-1)
+#endif
 color "black"    = Just $ Color (#const COLOR_BLACK)
 color "red"      = Just $ Color (#const COLOR_RED)
 color "green"    = Just $ Color (#const COLOR_GREEN)
@@ -418,47 +432,40 @@ foreign import ccall unsafe
 -- ---------------------------------------------------------------------
 -- Attributes 
 
-foreign import ccall unsafe "mycurses.h wattr_set" 
-    wattr_set :: Window -> Attr -> CInt -> Ptr a -> IO CInt
+foreign import ccall unsafe "mycurses.h attrset"
+    c_attrset :: CInt -> IO CInt
 
--- |
---
-wAttrSet :: Window -> (Attr,Pair) -> IO ()
-wAttrSet w (a,(Pair p)) = 
-    throwIfErr_ (P.packAddress "wattr_set"##) $!
-        wattr_set w a (fi p) nullPtr
-{-# INLINE wAttrSet #-}
+foreign import ccall unsafe "mycurses.h color_set"
+    c_color_set :: CShort -> Ptr a -> IO CInt
 
-newtype Attr = Attr (#type attr_t) 
+attrSet :: Attr -> Pair -> IO ()
+attrSet (Attr attr) (Pair p) = do
+    throwIfErr_ (P.packAddress "attrset"##)   $ c_attrset attr 
+    throwIfErr_ (P.packAddress "color_set"##) $ c_color_set (fromIntegral p) nullPtr
 
---
--- | Normal display (no highlight)
---
+------------------------------------------------------------------------
+
+newtype Attr = Attr CInt
+
+attr0   :: Attr
+attr0   = Attr (#const A_NORMAL)
 
 setBold :: Attr -> Bool -> Attr
-setBold       = setAttr (#const WA_BOLD)
+setBold = setAttr (Attr #const A_BOLD)
 
-setReverse :: Attr -> Bool -> Attr
-setReverse    = setAttr (#const WA_REVERSE)
-
-attr0 :: Attr
-attr0 = Attr (#const WA_NORMAL)
-
-setAttr :: (#type attr_t) -> Attr -> Bool -> Attr
-setAttr b (Attr a) False = Attr (a .&. complement b)
-setAttr b (Attr a) True  = Attr (a .|.            b)
+-- | bitwise combination of attributes
+setAttr :: Attr -> Attr -> Bool -> Attr
+setAttr (Attr b) (Attr a) False = Attr (a .&. complement b)
+setAttr (Attr b) (Attr a) True  = Attr (a .|.            b)
 
 attrPlus :: Attr -> Attr -> Attr
 attrPlus (Attr a) (Attr b) = Attr (a .|. b)
-
-foreign import ccall threadsafe
-    waddnstr :: Window -> CString -> CInt -> IO CInt
 
 ------------------------------------------------------------------------
 
 #let translate_attr attr =                              \
     "(if a .&. %lu /= 0 then %lu else 0) .|.",          \
-    (unsigned long) WA_##attr, (unsigned long) A_##attr
+    (unsigned long) A_##attr, (unsigned long) A_##attr
 
 bkgrndSet :: Attr -> Pair -> IO ()
 bkgrndSet (Attr a) p = bkgdset $
@@ -478,6 +485,11 @@ foreign import ccall unsafe "utils.h get_color_pair"
     colorPair :: Pair -> (#type chtype)
 
 foreign import ccall unsafe bkgdset :: (#type chtype) -> IO ()
+
+------------------------------------------------------------------------
+
+foreign import ccall threadsafe
+    waddnstr :: Window -> CString -> CInt -> IO CInt
 
 clrToEol :: IO ()
 clrToEol = throwIfErr_ (P.packAddress "clrtoeol"##) clrtoeol
@@ -582,6 +594,7 @@ keyEnd :: Char
 keyEnd          = chr (#const KEY_END)
 
 #ifdef KEY_RESIZE
+-- ncurses sends this
 keyResize :: Char
 keyResize       = chr (#const KEY_RESIZE)
 #endif

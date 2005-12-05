@@ -110,7 +110,7 @@ withStyle sty fn = uiAttr sty >>= setAttribute >> fn >> reset
 -- Only set attr if it's different to the current one?
 --
 setAttribute :: (Curses.Attr, Curses.Pair) -> IO ()
-setAttribute = Curses.wAttrSet Curses.stdScr
+setAttribute = uncurry Curses.attrSet
 {-# INLINE setAttribute #-}
 
 --
@@ -132,6 +132,7 @@ initcolours sty = do
         
     pairs <- initUiColors (ls ++ [Style bg bg, Style fg fg])
     writeIORef pairMap pairs
+    -- set the background
     uiAttr (window sty) >>= \(_,p) -> Curses.bkgrndSet nullA p
     
 ------------------------------------------------------------------------
@@ -187,24 +188,23 @@ pairMap = unsafePerformIO $ newIORef M.empty
 -- Basic (ncurses) colours.
 --
 defaultColor :: Curses.Color
-defaultColor = fromJust $! Curses.color "default"
+defaultColor = fromJust $ Curses.color "default"
 
 cblack, cred, cgreen, cyellow, cblue, cmagenta, ccyan, cwhite :: Curses.Color
-cblack     = fromJust $! Curses.color "black"
-cred       = fromJust $! Curses.color "red"
-cgreen     = fromJust $! Curses.color "green"
-cyellow    = fromJust $! Curses.color "yellow"
-cblue      = fromJust $! Curses.color "blue"
-cmagenta   = fromJust $! Curses.color "magenta"
-ccyan      = fromJust $! Curses.color "cyan"
-cwhite     = fromJust $! Curses.color "white"
+cblack     = fromJust $ Curses.color "black"
+cred       = fromJust $ Curses.color "red"
+cgreen     = fromJust $ Curses.color "green"
+cyellow    = fromJust $ Curses.color "yellow"
+cblue      = fromJust $ Curses.color "blue"
+cmagenta   = fromJust $ Curses.color "magenta"
+ccyan      = fromJust $ Curses.color "cyan"
+cwhite     = fromJust $ Curses.color "white"
 
 --
 -- Combine attribute with another attribute
 --
-setBoldA, setReverseA :: Curses.Attr -> Curses.Attr
+setBoldA :: Curses.Attr -> Curses.Attr
 setBoldA      = flip Curses.setBold    True
-setReverseA   = flip Curses.setReverse True
 
 --
 -- | Some attribute constants
