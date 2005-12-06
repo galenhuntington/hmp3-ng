@@ -63,6 +63,7 @@ Platforms:
         OpenBSD/x86
         Linux/x86
         MacOSX/ppc
+        Irix/mips64
 
     You need -threaded.
 

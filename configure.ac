@@ -20,13 +20,7 @@ AC_DEFINE_UNQUOTED(MPG321, "$MPG321", [Which mp3 decoder to use])
 #
 # The shell variables should be added to, e.g., $LIBS
 #
-AC_CHECK_LIB(ncurses, addnstr)
-if echo "$LIBS" | grep ncurses > /dev/null 2>&1 ; then
-        :
-else
-        AC_CHECK_LIB(curses,  addnstr)
-fi
-
+AC_CHECK_LIB(curses,  addnstr)
 AC_CHECK_FUNCS(use_default_colors)
 
 # only scan _darcs if we're in a devel branch
