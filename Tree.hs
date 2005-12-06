@@ -36,7 +36,7 @@ import Data.List        (sortBy,sort,foldl',groupBy)
 import System.IO        (IOMode(..),hPutStrLn,stderr,openFile,hClose)
 import System.Directory (Permissions(readable))
 import Control.Exception(handle)
-import Control.Monad    (liftM,mapM_)
+import Control.Monad    (liftM)
 
 type FilePathP = P.FastString
 

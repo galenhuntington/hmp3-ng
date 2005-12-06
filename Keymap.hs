@@ -33,7 +33,7 @@ import Curses       (keyEnd,keyPPage,keyNPage,keyBackspace,keyHome
 import Lexers       ((>|<),(>||<),action,meta,execLexer
                     ,alt,with,char,Regexp,Lexer)
 
-import Data.List    (init, (\\))
+import Data.List    ((\\))
 
 import qualified Data.FastPackedString as P (packAddress,FastString,pack)
 import qualified Data.Map as M (fromList, lookup, Map)

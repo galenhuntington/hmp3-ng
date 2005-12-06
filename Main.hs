@@ -29,10 +29,9 @@ import Keymap   ({-# bogus import to work around 6.4 rec modules bug #-})
 
 import qualified Data.FastPackedString as P (pack,FastString)
 
-import Control.Monad        (mapM_)
 import Control.Exception    (catch)
 
-import System.IO            (putStrLn, hPutStrLn, stderr)
+import System.IO            (hPutStrLn, stderr)
 import System.Exit          (ExitCode(..), exitWith)
 import System.Posix.Signals (installHandler, sigTERM, sigPIPE, sigINT, sigHUP
                             ,sigALRM, sigABRT, Handler(Ignore, Default, Catch))
