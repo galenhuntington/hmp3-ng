@@ -23,6 +23,8 @@
 
 module Style where
 
+#include "config.h"
+
 import qualified Curses
 import qualified Data.FastPackedString as P (FastString)
 
@@ -94,8 +96,14 @@ darkcyan    = RGB 0 139 139
 cyan        = RGB 0 255 255
 white       = RGB 165 165 165
 brightwhite = RGB 255 255 255
+
+#if defined(HAVE_USE_DEFAULT_COLORS)
 defaultfg   = Default
 defaultbg   = Default
+#else
+defaultfg   = white
+defaultbg   = black
+#endif
 
 ------------------------------------------------------------------------
 --
