@@ -55,17 +55,17 @@ Limitations:
     It is possible to use mpg123, however it appears to be more error
     prone, and less stable than mpg321.
 
-    On platforms without a native code generator (e.g. mips64/irix)
-    you'll need to remove references to -fasm in hmp3.cabal and Binary.hs)
-
-Platforms:
+Platforms and portability:
     hmp3 has been confirmed to work on:
         OpenBSD/x86
         Linux/x86
         MacOSX/ppc
         Irix/mips64
 
-    You need -threaded.
+    * You need -threaded.
+
+    * On platforms without a native code generator, you should remove the
+    reference to -fasm in the hmp3.cabal file
 
 License:
     GPL
