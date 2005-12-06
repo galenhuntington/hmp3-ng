@@ -33,13 +33,14 @@ import Prelude hiding (catch)
 import Syntax
 import Lexer                (parser)
 import State
-import Style                (StringA(..), warnings, defaultSty)
-import Config               (config, Config(style, keymap))
+import Style                (StringA(..), warnings, defaultSty, UIStyle)
 import Utils                ((</>),popen,pid2phdl,fdToInt,repeatM_,drawUptime)
 import FastIO               (send,fdToCFile,joinPathP,forceNextPacket)
 import Tree hiding (File)
 import Regex
 import qualified UI         (start, refreshClock, refresh, getKey, end)
+
+import {-# SOURCE #-} Keymap (keymap)
 
 import qualified Data.FastPackedString as P (unsafeUseAsCString,pack,empty,FastString)
 
@@ -72,7 +73,7 @@ start ms = Control.Exception.handle (\e -> shutdown (Just (show e))) $ do
 
     t0 <- forkIO mpgLoop    -- start this off early, to give mpg321 a time to settle
 
-    UI.start -- initialise curses
+    c <- UI.start -- initialise curses
 
     (ds,fs,i) <- case ms of -- construct the state
                 Left (fs',ds',x) -> return (ds',fs',x)
@@ -87,6 +88,7 @@ start ms = Control.Exception.handle (\e -> shutdown (Just (show e))) $ do
         , current      = i
         , uptime       = drawUptime now now
         , boottime     = now 
+        , config       = c
         }
 
     -- fork some threads
@@ -220,7 +222,7 @@ mpgInput = forever $ do
 
 -- | The main thread: handle keystrokes fed to us by curses
 run :: IO ()
-run = forever $ sequence_ . (keymap config) =<< getKeys
+run = forever $ sequence_ . keymap =<< getKeys
   where
     getKeys = unsafeInterleaveIO $ do
             c  <- UI.getKey
@@ -485,6 +487,9 @@ putmsg s = silentlyModifyState $ \st -> st { minibuffer = s }
 clrmsg :: IO ()
 clrmsg = putmsg (Fast P.empty defaultSty)
 
+--
 warnA :: String -> IO ()
-warnA x = putmsg $ Fast (P.pack x) (warnings . style $ config)
+warnA x = do 
+    sty <- readState config
+    putmsg $ Fast (P.pack x) (warnings sty)
 

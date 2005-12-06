@@ -24,9 +24,10 @@ module State where
 
 import Syntax                   (Status(Stopped), Frame, Info,Id3)
 import Tree                     (FileArray, DirArray)
-import Style                    (StringA(Fast), defaultSty)
+import Style                    (StringA(Fast), defaultSty, UIStyle)
 import Regex                    (Regex)
 import qualified Data.FastPackedString as P (empty,FastString)
+import qualified Config (defaultStyle)
 
 import Data.Array               (listArray)
 import Data.IORef               (newIORef,readIORef,writeIORef,IORef)
@@ -46,18 +47,18 @@ import Control.Concurrent.MVar
 data State = State {
         music           :: !FileArray
        ,folders         :: !DirArray
-       ,size            :: !Int             -- cache size of list
-       ,current         :: !Int             -- currently playing mp3
-       ,cursor          :: !Int             -- mp3 under the cursor
+       ,size            :: !Int            -- cache size of list
+       ,current         :: !Int            -- currently playing mp3
+       ,cursor          :: !Int            -- mp3 under the cursor
        ,mp3pid          :: !(Maybe ProcessID)       -- pid of decoder
        ,writeh          :: !(MVar Handle)     --  handle to mp3 (should be MVars?)
        ,errh            :: !(MVar Handle)     --  error handle to mp3
        ,readf           :: !(MVar (Ptr CFile))-- r/w pipe to mp3
-       ,threads         :: ![ThreadId]       -- all our threads
-       ,id3             :: !(Maybe Id3)        -- maybe mp3 id3 info
-       ,info            :: !(Maybe Info)       -- mp3 info
+       ,threads         :: ![ThreadId]     -- all our threads
+       ,id3             :: !(Maybe Id3)    -- maybe mp3 id3 info
+       ,info            :: !(Maybe Info)   -- mp3 info
        ,status          :: !Status                  
-       ,minibuffer      :: !StringA          -- contents of minibuffer
+       ,minibuffer      :: !StringA        -- contents of minibuffer
        ,helpVisible     :: !Bool           -- is the help window shown
        ,miniFocused     :: !Bool           -- is the mini buffer focused?
        ,mode            :: !Mode           -- random mode
@@ -65,7 +66,9 @@ data State = State {
        ,boottime        :: !ClockTime
        ,regex           :: !(Maybe (Regex,Bool))   -- most recent search pattern and direction
        ,xterm           :: !Bool
-       ,doNotResuscitate:: !Bool            -- should we just let mpg321 die?
+       ,doNotResuscitate:: !Bool           -- should we just let mpg321 die?
+       
+       ,config          :: !UIStyle        -- config values
     }
 
 data Mode = Normal | Loop | Random deriving (Eq,Bounded,Enum) -- for pred,succ
@@ -98,6 +101,7 @@ emptySt = State {
        ,regex        = Nothing
        ,xterm        = False
        ,doNotResuscitate = False    -- mgp321 should be be restarted
+       ,config       = Config.defaultStyle
     }
 
 --

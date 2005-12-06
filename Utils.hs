@@ -38,7 +38,6 @@ import qualified Data.FastPackedString as P (packAddress,FastString)
 import Data.Char                (toLower)
 import System.Time              (diffClockTimes, TimeDiff(tdSec), ClockTime)
 import System.Environment       (getEnv)
-import System.IO.Unsafe         (unsafePerformIO)
 import System.Posix.Types       (Fd(..),ProcessID)
 import System.Process.Internals (ProcessHandle(..))
 import System.Posix.Process     (forkProcess,executeFile)
@@ -154,9 +153,8 @@ exec cmd args (pr,cw,ce) = do
 --
 -- | Some evil to work out if the background is light, or dark. Assume dark.
 --
-hasLightBg :: Bool
-hasLightBg = unsafePerformIO $ 
-    Control.Exception.handle (\_ -> return False) $ do
-        e <- getEnv "HMP_HAS_LIGHT_BG"
-        return $ map toLower e == "true"
+isLightBg :: IO Bool
+isLightBg = Control.Exception.handle (\_ -> return False) $ do
+    e <- getEnv "HMP_HAS_LIGHT_BG"
+    return $ map toLower e == "true"
 

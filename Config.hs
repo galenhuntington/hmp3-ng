@@ -18,21 +18,9 @@
 -- 
 module Config where
 
-import {-# SOURCE #-} qualified Keymap as Default (keymap)
 import Style
-import Utils    ( hasLightBg )
 
 #include "config.h"
-
-data Config = Config {
-        keymap :: [Char] -> [IO ()],    -- ^ user-configurable keymap
-        style  :: UIStyle               -- ^ colours
-     }
-
--- default instance
-config :: Config
-config = Config { keymap = Default.keymap
-                , style  = if hasLightBg then lightBgStyle else defaultStyle }
 
 defaultStyle :: UIStyle
 defaultStyle  = UIStyle { window     = Style defaultfg    defaultbg
@@ -64,6 +52,19 @@ muttStyle   = UIStyle { window     = Style brightwhite  black
                       , helpscreen = Style black        cyan
                       , blockcursor= Style black        darkred
                       , progress   = Style cyan         white  }
+
+bwStyle :: UIStyle 
+bwStyle = UIStyle {
+        window      = Style white black
+       ,titlebar    = Style black white
+       ,selected    = Style brightwhite black  -- bold
+       ,cursors     = Style black white
+       ,combined    = Style black white
+       ,warnings    = Style black white
+       ,helpscreen  = Style black white
+       ,blockcursor = Style black white
+       ,progress    = Style black white
+    }
            
 ------------------------------------------------------------------------
 

@@ -46,11 +46,12 @@ module UI (
   )   where
 
 import Style
+import Utils                    (isLightBg)
 import FastIO                   (basenameP, replicatePS, printfPS)
 import Tree                     (File(fdir, fbase), Dir(dname))
 import State
 import Syntax
-import Config                   (config, versinfo, Config(style))
+import Config
 import qualified Curses
 import {-# SOURCE #-} Keymap    (extraTable, keyTable)
 
@@ -59,7 +60,7 @@ import Data.Array               ((!), bounds, Array, listArray)
 import Data.Array.Base          (unsafeAt)
 import Control.Monad            (when)
 import qualified Control.Exception (catch, handle)
-import System.IO                (stderr, hFlush)
+import System.IO                (stderr, hFlush, hPutStrLn)
 import System.Posix.Signals     (raiseSignal, sigTSTP)
 import System.Posix.Env         (getEnv, putEnv)
 
@@ -70,7 +71,7 @@ import qualified Data.FastPackedString as P
 --
 -- | how to initialise the ui
 --
-start :: IO ()
+start :: IO UIStyle
 start = do
     Control.Exception.handle (const $ return ()) $ do -- tweak for OpenBSD console
         thisterm <- getEnv "TERM"
@@ -82,11 +83,20 @@ start = do
 
     Curses.initCurses resetui
 
-    b <- Curses.hasColors
-    initcolours $ if b then style config else {- do something better -} style config
+    colorify <- Curses.hasColors
+    hPutStrLn stderr (show colorify)
+    light    <- isLightBg
+    hPutStrLn stderr (show light)
 
+    let sty | colorify && light = lightBgStyle
+            | colorify          = defaultStyle
+            | otherwise         = bwStyle 
+
+    initcolours sty
     Curses.keypad Curses.stdScr True    -- grab the keyboard
     nocursor
+
+    return sty
 
 -- | Rezet
 resetui :: IO ()
@@ -250,11 +260,11 @@ spc2 = spaces 2
 ------------------------------------------------------------------------
 
 instance Element HelpScreen where
-    draw (_,w) _ _ _ = HelpScreen $ 
+    draw (_,w) _ st _ = HelpScreen $ 
         [ Fast (f cs h) sty | (h,cs,_) <- keyTable ] ++
         [ Fast (f cs h) sty | (h,cs) <- extraTable ]
         where
-            sty  = helpscreen . style $ config 
+            sty  = helpscreen . config $ st
 
             f :: [Char] -> P.FastString -> P.FastString
             f cs ps = 
@@ -306,13 +316,13 @@ instance Element PTimes where
 
 -- | A progress bar
 instance Element ProgressBar where
-    draw (_,w) _ _ Nothing = ProgressBar . FancyS $
+    draw (_,w) _ st Nothing = ProgressBar . FancyS $
           [(spc2,defaultSty) ,(spaces (w-4), bgs)]
         where 
-          (Style _ bg) = progress (style config)
+          (Style _ bg) = progress (config st)
           bgs          = Style bg bg
 
-    draw (_,w) _ _ (Just fr) = ProgressBar . FancyS $
+    draw (_,w) _ st (Just fr) = ProgressBar . FancyS $
           [(spc2,defaultSty)
           ,((spaces distance),fgs)
           ,((spaces (width - distance)),bgs)]
@@ -322,7 +332,7 @@ instance Element ProgressBar where
           distance = round ((curr / total) * fromIntegral width)
           curr     = toFloat (currentTime fr)
           left     = toFloat (timeLeft fr)
-          (Style fg bg) = progress (style config)
+          (Style fg bg) = progress (config st)
           bgs           = Style bg bg
           fgs           = Style fg fg
 
@@ -420,7 +430,7 @@ instance Element PlayTitle where
         padding = 3
         modlen  = P.length modes
         space   = spaces 1
-        hl      = titlebar (style config)
+        hl      = titlebar . config $ c
 
 -- | Playlist, TODO this should do threading-style rendering of filesystem trees
 --
@@ -481,9 +491,9 @@ instance Element PlayList where
                                         (spaces (x-indent-1-P.length s)))
                                 sty)
             
-            sty1 = selected . style $ config
-            sty2 = cursors  . style $ config
-            sty3 = combined . style $ config
+            sty1 = selected . config $ st
+            sty2 = cursors  . config $ st
+            sty3 = combined . config $ st
 
             -- must mchop before drawing.
             drawIt :: (Maybe Int, StringA) -> StringA
@@ -577,15 +587,15 @@ redrawJustClock = do
 drawHelp :: State -> Maybe Frame -> (Int,Int) -> IO ()
 drawHelp st fr s@(h,w) =
    when (helpVisible st) $ do
-       let (HelpScreen help) = draw s (0,0) st fr :: HelpScreen
-           (Fast fps _)      = head help
+       let (HelpScreen help') = draw s (0,0) st fr :: HelpScreen
+           (Fast fps _)      = head help'
            offset            = (w - (P.length fps)) `div` 2
-           height            = (h - length help) `div` 2
+           height            = (h - length help') `div` 2
        when (height > 0) $ do
-            Curses.wMove Curses.stdScr ((h - length help) `div` 2) offset
+            Curses.wMove Curses.stdScr ((h - length help') `div` 2) offset
             mapM_ (\t -> do drawLine w t
                             (y',_) <- Curses.getYX Curses.stdScr
-                            Curses.wMove Curses.stdScr (y'+1) offset) help
+                            Curses.wMove Curses.stdScr (y'+1) offset) help'
 
 ------------------------------------------------------------------------
 --
@@ -620,7 +630,7 @@ redraw =
    Curses.wMove Curses.stdScr (h-1) 0
    drawLine (w-1) (last a)
    when (miniFocused s) $ -- a fake cursor
-        drawLine 1 (Fast (spaces 1) (blockcursor . style $ config))
+        drawLine 1 (Fast (spaces 1) (blockcursor . config $ s ))
 
 ------------------------------------------------------------------------
 --
