@@ -628,7 +628,6 @@ redraw =
 --
 drawLine :: Int -> StringA -> IO ()
 drawLine _ (Fast ps sty) = drawPackedString ps sty
-drawLine _ (FancyS []) = return ()
 drawLine _ (FancyS ls) = loop ls
     where loop []             = return ()
           loop ((l,sty):xs)   = drawPackedString l sty >> loop xs

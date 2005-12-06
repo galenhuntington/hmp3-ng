@@ -1,3 +1,8 @@
+Todo:
+- How about having 'i' display information on the file under the cursor?
+  Often file names are not as descriptive, and one might want to see the
+  mp3 tags without playing the song.
+
 Possible:
  - breaks on Solaris and  Irix which lack ncurses.h due to WA_BOLD attrs
  - Cmd line *files* (not dirs) are not stored in the order they appear on the cmdline

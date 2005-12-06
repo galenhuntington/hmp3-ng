@@ -21,6 +21,9 @@ GHC 6.4.x is too old), or if you see:
       dist/build/hmp3-tmp/cbits/utils.o: No such file or directory
 errors, then you need to download a newer Cabal version first.
 
+N.B. If you don't have ncurses, you'll have to edit the hmp3.cabal file,
+and replace -lncurses with -lcurses.
+
 Use:
     To populate a playlist, and start:
 
@@ -51,6 +54,9 @@ Limitations:
 
     It is possible to use mpg123, however it appears to be more error
     prone, and less stable than mpg321.
+
+    On platforms without a native code generator (e.g. mips64/irix)
+    you'll need to remove references to -fasm in hmp3.cabal and Binary.hs)
 
 Platforms:
     hmp3 has been confirmed to work on:

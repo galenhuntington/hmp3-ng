@@ -213,10 +213,10 @@ foreign import ccall "static mycurses.h &stdscr"
 -- > to stdscr.
 --
 initScr :: IO Window
-initScr = throwPackedIfNull (P.packAddress "initscr"##) initscr
+initScr = throwPackedIfNull (P.packAddress "initscr"##) c_initscr
 
 foreign import ccall unsafe "mycurses.h initscr" 
-    initscr :: IO Window
+    c_initscr :: IO Window
 
 --
 -- |> The cbreak routine
@@ -390,7 +390,7 @@ color "blue"     = Just $ Color (#const COLOR_BLUE)
 color "magenta"  = Just $ Color (#const COLOR_MAGENTA)
 color "cyan"     = Just $ Color (#const COLOR_CYAN)
 color "white"    = Just $ Color (#const COLOR_WHITE)
-color _ =  Nothing
+color _          = Just $ Color (#const COLOR_BLACK)    -- NB
 
 --
 -- |> curses support color attributes  on  terminals  with  that
@@ -430,18 +430,14 @@ foreign import ccall unsafe
     init_pair :: CShort -> CShort -> CShort -> IO CInt
 
 -- ---------------------------------------------------------------------
--- Attributes 
+-- Attributes. Keep this as simple as possible for maximum portability
 
 foreign import ccall unsafe "mycurses.h attrset"
     c_attrset :: CInt -> IO CInt
 
-foreign import ccall unsafe "mycurses.h color_set"
-    c_color_set :: CShort -> Ptr a -> IO CInt
-
 attrSet :: Attr -> Pair -> IO ()
 attrSet (Attr attr) (Pair p) = do
-    throwIfErr_ (P.packAddress "attrset"##)   $ c_attrset attr 
-    throwIfErr_ (P.packAddress "color_set"##) $ c_color_set (fromIntegral p) nullPtr
+    throwIfErr_ (P.packAddress "attrset"##)   $ c_attrset (attr .|. fi (colorPair p))
 
 ------------------------------------------------------------------------
 
@@ -468,7 +464,7 @@ attrPlus (Attr a) (Attr b) = Attr (a .|. b)
     (unsigned long) A_##attr, (unsigned long) A_##attr
 
 bkgrndSet :: Attr -> Pair -> IO ()
-bkgrndSet (Attr a) p = bkgdset $
+bkgrndSet (Attr a) (Pair p) = bkgdset $
     fi (ord ' ') .|.
     #translate_attr ALTCHARSET
     #translate_attr BLINK
@@ -482,7 +478,7 @@ bkgrndSet (Attr a) p = bkgdset $
     colorPair p
 
 foreign import ccall unsafe "utils.h get_color_pair" 
-    colorPair :: Pair -> (#type chtype)
+    colorPair :: Int -> (#type chtype)
 
 foreign import ccall unsafe bkgdset :: (#type chtype) -> IO ()
 
@@ -492,9 +488,9 @@ foreign import ccall threadsafe
     waddnstr :: Window -> CString -> CInt -> IO CInt
 
 clrToEol :: IO ()
-clrToEol = throwIfErr_ (P.packAddress "clrtoeol"##) clrtoeol
+clrToEol = throwIfErr_ (P.packAddress "clrtoeol"##) c_clrtoeol
 
-foreign import ccall unsafe clrtoeol :: IO CInt
+foreign import ccall unsafe "mycurses.h clrtoeol" c_clrtoeol :: IO CInt
 
 --
 -- | >    move the cursor associated with the window
