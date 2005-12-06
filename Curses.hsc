@@ -39,7 +39,7 @@
 -- attrs dont work with Irix curses.h. This should be fixed.
 --
 
-#include "mycurses.h"
+#include "utils.h"
 
 module Curses (
 
@@ -194,7 +194,7 @@ type Window = Ptr WindowTag
 stdScr :: Window
 stdScr = unsafePerformIO (peek stdscr)
 
-foreign import ccall "static mycurses.h &stdscr" 
+foreign import ccall "static &stdscr" 
     stdscr :: Ptr Window
 
 --
@@ -215,7 +215,7 @@ foreign import ccall "static mycurses.h &stdscr"
 initScr :: IO Window
 initScr = throwPackedIfNull (P.packAddress "initscr"##) c_initscr
 
-foreign import ccall unsafe "mycurses.h initscr" 
+foreign import ccall unsafe "initscr" 
     c_initscr :: IO Window
 
 --
@@ -230,8 +230,8 @@ cBreak :: Bool -> IO ()
 cBreak True  = throwIfErr_ (P.packAddress "cbreak"##)   cbreak
 cBreak False = throwIfErr_ (P.packAddress "nocbreak"##) nocbreak
 
-foreign import ccall unsafe "mycurses.h cbreak"     cbreak :: IO CInt
-foreign import ccall unsafe "mycurses.h nocbreak" nocbreak :: IO CInt
+foreign import ccall unsafe "cbreak"     cbreak :: IO CInt
+foreign import ccall unsafe "nocbreak" nocbreak :: IO CInt
 
 --
 -- |> The  echo  and  noecho routines control whether characters
@@ -248,8 +248,8 @@ echo :: Bool -> IO ()
 echo False = throwIfErr_ (P.packAddress "noecho"##) noecho
 echo True  = throwIfErr_ (P.packAddress "echo"##)   echo_c
 
-foreign import ccall unsafe "mycurses.h noecho" noecho :: IO CInt
-foreign import ccall unsafe "mycurses.h echo"   echo_c :: IO CInt
+foreign import ccall unsafe "noecho" noecho :: IO CInt
+foreign import ccall unsafe "echo"   echo_c :: IO CInt
 
 --
 -- |> The  nl  and  nonl routines control whether the underlying
@@ -267,8 +267,8 @@ nl :: Bool -> IO ()
 nl True  = throwIfErr_ (P.packAddress "nl"##) nl_c
 nl False = throwIfErr_ (P.packAddress "nonl"##) nonl
 
-foreign import ccall unsafe "mycurses.h nl" nl_c :: IO CInt
-foreign import ccall unsafe "mycurses.h nonl" nonl :: IO CInt
+foreign import ccall unsafe "nl" nl_c :: IO CInt
+foreign import ccall unsafe "nonl" nonl :: IO CInt
 
 --
 -- | Enable the keypad of the user's terminal.
@@ -277,7 +277,7 @@ keypad :: Window -> Bool -> IO ()
 keypad win bf = throwIfErr_ (P.packAddress "keypad"##) $ 
     keypad_c win (if bf then 1 else 0)
 
-foreign import ccall unsafe "mycurses.h keypad" 
+foreign import ccall unsafe "keypad" 
     keypad_c :: Window -> (#type bool) -> IO CInt
 
 -- |> The nodelay option causes getch to be a non-blocking call.
@@ -288,8 +288,8 @@ noDelay :: Window -> Bool -> IO ()
 noDelay win bf = throwIfErr_ (P.packAddress "nodelay"##) $ 
     nodelay win (if bf then 1 else 0)
 
-foreign import ccall unsafe "mycurses.h"
-    nodelay :: Window -> (#type bool) -> IO CInt
+foreign import ccall unsafe nodelay 
+    :: Window -> (#type bool) -> IO CInt
 
 --
 -- |> Normally, the hardware cursor is left at the  location  of
@@ -303,7 +303,7 @@ foreign import ccall unsafe "mycurses.h"
 leaveOk  :: Bool -> IO CInt
 leaveOk bf = leaveok_c stdScr (if bf then 1 else 0)
 
-foreign import ccall unsafe "mycurses.h leaveok" 
+foreign import ccall unsafe "leaveok" 
     leaveok_c :: Window -> (#type bool) -> IO CInt
 
 ------------------------------------------------------------------------
@@ -316,7 +316,7 @@ foreign import ccall unsafe "mycurses.h leaveok"
 --  default foreground/background colors to color number  -1.
 --
 #if defined(HAVE_USE_DEFAULT_COLORS)
-foreign import ccall unsafe "mycurses.h use_default_colors" 
+foreign import ccall unsafe "use_default_colors" 
     useDefaultColors :: IO ()
 #else
 useDefaultColors :: IO ()
@@ -332,7 +332,7 @@ useDefaultColors = return ()
 endWin :: IO ()
 endWin = throwIfErr_ (P.packAddress "endwin"##) endwin
 
-foreign import ccall unsafe "mycurses.h endwin" 
+foreign import ccall unsafe "endwin" 
     endwin :: IO CInt
 
 ------------------------------------------------------------------------
@@ -346,8 +346,8 @@ scrSize = do
     cols <- peek colsPtr
     return (fi lnes, fi cols)
 
-foreign import ccall "mycurses.h &LINES" linesPtr :: Ptr CInt
-foreign import ccall "mycurses.h &COLS"  colsPtr  :: Ptr CInt
+foreign import ccall "&LINES" linesPtr :: Ptr CInt
+foreign import ccall "&COLS"  colsPtr  :: Ptr CInt
 
 --
 -- | refresh curses windows and lines. curs_refresh(3)
@@ -355,7 +355,7 @@ foreign import ccall "mycurses.h &COLS"  colsPtr  :: Ptr CInt
 refresh :: IO ()
 refresh = throwIfErr_ (P.packAddress "refresh"##) refresh_c
 
-foreign import ccall unsafe "mycurses.h refresh" 
+foreign import ccall unsafe "refresh" 
     refresh_c :: IO CInt
 
 ------------------------------------------------------------------------
@@ -363,7 +363,7 @@ foreign import ccall unsafe "mycurses.h refresh"
 hasColors :: IO Bool
 hasColors = liftM (/= 0) has_colors
 
-foreign import ccall unsafe "mycurses.h has_colors" 
+foreign import ccall unsafe "has_colors" 
     has_colors :: IO (#type bool)
 
 --
@@ -432,7 +432,7 @@ foreign import ccall unsafe
 -- ---------------------------------------------------------------------
 -- Attributes. Keep this as simple as possible for maximum portability
 
-foreign import ccall unsafe "mycurses.h attrset"
+foreign import ccall unsafe "attrset"
     c_attrset :: CInt -> IO CInt
 
 attrSet :: Attr -> Pair -> IO ()
@@ -477,7 +477,7 @@ bkgrndSet (Attr a) (Pair p) = bkgdset $
     #translate_attr UNDERLINE
     colorPair p
 
-foreign import ccall unsafe "utils.h get_color_pair" 
+foreign import ccall unsafe "get_color_pair" 
     colorPair :: Int -> (#type chtype)
 
 foreign import ccall unsafe bkgdset :: (#type chtype) -> IO ()
@@ -490,7 +490,7 @@ foreign import ccall threadsafe
 clrToEol :: IO ()
 clrToEol = throwIfErr_ (P.packAddress "clrtoeol"##) c_clrtoeol
 
-foreign import ccall unsafe "mycurses.h clrtoeol" c_clrtoeol :: IO CInt
+foreign import ccall unsafe "clrtoeol" c_clrtoeol :: IO CInt
 
 --
 -- | >    move the cursor associated with the window
@@ -523,7 +523,7 @@ cursSet :: CInt -> IO CInt
 cursSet 0 = leaveOk True  >> curs_set 0
 cursSet n = leaveOk False >> curs_set n 
 
-foreign import ccall unsafe "mycurses.h curs_set" 
+foreign import ccall unsafe "curs_set" 
     curs_set :: CInt -> IO CInt
 
 -- 
@@ -546,7 +546,7 @@ getYX w =
 --
 --      void getyx(WINDOW *win, int y, int x);
 --
-foreign import ccall unsafe "utils.h nomacro_getyx" 
+foreign import ccall unsafe "nomacro_getyx" 
         nomacro_getyx :: Window -> Ptr CInt -> Ptr CInt -> IO ()
 
 --
@@ -602,7 +602,7 @@ meta :: Window -> Bool -> IO ()
 meta win bf = throwIfErr_ (P.packAddress "meta"##) $
     c_meta win (if bf then 1 else 0)
 
-foreign import ccall unsafe "mycurses.h meta" 
+foreign import ccall unsafe "meta" 
     c_meta :: Window -> CInt -> IO CInt
 
 ------------------------------------------------------------------------
