@@ -7,7 +7,7 @@ Dependencies:
     mpg321                                    http://mpg321.sourceforge.net/
     The darcs version of the FPS library      http://www.cse.unsw.edu.au/~dons/fps.html
     A Cabal newer than 1.0                    http://haskell.org/cabal
-    ncurses or curses (not ocurses)
+    curses/ncurses (not ocurses)
 
 Building:
     $ chmod +x configure Setup.lhs
@@ -20,9 +20,6 @@ with newer GHCs. If your Cabal version is too old (v1.0 that comes with
 GHC 6.4.x is too old), or if you see:
       dist/build/hmp3-tmp/cbits/utils.o: No such file or directory
 errors, then you need to download a newer Cabal version first.
-
-N.B. If you don't have ncurses, you'll have to edit the hmp3.cabal file,
-and replace -lncurses with -lcurses.
 
 Use:
     To populate a playlist, and start:
