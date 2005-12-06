@@ -69,6 +69,7 @@ data StringA = Fast   {-# UNPACK #-} !P.FastString !Style
 data Color
     = RGB {-# UNPACK #-} !Word8 !Word8 !Word8
     | Default
+    | Reverse
     deriving (Eq,Ord)
 
 ------------------------------------------------------------------------
@@ -79,7 +80,6 @@ data Color
 --
 black, grey, darkred, red, darkgreen, green, brown, yellow          :: Color
 darkblue, blue, purple, magenta, darkcyan, cyan, white, brightwhite :: Color
-defaultfg, defaultbg :: Color
 black       = RGB 0 0 0
 grey        = RGB 128 128 128
 darkred     = RGB 139 0 0
@@ -97,6 +97,7 @@ cyan        = RGB 0 255 255
 white       = RGB 165 165 165
 brightwhite = RGB 255 255 255
 
+defaultfg, defaultbg, reversefg, reversebg :: Color
 #if defined(HAVE_USE_DEFAULT_COLORS)
 defaultfg   = Default
 defaultbg   = Default
@@ -104,6 +105,8 @@ defaultbg   = Default
 defaultfg   = white
 defaultbg   = black
 #endif
+reversefg   = Reverse
+reversebg   = Reverse
 
 ------------------------------------------------------------------------
 --
@@ -211,15 +214,17 @@ cwhite     = fromJust $ Curses.color "white"
 --
 -- Combine attribute with another attribute
 --
-setBoldA :: Curses.Attr -> Curses.Attr
-setBoldA      = flip Curses.setBold    True
+setBoldA, setReverseA ::  Curses.Attr -> Curses.Attr
+setBoldA     = flip Curses.setBold    True
+setReverseA  = flip Curses.setReverse True
 
 --
 -- | Some attribute constants
 --
-boldA, nullA :: Curses.Attr
+boldA, nullA, reverseA :: Curses.Attr
 nullA       = Curses.attr0
 boldA       = setBoldA      nullA
+reverseA    = setReverseA   nullA
 
 ------------------------------------------------------------------------
 
@@ -251,6 +256,7 @@ fgCursCol c = case c of
     RGB 165 165 165   -> CColor (nullA, cwhite)
     RGB 255 255 255   -> CColor (boldA, cwhite)
     Default           -> CColor (nullA, defaultColor)
+    Reverse           -> CColor (reverseA, defaultColor)
     _                 -> CColor (nullA, cblack) -- NB
 
 bgCursCol :: Color -> CColor
@@ -272,6 +278,7 @@ bgCursCol c = case c of
     RGB 165 165 165   -> CColor (nullA, cwhite)
     RGB 255 255 255   -> CColor (nullA, cwhite)
     Default           -> CColor (nullA, defaultColor)
+    Reverse           -> CColor (reverseA, defaultColor)
     _                 -> CColor (nullA, cwhite)    -- NB
 
 defaultSty :: Style

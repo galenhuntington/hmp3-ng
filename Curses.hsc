@@ -80,7 +80,7 @@ module Curses (
 
     -- * Attributes
     Attr,
-    attr0, setBold,
+    attr0, setBold, setReverse,
     attrSet,
     attrPlus,           -- :: Attr -> Attr -> Attr
 
@@ -448,6 +448,9 @@ attr0   = Attr (#const A_NORMAL)
 
 setBold :: Attr -> Bool -> Attr
 setBold = setAttr (Attr #const A_BOLD)
+
+setReverse :: Attr -> Bool -> Attr
+setReverse = setAttr (Attr #const A_REVERSE)
 
 -- | bitwise combination of attributes
 setAttr :: Attr -> Attr -> Bool -> Attr

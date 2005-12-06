@@ -60,7 +60,7 @@ import Data.Array               ((!), bounds, Array, listArray)
 import Data.Array.Base          (unsafeAt)
 import Control.Monad            (when)
 import qualified Control.Exception (catch, handle)
-import System.IO                (stderr, hFlush, hPutStrLn)
+import System.IO                (stderr, hFlush)
 import System.Posix.Signals     (raiseSignal, sigTSTP)
 import System.Posix.Env         (getEnv, putEnv)
 
@@ -84,9 +84,7 @@ start = do
     Curses.initCurses resetui
 
     colorify <- Curses.hasColors
-    hPutStrLn stderr (show colorify)
     light    <- isLightBg
-    hPutStrLn stderr (show light)
 
     let sty | colorify && light = lightBgStyle
             | colorify          = defaultStyle

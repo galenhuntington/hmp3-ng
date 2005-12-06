@@ -55,15 +55,15 @@ muttStyle   = UIStyle { window     = Style brightwhite  black
 
 bwStyle :: UIStyle 
 bwStyle = UIStyle {
-        window      = Style white black
-       ,titlebar    = Style black white
-       ,selected    = Style brightwhite black  -- bold
-       ,cursors     = Style black white
-       ,combined    = Style black white
-       ,warnings    = Style black white
-       ,helpscreen  = Style black white
-       ,blockcursor = Style black white
-       ,progress    = Style black white
+        window      = Style defaultfg   defaultbg
+       ,titlebar    = Style reversefg   reversebg
+       ,selected    = Style brightwhite defaultbg
+       ,cursors     = Style reversefg   reversebg
+       ,combined    = Style reversefg   reversebg
+       ,warnings    = Style reversefg   reversebg
+       ,helpscreen  = Style reversefg   reversebg
+       ,blockcursor = Style reversefg   reversebg
+       ,progress    = Style reversefg   reversebg
     }
            
 ------------------------------------------------------------------------
