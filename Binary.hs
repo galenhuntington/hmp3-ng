@@ -1,4 +1,4 @@
-{-# OPTIONS -fasm #-}
+-- On linux/x86, this module needs to be compiled with -fasm
 --
 -- (c) The University of Glasgow 2002
 --
