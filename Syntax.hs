@@ -136,7 +136,9 @@ data Status = Stopped
             | Paused
             | Playing
         deriving Eq
-                
+
+data Mode = Normal | Loop | Random deriving (Eq,Bounded,Enum) -- for pred,succ
+
 ------------------------------------------------------------------------
 
 --

@@ -68,16 +68,18 @@ import GHC.Handle               (fdToHandle)
 
 ------------------------------------------------------------------------
 
-start :: Either (FileArray,DirArray,Int) [P.FastString] -> IO ()
+start :: Either (FileArray,DirArray,Int,Mode) [P.FastString] -> IO ()
 start ms = Control.Exception.handle (\e -> shutdown (Just (show e))) $ do
 
     t0 <- forkIO mpgLoop    -- start this off early, to give mpg321 a time to settle
 
     c <- UI.start -- initialise curses
 
-    (ds,fs,i) <- case ms of -- construct the state
-                Left (fs',ds',x) -> return (ds',fs',x)
-                Right roots      -> buildTree roots >>= \(a,b) -> return (a,b,0)
+    (ds,fs,i,m) 
+        <- case ms of -- construct the state
+           Left (fs',ds',x,m) -> return (ds',fs',x,m)
+           Right roots        -> buildTree roots 
+                                 >>= \(a,b) -> return (a,b,0,Normal)
 
     now   <- getClockTime
     modifyState_ $ \s -> return s 
@@ -86,6 +88,7 @@ start ms = Control.Exception.handle (\e -> shutdown (Just (show e))) $ do
         , size         = 1 + (snd . bounds $ fs)
         , cursor       = i
         , current      = i
+        , mode         = m
         , uptime       = drawUptime now now
         , boottime     = now 
         , config       = c
@@ -461,10 +464,10 @@ writeSt = do
     withState $ \st -> do
         let arr1 = music st
             arr2 = folders st
-        when (size st > 0) $ writeTree f (arr1,arr2) (current st)
+        when (size st > 0) $ writeTree f (arr1,arr2) (current st) (mode st)
 
 -- | Read the playlist back
-readSt :: IO (Maybe (FileArray, DirArray, Int))
+readSt :: IO (Maybe (FileArray, DirArray, Int, Mode))
 readSt = do
     home <- getHome
     let f = home </> ".hmp3db"

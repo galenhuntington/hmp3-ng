@@ -25,6 +25,7 @@
 module Tree where
 
 import FastIO
+import Syntax           (Mode(..))
 import Binary           (openBinIO_, Binary(put_, get))
 import qualified Data.FastPackedString as P (drop,map,length,pack,FastString)
 
@@ -201,24 +202,29 @@ instance Binary Dir where
 --
 -- write the arrays out
 --
-writeTree :: FilePath -> (FileArray, DirArray) -> Int -> IO ()
-writeTree f arrs i = do
+writeTree :: FilePath -> (FileArray, DirArray) -> Int -> Mode -> IO ()
+writeTree f arrs i m = do
     h    <- openFile   f WriteMode
     bh   <- openBinIO_ h
     put_ bh arrs
     put_ bh i 
+    put_ bh m
     hClose h
 
 --
 -- | Read the arrays from a file
 -- Read from binMem?
 --
-readTree :: FilePath -> IO (FileArray, DirArray, Int)
+readTree :: FilePath -> IO (FileArray, DirArray, Int, Mode)
 readTree f = do
     h    <- openFile   f ReadMode
     bh   <- openBinIO_ h        -- openBinMem
     (a,b)<- get bh
     i    <- get bh
+    m    <- get bh
     hClose h
-    return $! (a,b,i)
+    return $! (a,b,i,m)
 
+instance Binary Mode where
+    put_ bh = put_ bh . fromEnum
+    get  bh = liftM toEnum $ get bh

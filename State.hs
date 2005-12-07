@@ -22,7 +22,7 @@
 --
 module State where
 
-import Syntax                   (Status(Stopped), Frame, Info,Id3)
+import Syntax                   (Status(Stopped), Mode(..), Frame, Info,Id3)
 import Tree                     (FileArray, DirArray)
 import Style                    (StringA(Fast), defaultSty, UIStyle)
 import Regex                    (Regex)
@@ -70,8 +70,6 @@ data State = State {
        
        ,config          :: !UIStyle        -- config values
     }
-
-data Mode = Normal | Loop | Random deriving (Eq,Bounded,Enum) -- for pred,succ
 
 ------------------------------------------------------------------------
 --

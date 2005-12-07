@@ -20,6 +20,7 @@
 
 module Main where
 
+import Syntax   (Mode)
 import Core     (start, readSt, shutdown)
 import Tree     (FileArray, DirArray)
 import Utils    ((<+>))
@@ -75,7 +76,7 @@ usage = ["Usage: hmp3 [-Vh] [FILE|DIR ...]"
         ,"-h             Show this help"]
 
 -- | Parse the args
-do_args :: [P.FastString] -> IO (Either (FileArray,DirArray,Int) [P.FastString])
+do_args :: [P.FastString] -> IO (Either (FileArray,DirArray,Int,Mode) [P.FastString])
 do_args []  = do    -- attempt to read db
     x <- readSt 
     case x of
