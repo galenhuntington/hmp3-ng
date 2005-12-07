@@ -279,8 +279,7 @@ handleMsg (S t) = do
 
 handleMsg (R f) = do
     silentlyModifyState $ \st -> st { clock = Just f }
-    x <- tryTakeMVar clockModified   -- immediate update
-    when (isJust x) UI.refreshClock
+    readState clockUpdate >>= flip when UI.refreshClock
 
 ------------------------------------------------------------------------
 --
@@ -306,8 +305,7 @@ seek fn = do
                 h <- readMVar (writeh st)
                 send h $ Jump (fn g)
                 forceNextPacket         -- don't drop the next Frame.
-            tryPutMVar clockModified () -- touch the modified MVar
-            return ()
+            silentlyModifyState $ \st -> st { clockUpdate = True }
 
 ------------------------------------------------------------------------
 

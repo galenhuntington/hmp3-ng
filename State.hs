@@ -55,7 +55,8 @@ data State = State {
        ,size            :: !Int                  -- cache size of list
        ,current         :: !Int                  -- currently playing mp3
        ,cursor          :: !Int                  -- mp3 under the cursor
-       ,clock           :: !(Maybe Frame)
+       ,clock           :: !(Maybe Frame)        -- current clock value
+       ,clockUpdate     :: !Bool
        ,mp3pid          :: !(Maybe ProcessID)    -- pid of decoder
        ,writeh          :: !(MVar Handle)        --  handle to mp3 (should be MVars?)
        ,errh            :: !(MVar Handle)        --  error handle to mp3
@@ -87,6 +88,7 @@ emptySt = State {
        ,size         = 0
        ,mp3pid       = Nothing
        ,clock        = Nothing
+       ,clockUpdate  = False
        ,writeh       = unsafePerformIO newEmptyMVar
        ,errh         = unsafePerformIO newEmptyMVar
        ,readf        = unsafePerformIO newEmptyMVar
@@ -124,11 +126,6 @@ state = unsafePerformIO $ do
 modified :: MVar ()
 modified = unsafePerformIO $ newMVar ()
 {-# NOINLINE modified #-}
-
--- | When set, we are supposed to update the clock immediately 
-clockModified :: MVar ()
-clockModified = unsafePerformIO $ newMVar ()
-{-# NOINLINE clockModified #-}
 
 ------------------------------------------------------------------------
 -- state accessor functions
