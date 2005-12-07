@@ -468,11 +468,13 @@ writeSt = do
     withState $ \st -> do
         let arr1 = music st
             arr2 = folders st
+            idx  = current st
+            mde  = mode st
         when (size st > 0) $ writeTree f $ SerialT {
                                             ser_farr = arr1
                                            ,ser_darr = arr2
-                                           ,ser_indx = current st
-                                           ,ser_mode = mode st
+                                           ,ser_indx = idx
+                                           ,ser_mode = mde
                                           }
 
 -- | Read the playlist back
