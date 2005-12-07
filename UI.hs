@@ -627,8 +627,9 @@ redraw =
    fillLine 
    Curses.wMove Curses.stdScr (h-1) 0
    drawLine (w-1) (last a)
-   when (miniFocused s) $ -- a fake cursor
+   when (miniFocused s) $ do -- a fake cursor
         drawLine 1 (Fast (spaces 1) (blockcursor . config $ s ))
+        -- todo rendering bug here when deleting backwards in minibuffer
 
 ------------------------------------------------------------------------
 --
