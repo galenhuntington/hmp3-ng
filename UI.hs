@@ -78,7 +78,7 @@ start = do
         case thisterm of 
             Just "vt220" -> putEnv "TERM=xterm-color"
             Just t | "xterm" `isPrefixOf` t 
-                   -> modifyState_ $ \st -> return st { xterm = True }
+                   -> silentlyModifyState $ \st -> st { xterm = True }
             _ -> return ()
 
     Curses.initCurses resetui

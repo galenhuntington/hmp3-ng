@@ -198,6 +198,10 @@ instance Binary Dir where
         hi <- get bh
         return (Dir nm sz lo hi)
 
+instance Binary Mode where
+    put_ bh = put_ bh . fromEnum
+    get  bh = liftM toEnum $ get bh
+
 ------------------------------------------------------------------------
 --
 -- write the arrays out
@@ -225,6 +229,4 @@ readTree f = do
     hClose h
     return $! (a,b,i,m)
 
-instance Binary Mode where
-    put_ bh = put_ bh . fromEnum
-    get  bh = liftM toEnum $ get bh
+

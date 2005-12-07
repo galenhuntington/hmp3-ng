@@ -72,8 +72,8 @@ releaseSignals =
 -- usage string.
 usage :: [String]
 usage = ["Usage: hmp3 [-Vh] [FILE|DIR ...]"
-        ,"-V             Show version information"
-        ,"-h             Show this help"]
+        ,"-V  --version  Show version information"
+        ,"-h  --help     Show this help"]
 
 -- | Parse the args
 do_args :: [P.FastString] -> IO (Either (FileArray,DirArray,Int,Mode) [P.FastString])
@@ -83,9 +83,9 @@ do_args []  = do    -- attempt to read db
         Nothing -> do mapM_ putStrLn usage; exitWith ExitSuccess
         Just st -> return $ Left st
 
-do_args [s] | s == P.pack "-V" 
+do_args [s] | s == P.pack "-V"  || s == P.pack "--version"
             = do putStrLn (versinfo <+> help); putStrLn darcsinfo; exitWith ExitSuccess
-            | s == P.pack "-h" 
+            | s == P.pack "-h"  || s == P.pack "--help"
             = do putStrLn (versinfo <+> help); mapM_ putStrLn usage; exitWith ExitSuccess
 
 do_args xs = return $ Right xs
