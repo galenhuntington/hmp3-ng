@@ -70,6 +70,8 @@ int getline(char *buf, FILE *hdl) {
             
 /* given a file descriptor (presumably got from a Haskell Handle) , open
  * a FILE * stream onto that fd. Don't try to use the Handle after this 
+ *
+ * could be done in Haskell...
  */
 FILE *openfd(int fd) {
     FILE *file = NULL;
