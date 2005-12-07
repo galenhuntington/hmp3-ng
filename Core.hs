@@ -82,7 +82,15 @@ start ms = Control.Exception.handle (\e -> shutdown (Just (show e))) $ do
                                  >>= \(a,b) -> return (a,b,0,Normal)
 
     now   <- getClockTime
-    modifyState_ $ \s -> return s 
+
+    -- fork some threads
+    t1 <- forkIO mpgInput
+    t2 <- forkIO refreshLoop
+    t3 <- forkIO clockLoop
+    t4 <- forkIO uptimeLoop
+    t5 <- forkIO errorLoop
+
+    silentlyModifyState $ \s -> s 
         { music        = fs
         , folders      = ds
         , size         = 1 + (snd . bounds $ fs)
@@ -92,15 +100,7 @@ start ms = Control.Exception.handle (\e -> shutdown (Just (show e))) $ do
         , uptime       = drawUptime now now
         , boottime     = now 
         , config       = c
-        }
-
-    -- fork some threads
-    t1 <- forkIO mpgInput
-    t2 <- forkIO refreshLoop
-    t3 <- forkIO clockLoop
-    t4 <- forkIO uptimeLoop
-    t5 <- forkIO errorLoop
-    silentlyModifyState $ \s -> s { threads = [t0,t1,t2,t3,t4,t5] } 
+        , threads      = [t0,t1,t2,t3,t4,t5] }
 
     when (0 <= (snd . bounds $ fs)) play -- start the first song
 
