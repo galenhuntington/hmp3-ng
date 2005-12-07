@@ -75,6 +75,10 @@ data State = State {
        ,xterm           :: !Bool
        ,doNotResuscitate:: !Bool                -- should we just let mpg321 die?
        ,config          :: !UIStyle             -- config values
+
+       ,modified        :: !(MVar ())           -- Set when redrawable components of 
+                                                -- the state are modified. The ui
+                                                -- refresh thread waits on this.
     }
 
 ------------------------------------------------------------------------
@@ -108,6 +112,8 @@ emptySt = State {
        ,xterm        = False
        ,doNotResuscitate = False    -- mgp321 should be be restarted
        ,config       = Config.defaultStyle
+
+       ,modified     = unsafePerformIO newEmptyMVar
     }
 
 --
@@ -118,14 +124,6 @@ state = unsafePerformIO $ do
             ref  <- newIORef emptySt
             newMVar ref
 {-# NOINLINE state #-}
-
-------------------------------------------------------------------------
---
--- Set when redrawable components of the state are modified. The ui
--- refresh thread waits on this.
-modified :: MVar ()
-modified = unsafePerformIO $ newMVar ()
-{-# NOINLINE modified #-}
 
 ------------------------------------------------------------------------
 -- state accessor functions
@@ -156,7 +154,7 @@ silentlyModifyStateM f = doModifyState $ \st -> do st' <- f st; return (st', ())
 
 -- | Trigger a refresh
 touchState :: IO ()
-touchState = tryPutMVar modified () >> return ()
+touchState = silentlyModifyStateM $ \st -> tryPutMVar (modified st) () >> return st
 
 -- worker
 doModifyState :: (State -> IO (State,b)) -> IO b
