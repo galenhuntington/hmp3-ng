@@ -5,9 +5,9 @@
 Dependencies:
     The Glasgow Haskell Compiler >= 6.4       http://haskell.org/ghc
     mpg321                                    http://mpg321.sourceforge.net/
-    The darcs version of the FPS library      http://www.cse.unsw.edu.au/~dons/fps.html
+    The snapshot or darcs version FPS         http://www.cse.unsw.edu.au/~dons/fps.html
     A Cabal newer than 1.0                    http://haskell.org/cabal
-    curses/ncurses (not ocurses)
+    curses
 
 Building:
     $ chmod +x configure Setup.lhs
@@ -42,8 +42,9 @@ Configuration:
     The keymaps are configurable by adding your own bindings to
     Config.hs (as are the colours). Edit this file before compilation.
 
-    If you have a light xterm, set HMP_HAS_LIGHT_BG=true in your shell,
-    and hmp3 will use the light color settings by default.
+    Alternatively, you can switch betwee dark and light settings without
+    recompiling. If you have a light xterm, set HMP_HAS_LIGHT_BG=true in
+    your shell, and hmp3 will use the light color settings by default.
 
 Limitations:
     It only plays mp3 files (and variants supported by mpg{321,123}.
