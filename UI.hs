@@ -568,7 +568,7 @@ redrawJustClock = do
    Control.Exception.handle (\_ -> return ()) $ do
 
    st      <- readState id
-   fr      <- readClock id
+   let fr = clock st
    s@(_,w) <- screenSize
    let (ProgressBar bar) = draw s undefined st fr :: ProgressBar
        (PTimes times)    = {-# SCC "redrawJustClock.times" #-} draw s undefined st fr :: PTimes
@@ -605,7 +605,7 @@ redraw =
    Control.Exception.handle (\_ -> return ()) $ do
 
    s <- readState id    -- another refresh could be triggered?
-   f <- readClock id
+   let f = clock s
    sz@(h,w) <- screenSize
 
    let x = printPlayScreen (draw sz (0,0) s f :: PlayScreen)

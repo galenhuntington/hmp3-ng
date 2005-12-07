@@ -42,6 +42,11 @@ import Control.Concurrent       (ThreadId)
 import Control.Concurrent.MVar
 
 ------------------------------------------------------------------------
+-- The ST monad over IO
+
+-- type ST = StateT State IO
+
+------------------------------------------------------------------------
 
 -- | The editor state type
 data State = State {
@@ -50,6 +55,7 @@ data State = State {
        ,size            :: !Int                  -- cache size of list
        ,current         :: !Int                  -- currently playing mp3
        ,cursor          :: !Int                  -- mp3 under the cursor
+       ,clock           :: !(Maybe Frame)
        ,mp3pid          :: !(Maybe ProcessID)    -- pid of decoder
        ,writeh          :: !(MVar Handle)        --  handle to mp3 (should be MVars?)
        ,errh            :: !(MVar Handle)        --  error handle to mp3
@@ -80,6 +86,7 @@ emptySt = State {
        ,folders      = listArray (0,0) []
        ,size         = 0
        ,mp3pid       = Nothing
+       ,clock        = Nothing
        ,writeh       = unsafePerformIO newEmptyMVar
        ,errh         = unsafePerformIO newEmptyMVar
        ,readf        = unsafePerformIO newEmptyMVar
@@ -109,27 +116,6 @@ state = unsafePerformIO $ do
             ref  <- newIORef emptySt
             newMVar ref
 {-# NOINLINE state #-}
-
-------------------------------------------------------------------------
---
--- | A global variable holding the current frame (lots of updates), but
--- we only care about the most recent one.
---
-clock :: MVar (IORef (Maybe Frame))
-clock = unsafePerformIO $ do
-            ref  <- newIORef Nothing
-            newMVar ref
-{-# NOINLINE clock #-}
-
-readClock :: ((Maybe Frame) -> b) -> IO b
-readClock f = withMVar clock $ \ref -> return . f =<< readIORef ref
-
-modifyClock :: ((Maybe Frame) -> IO (Maybe Frame)) -> IO ()
-modifyClock f = modifyMVar_ clock $ \r -> do
-    v  <- readIORef r
-    v' <- f v
-    writeIORef r v'
-    return r
 
 ------------------------------------------------------------------------
 --
@@ -166,6 +152,10 @@ modifyState f = doModifyState f >>= \b -> touchState >> return b
 -- | Variation on modifyState_ that won't trigger a refresh
 silentlyModifyState :: (State -> State) -> IO ()
 silentlyModifyState f = doModifyState $ \st -> return (f st, ())
+
+-- | IO version
+silentlyModifyStateM :: (State -> IO State) -> IO ()
+silentlyModifyStateM f = doModifyState $ \st -> do st' <- f st; return (st', ())
 
 -- | Trigger a refresh
 touchState :: IO ()

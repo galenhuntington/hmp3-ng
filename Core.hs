@@ -278,7 +278,7 @@ handleMsg (S t) = do
         if r == Random then playRandom else playNext
 
 handleMsg (R f) = do
-    modifyClock $ \_ -> return $ Just f
+    silentlyModifyState $ \st -> st { clock = Just f }
     x <- tryTakeMVar clockModified   -- immediate update
     when (isJust x) UI.refreshClock
 
@@ -298,7 +298,7 @@ seekRight = seek $ \g -> currentFrame g + (min 400 (framesLeft g))
 -- | Generic seek
 seek :: (Frame -> Int) -> IO ()
 seek fn = do
-    f <- readClock id
+    f <- readState clock
     case f of 
         Nothing -> return ()
         Just g  -> do
