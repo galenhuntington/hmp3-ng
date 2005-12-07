@@ -68,18 +68,22 @@ import GHC.Handle               (fdToHandle)
 
 ------------------------------------------------------------------------
 
-start :: Either (FileArray,DirArray,Int,Mode) [P.FastString] -> IO ()
+start :: Either SerialT [P.FastString] -> IO ()
 start ms = Control.Exception.handle (\e -> shutdown (Just (show e))) $ do
 
     t0 <- forkIO mpgLoop    -- start this off early, to give mpg321 a time to settle
 
     c <- UI.start -- initialise curses
 
-    (ds,fs,i,m) 
-        <- case ms of -- construct the state
-           Left (fs',ds',x,m) -> return (ds',fs',x,m)
-           Right roots        -> buildTree roots 
-                                 >>= \(a,b) -> return (a,b,0,Normal)
+    (ds,fs,i,m)   -- construct the state
+        <- case ms of
+           Right roots -> do (a,b) <- buildTree roots 
+                             return (a,b,0,Normal)
+
+           Left st     -> return (ser_darr st
+                                 ,ser_farr st
+                                 ,ser_indx st
+                                 ,ser_mode st)
 
     now   <- getClockTime
 
@@ -464,10 +468,15 @@ writeSt = do
     withState $ \st -> do
         let arr1 = music st
             arr2 = folders st
-        when (size st > 0) $ writeTree f (arr1,arr2) (current st) (mode st)
+        when (size st > 0) $ writeTree f $ SerialT {
+                                            ser_farr = arr1
+                                           ,ser_darr = arr2
+                                           ,ser_indx = current st
+                                           ,ser_mode = mode st
+                                          }
 
 -- | Read the playlist back
-readSt :: IO (Maybe (FileArray, DirArray, Int, Mode))
+readSt :: IO (Maybe SerialT)
 readSt = do
     home <- getHome
     let f = home </> ".hmp3db"

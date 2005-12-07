@@ -202,31 +202,53 @@ instance Binary Mode where
     put_ bh = put_ bh . fromEnum
     get  bh = liftM toEnum $ get bh
 
-------------------------------------------------------------------------
+-- How we write everything out
+instance Binary SerialT where
+    put_ bh st = do
+        put_ bh (ser_farr st, ser_darr st)
+        put_ bh (ser_indx st)
+        put_ bh (ser_mode st)
+
+    get bh     = do
+        (a,b)<- get bh
+        i    <- get bh
+        m    <- get bh
+        return $ SerialT {
+                    ser_farr = a
+                   ,ser_darr = b
+                   ,ser_indx = i
+                   ,ser_mode = m
+                 }
+
+-----------------------------------------------------------------------
+
+-- | Wrap up the values we're going to dump to disk
+data SerialT = SerialT {
+        ser_farr :: FileArray,
+        ser_darr :: DirArray,
+        ser_indx :: Int,
+        ser_mode :: Mode 
+     }
+
 --
 -- write the arrays out
 --
-writeTree :: FilePath -> (FileArray, DirArray) -> Int -> Mode -> IO ()
-writeTree f arrs i m = do
+writeTree :: FilePath -> SerialT -> IO ()
+writeTree f st = do
     h    <- openFile   f WriteMode
     bh   <- openBinIO_ h
-    put_ bh arrs
-    put_ bh i 
-    put_ bh m
+    put_ bh st
     hClose h
 
 --
 -- | Read the arrays from a file
 -- Read from binMem?
 --
-readTree :: FilePath -> IO (FileArray, DirArray, Int, Mode)
+readTree :: FilePath -> IO SerialT
 readTree f = do
     h    <- openFile   f ReadMode
     bh   <- openBinIO_ h        -- openBinMem
-    (a,b)<- get bh
-    i    <- get bh
-    m    <- get bh
+    st   <- get bh
     hClose h
-    return $! (a,b,i,m)
-
+    return st
 
