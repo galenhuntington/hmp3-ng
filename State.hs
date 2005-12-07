@@ -30,7 +30,6 @@ import qualified Data.FastPackedString as P (empty,FastString)
 import qualified Config (defaultStyle)
 
 import Data.Array               (listArray)
-import Data.IORef               (newIORef,readIORef,writeIORef,IORef)
 import System.IO.Unsafe         (unsafePerformIO)
 import System.Posix.Types       (ProcessID)
 import System.Time              (ClockTime(..))
@@ -41,15 +40,17 @@ import Foreign.Ptr              (Ptr)
 import Control.Concurrent       (ThreadId)
 import Control.Concurrent.MVar
 
-------------------------------------------------------------------------
--- The ST monad over IO
+-- import Control.Monad.State
 
--- type ST = StateT State IO
+------------------------------------------------------------------------
+-- A state monad over IO
+
+-- type ST = StateT HState IO
 
 ------------------------------------------------------------------------
 
 -- | The editor state type
-data State = State {
+data HState = HState {
         music           :: !FileArray
        ,folders         :: !DirArray
        ,size            :: !Int                  -- cache size of list
@@ -85,8 +86,8 @@ data State = State {
 --
 -- | The initial state
 --
-emptySt :: State
-emptySt = State {
+emptySt :: HState
+emptySt = HState {
         music        = listArray (0,0) []
        ,folders      = listArray (0,0) []
        ,size         = 0
@@ -117,49 +118,37 @@ emptySt = State {
     }
 
 --
--- | A global variable holding the state
+-- | A global variable holding the state. Todo StateT
 --
-state :: MVar (IORef State)
-state = unsafePerformIO $ do
-            ref  <- newIORef emptySt
-            newMVar ref
+state :: MVar HState
+state = unsafePerformIO $ newMVar emptySt
 {-# NOINLINE state #-}
 
 ------------------------------------------------------------------------
 -- state accessor functions
 
--- | Read the state, with an IO action
-withState :: (State -> IO a) -> IO a
-withState f = withMVar state $ \ref -> f =<< readIORef ref
+-- | Access a component of the state with a projection function
+getsST :: (HState -> a) -> IO a
+getsST f = withST (return . f)
 
--- | Read state
-readState :: (State -> a) -> IO a
-readState f = withState (return . f)
+-- | Perform a (read-only) IO action on the state
+withST :: (HState -> IO a) -> IO a
+withST f = readMVar state >>= f
 
--- | Modify the contents, using an IO action.
-modifyState_ :: (State -> IO State) -> IO ()
-modifyState_ f = modifyState $ \st -> do st' <- f st; return (st',())
+-- | Modify the state with a pure function
+modifyST :: (HState -> HState) -> IO ()
+modifyST  f = modifyMVar_ state (return . f)
 
--- | Variation on modifyState_ that lets you return a value
-modifyState :: (State -> IO (State,b)) -> IO b
-modifyState f = doModifyState f >>= \b -> touchState >> return b
+------------------------------------------------------------------------
 
--- | Variation on modifyState_ that won't trigger a refresh
-silentlyModifyState :: (State -> State) -> IO ()
-silentlyModifyState f = doModifyState $ \st -> return (f st, ())
+-- | Modify the state with an IO action, triggering a refresh
+modifySTM :: (HState -> IO HState) -> IO ()
+modifySTM f = modifyMVar_ state f >> touchST
 
--- | IO version
-silentlyModifyStateM :: (State -> IO State) -> IO ()
-silentlyModifyStateM f = doModifyState $ \st -> do st' <- f st; return (st', ())
+-- | Modify the state with an IO action, returning a value
+modifySTM_ :: (HState -> IO (HState,a)) -> IO a
+modifySTM_ f = modifyMVar state f >>= \a -> touchST >> return a
 
--- | Trigger a refresh
-touchState :: IO ()
-touchState = silentlyModifyStateM $ \st -> tryPutMVar (modified st) () >> return st
-
--- worker
-doModifyState :: (State -> IO (State,b)) -> IO b
-doModifyState f = modifyMVar state $ \r -> do
-    v      <- readIORef r
-    (v',b) <- f v
-    writeIORef r v'
-    return (r,b)
+-- | Trigger a refresh. This is the only way to update the screen
+touchST :: IO ()
+touchST = withMVar state $ \st -> tryPutMVar (modified st) () >> return ()

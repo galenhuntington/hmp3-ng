@@ -78,7 +78,7 @@ start = do
         case thisterm of 
             Just "vt220" -> putEnv "TERM=xterm-color"
             Just t | "xterm" `isPrefixOf` t 
-                   -> silentlyModifyState $ \st -> st { xterm = True }
+                   -> modifyST $ \st -> st { xterm = True }
             _ -> return ()
 
     Curses.initCurses resetui
@@ -171,7 +171,7 @@ type Size   = (Int{-H-}, Int{-W-})
 -- for printing the object as a list of strings
 --
 class Element a where
-    draw  :: Size -> Pos -> State -> Maybe Frame -> a
+    draw  :: Size -> Pos -> HState -> Maybe Frame -> a
 
 --
 -- | The elements of the play mode widget
@@ -567,7 +567,7 @@ redrawJustClock :: IO ()
 redrawJustClock = do 
    Control.Exception.handle (\_ -> return ()) $ do
 
-   st      <- readState id
+   st      <- getsST id
    let fr = clock st
    s@(_,w) <- screenSize
    let (ProgressBar bar) = draw s undefined st fr :: ProgressBar
@@ -582,7 +582,7 @@ redrawJustClock = do
 --
 -- work for drawing help. draw the help screen if it is up
 --
-drawHelp :: State -> Maybe Frame -> (Int,Int) -> IO ()
+drawHelp :: HState -> Maybe Frame -> (Int,Int) -> IO ()
 drawHelp st fr s@(h,w) =
    when (helpVisible st) $ do
        let (HelpScreen help') = draw s (0,0) st fr :: HelpScreen
@@ -604,7 +604,7 @@ redraw =
    -- linux ncurses, in particular, seems to complain a lot. this is an easy solution
    Control.Exception.handle (\_ -> return ()) $ do
 
-   s <- readState id    -- another refresh could be triggered?
+   s <- getsST id    -- another refresh could be triggered?
    let f = clock s
    sz@(h,w) <- screenSize
 
@@ -700,7 +700,7 @@ setXtermTitle strs = do
 
 -- set xterm title (should have an instance Element)
 -- Don't need to do this on each refresh...
-setXterm :: State -> (Int,Int) -> Maybe Frame -> IO ()
+setXterm :: HState -> (Int,Int) -> Maybe Frame -> IO ()
 setXterm s sz f = setXtermTitle $ 
     if status s == Playing
       then case id3 s of

@@ -25,7 +25,7 @@ module Keymap where
 import Prelude hiding (all)
 
 import Core
-import State        (modifyState, touchState, State(helpVisible))
+import State        (getsST, touchST, HState(helpVisible))
 import Style        (defaultSty, StringA(Fast))
 import qualified UI (resetui)
 import Curses       (keyEnd,keyPPage,keyNPage,keyBackspace,keyHome
@@ -59,7 +59,7 @@ commands = (alt keys) `action` \[c] -> Just $ case M.lookup c keyMap of
 
 search :: LexerS
 search = (char '/' >|< char '?') `meta` \[c] _ -> 
-                (with (toggleFocus >> putmsg (Fast (P.pack [c]) defaultSty) >> touchState)
+                (with (toggleFocus >> putmsg (Fast (P.pack [c]) defaultSty) >> touchST)
                 ,((c == '/'), [c]) ,Just dosearch)
 
 dosearch :: LexerS
@@ -67,7 +67,7 @@ dosearch = search_char >||< search_edit >||< search_esc >||< search_eval
 
 search_char :: LexerS
 search_char = anyButDelNL
-    `meta` \c (d,st) -> (with (putmsg (Fast (P.pack(st++c)) defaultSty) >> touchState), (d,st++c), Just dosearch)
+    `meta` \c (d,st) -> (with (putmsg (Fast (P.pack(st++c)) defaultSty) >> touchST), (d,st++c), Just dosearch)
     where
         anyButDelNL = alt $ any' \\ (enter' ++ delete' ++ ['\ESC'])
 
@@ -77,17 +77,17 @@ search_edit = delete
         let st' = case st of 
                     [c] -> [c]
                     xs  -> init xs
-        in (with (putmsg (Fast (P.pack st') defaultSty) >> touchState), (d,st'), Just dosearch)
+        in (with (putmsg (Fast (P.pack st') defaultSty) >> touchST), (d,st'), Just dosearch)
 
 -- escape exits ex mode immediately
 search_esc :: LexerS
 search_esc = char '\ESC'
-    `meta` \_ _ -> (with (clrmsg >> touchState >> toggleFocus), (True,[]), Just all)
+    `meta` \_ _ -> (with (clrmsg >> touchST >> toggleFocus), (True,[]), Just all)
 
 search_eval :: LexerS
 search_eval = enter
     `meta` \_ (d,(_:pat)) -> case pat of
-        [] -> (with (clrmsg >> touchState >> toggleFocus),     (True,[]), Just all)
+        [] -> (with (clrmsg >> touchST >> toggleFocus),     (True,[]), Just all)
         _  -> (with (jumpToMatch (Just (pat,d)) >> toggleFocus), (True,[]), Just all)
 
 ------------------------------------------------------------------------
@@ -161,7 +161,7 @@ extraTable = [(p "Search for directory matching regex"#, ['/'])
 
 
 helpIsVisible :: IO Bool
-helpIsVisible = modifyState $ \st -> return (st, helpVisible st)
+helpIsVisible = getsST helpVisible
 
 keyMap :: M.Map Char (IO ())
 keyMap = M.fromList [ (c,a) | (_,cs,a) <- keyTable, c <- cs ]
