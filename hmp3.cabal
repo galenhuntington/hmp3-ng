@@ -9,10 +9,11 @@ Build-Depends:       base, unix, fps
 Executable:          hmp3
 Main-is:             Main.hs
 extensions:          CPP, ForeignFunctionInterface
+extra-libraries:     curses
 include-dirs:        cbits
 c-sources:           cbits/utils.c cbits/hooks.c
 other-modules:       Curses Regex
-ghc-options:         -Wall -fglasgow-exts -O2 -funbox-strict-fields -fasm -optl-Wl,-s -Icbits -threaded -lcurses
+ghc-options:         -Wall -fglasgow-exts -O2 -funbox-strict-fields -fasm -optl-Wl,-s -Icbits -threaded
  
 -- ghc-options:         -Wall -fglasgow-exts -O2 -funbox-strict-fields -fvia-C -optc-O3 -optl-Wl,-s -Icbits -threaded -lncurses
 -- ghc-options:         -prof -auto-all -Wall -fglasgow-exts -O2 -optc-O3 -funbox-strict-fields -Icbits -threaded -lncurses
