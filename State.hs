@@ -43,7 +43,7 @@ import Control.Concurrent.MVar
 -- import Control.Monad.State
 
 ------------------------------------------------------------------------
--- A state monad over IO
+-- A state monad over IO would be another option.
 
 -- type ST = StateT HState IO
 
@@ -90,31 +90,35 @@ emptySt :: HState
 emptySt = HState {
         music        = listArray (0,0) []
        ,folders      = listArray (0,0) []
+
        ,size         = 0
-       ,mp3pid       = Nothing
-       ,clock        = Nothing
-       ,clockUpdate  = False
+       ,current      = 0
+       ,cursor       = 0
+
+       ,threads      = []
+       ,modified     = unsafePerformIO newEmptyMVar
        ,writeh       = unsafePerformIO newEmptyMVar
        ,errh         = unsafePerformIO newEmptyMVar
        ,readf        = unsafePerformIO newEmptyMVar
-       ,threads      = []
-       ,current      = 0
-       ,cursor       = 0
+
+       ,mp3pid       = Nothing
+       ,clock        = Nothing
        ,info         = Nothing
        ,id3          = Nothing
-       ,status       = Stopped
-       ,minibuffer   = Fast P.empty defaultSty
-       ,helpVisible  = False
-       ,miniFocused  = False
-       ,mode         = Normal
-       ,uptime       = P.empty
-       ,boottime     = TOD 0 0
        ,regex        = Nothing
-       ,xterm        = False
-       ,doNotResuscitate = False    -- mgp321 should be be restarted
-       ,config       = Config.defaultStyle
 
-       ,modified     = unsafePerformIO newEmptyMVar
+       ,clockUpdate      = False
+       ,helpVisible      = False
+       ,miniFocused      = False
+       ,xterm            = False
+       ,doNotResuscitate = False    -- mgp321 should be be restarted
+
+       ,config       = Config.defaultStyle
+       ,boottime     = TOD 0 0
+       ,status       = Stopped
+       ,mode         = Normal
+       ,minibuffer   = Fast P.empty defaultSty
+       ,uptime       = P.empty
     }
 
 --
@@ -152,3 +156,4 @@ modifySTM_ f = modifyMVar state f >>= \a -> touchST >> return a
 -- | Trigger a refresh. This is the only way to update the screen
 touchST :: IO ()
 touchST = withMVar state $ \st -> tryPutMVar (modified st) () >> return ()
+
