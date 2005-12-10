@@ -118,9 +118,9 @@ keyTable =
     ,(p "Next directory up"#,                
         [keyPPage], jumpToPrevDir)
     ,(p "Jump to start of list"#, 
-        [keyHome],  jump 0)
+        [keyHome,'1'],  jump 0)
     ,(p "Jump to end of list"#, 
-        [keyEnd],   jump maxBound)
+        [keyEnd,'G'],   jump maxBound)
     ,(p "Seek left within song"#,  
         [keyLeft],  seekLeft)
     ,(p "Seek right within song"#, 
