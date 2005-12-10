@@ -55,22 +55,20 @@ data UIStyle = UIStyle {
 
 ------------------------------------------------------------------------
 
--- | Foreground and background color pairs
-data Style = Style {-# UNPACK #-} !Color !Color deriving (Eq,Ord)
-
--- | A List of characters with styles attached
-data CharA = C {-# UNPACK #-} !Char
-           | A {-# UNPACK #-} !Char !Style
-
--- | A list of such values (the representation is optimised)
-data StringA = Fast   {-# UNPACK #-} !P.FastString !Style
-             | FancyS {-# UNPACK #-} ![(P.FastString,Style)]  -- one line made up of segments
-
 data Color
     = RGB {-# UNPACK #-} !Word8 !Word8 !Word8
     | Default
     | Reverse
     deriving (Eq,Ord)
+
+-- | Foreground and background color pairs
+data Style = Style {-# UNPACK #-} !Color !Color 
+    deriving (Eq,Ord)
+
+-- | A list of such values (the representation is optimised)
+data StringA 
+    = Fast   {-# UNPACK #-} !P.FastString !Style
+    | FancyS {-# UNPACK #-} ![(P.FastString,Style)]  -- one line made up of segments
 
 ------------------------------------------------------------------------
 --
