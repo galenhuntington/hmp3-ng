@@ -20,8 +20,8 @@ int get_color_pair (int pair) {
  * is interested in. Additionally, we drop redundant @F packets arriving --
  * there's too many anyway
  *
- * TODO sometimes we don't want to drop packets. Set a flag to switch
- * this on and off.
+ * Note that mpg321 (only) provides --skip-printing-frames=N
+ * I guess we could have used that.
  */
 #define BUFLEN 1024
 
