@@ -20,6 +20,15 @@
 --
 -- | Keymap manipulation
 --
+-- The idea of using lazy lexers to implement keymaps is described in
+-- the paper:
+--
+-- >  Dynamic Applications From the Ground Up. Don Stewart and Manuel M.
+-- >  T. Chakravarty. In Proceedings of the ACM SIGPLAN Workshop on
+-- >  Haskell, pages 27-38. ACM Press, 2005.
+-- 
+-- See that for more info.
+--
 module Keymap where
 
 import Prelude hiding (all)
