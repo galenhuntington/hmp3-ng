@@ -140,10 +140,13 @@ withST :: (HState -> IO a) -> IO a
 withST f = readMVar state >>= f
 
 -- | Modify the state with a pure function
-modifyST :: (HState -> HState) -> IO ()
-modifyST  f = modifyMVar_ state (return . f)
+silentlyModifyST :: (HState -> HState) -> IO ()
+silentlyModifyST  f = modifyMVar_ state (return . f)
 
 ------------------------------------------------------------------------
+
+modifyST :: (HState -> HState) -> IO ()
+modifyST f = silentlyModifyST f >> touchST
 
 -- | Modify the state with an IO action, triggering a refresh
 modifySTM :: (HState -> IO HState) -> IO ()

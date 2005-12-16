@@ -94,7 +94,7 @@ start ms = Control.Exception.handle (\e -> shutdown (Just (show e))) $ do
     t4 <- forkIO uptimeLoop
     t5 <- forkIO errorLoop
 
-    modifyST $ \s -> s 
+    silentlyModifyST $ \s -> s 
         { music        = fs
         , folders      = ds
         , size         = 1 + (snd . bounds $ fs)
@@ -160,14 +160,14 @@ mpgLoop = forever $ do
             mew         <- newMVar ew
             mfilep      <- newMVar filep
 
-            modifySTM $ \st ->
-                    return st { mp3pid    = Just pid
-                              , writeh    = mhw
-                              , errh      = mew
-                              , readf     = mfilep 
-                              , status    = Stopped
-                              , info      = Nothing
-                              , id3       = Nothing }
+            modifyST $ \st ->
+                       st { mp3pid    = Just pid
+                          , writeh    = mhw
+                          , errh      = mew
+                          , readf     = mfilep 
+                          , status    = Stopped
+                          , info      = Nothing
+                          , id3       = Nothing }
           
             catch (waitForProcess (pid2phdl pid)) (\_ -> return ExitSuccess)
             stop <- getsST doNotResuscitate
@@ -188,7 +188,7 @@ uptimeLoop :: IO ()
 uptimeLoop = forever $ do
     threadDelay delay 
     now <- getClockTime 
-    modifySTM $ \st -> return st { uptime = drawUptime (boottime st) now }
+    modifyST $ \st -> st { uptime = drawUptime (boottime st) now }
   where
     delay = 60 * 1000 * 1000 -- 1 minute
 
@@ -241,7 +241,7 @@ run = forever $ sequence_ . keymap =<< getKeys
 -- | Close most things. Important to do all the jobs:
 shutdown :: Maybe String -> IO ()
 shutdown ms = 
-    (do modifyST $ \st -> st { doNotResuscitate = True }
+    (do silentlyModifyST $ \st -> st { doNotResuscitate = True }
         catch writeSt (\_ -> return ())
         withST $ \st -> do
             case mp3pid st of
@@ -267,18 +267,18 @@ shutdown ms =
 --
 handleMsg :: Msg -> IO ()
 handleMsg (T _)                = return ()
-handleMsg (I i)                = modifySTM $ \s -> return s { info = Just i }
-handleMsg (F (File (Left  _))) = modifySTM $ \s -> return s { id3 = Nothing }
-handleMsg (F (File (Right i))) = modifySTM $ \s -> return s { id3 = Just i  }
+handleMsg (I i)                = modifyST $ \s -> s { info = Just i }
+handleMsg (F (File (Left  _))) = modifyST $ \s -> s { id3 = Nothing }
+handleMsg (F (File (Right i))) = modifyST $ \s -> s { id3 = Just i  }
 
 handleMsg (S t) = do
-    modifySTM $ \s -> return s { status  = t }
+    modifyST $ \s -> s { status  = t }
     when (t == Stopped) $ do   -- transition to next song
         r <- getsST mode
         if r == Random then playRandom else playNext
 
 handleMsg (R f) = do
-    modifyST $ \st -> st { clock = Just f }
+    silentlyModifyST $ \st -> st { clock = Just f }
     getsST clockUpdate >>= flip when UI.refreshClock
 
 ------------------------------------------------------------------------
@@ -305,7 +305,7 @@ seek fn = do
                 h <- readMVar (writeh st)
                 send h $ Jump (fn g)
                 forceNextPacket         -- don't drop the next Frame.
-            modifyST $ \st -> st { clockUpdate = True }
+            silentlyModifyST $ \st -> st { clockUpdate = True }
 
 ------------------------------------------------------------------------
 
@@ -383,7 +383,7 @@ quit = shutdown
 
 -- | Move cursor to currently playing song
 jumpToPlaying :: IO ()
-jumpToPlaying = modifySTM $ \st -> return st { cursor = (current st) }
+jumpToPlaying = modifyST $ \st -> st { cursor = (current st) }
 
 -- | Move cursor to first song in next directory (or wrap)
 -- | Move cursor to first song in next directory (or wrap)
@@ -393,7 +393,7 @@ jumpToPrevDir = jumpToDir (\i _   -> max (i-1) 0)
 
 -- | Generic jump to dir
 jumpToDir :: (Int -> Int -> Int) -> IO ()
-jumpToDir fn = modifySTM $ \st -> return $ if size st == 0 then st else
+jumpToDir fn = modifyST $ \st -> if size st == 0 then st else
     let i   = fdir (music st ! cursor st)
         len = 1 + (snd . bounds $ folders st)
         d   = fn i len
@@ -442,15 +442,15 @@ jumpToMatch re = do
 
 -- | Show/hide the help window
 toggleHelp :: IO ()
-toggleHelp = modifySTM $ \st -> return st { helpVisible = not (helpVisible st) }
+toggleHelp = modifyST $ \st -> st { helpVisible = not (helpVisible st) }
 
 -- | Focus the minibuffer
 toggleFocus :: IO ()
-toggleFocus = modifySTM $ \st -> return st { miniFocused = not (miniFocused st) }
+toggleFocus = modifyST $ \st -> st { miniFocused = not (miniFocused st) }
 
 -- | Toggle the mode flag
 nextMode :: IO ()
-nextMode = modifySTM $ \st -> return st { mode = next (mode st) }
+nextMode = modifyST $ \st -> st { mode = next (mode st) }
     where 
         next v = if v == maxBound then minBound else succ v
 
@@ -493,7 +493,7 @@ getHome = Control.Exception.catch
 -- Editing the minibuffer
 
 putmsg :: StringA -> IO ()
-putmsg s = modifyST $ \st -> st { minibuffer = s }
+putmsg s = silentlyModifyST $ \st -> st { minibuffer = s }
 
 -- Modify without triggering a refresh
 clrmsg :: IO ()
