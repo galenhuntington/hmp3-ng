@@ -57,6 +57,8 @@ Platforms and portability:
     hmp3 has been confirmed to work on:
         OpenBSD/x86
         Linux/x86
+        FreeBSD/x86
+        Linux/ppc
         MacOSX/ppc
         Irix/mips64
 
