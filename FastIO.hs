@@ -17,7 +17,7 @@
 -- 02111-1307, USA.
 -- 
 
--- FastPackedString versions of some common IO functions
+-- | FastPackedString versions of some common IO functions
 
 module FastIO where
 
@@ -167,7 +167,7 @@ copyCStringToFastString cstr = do
 
 -- | Read a line from a file stream connected to an external prcoess,
 -- Returning a FastString. Note that the underlying C code is dropping
--- redundant @F frames for us.
+-- redundant \@F frames for us.
 getFilteredPacket :: Ptr CFile -> IO P.FastString
 getFilteredPacket fp = P.generate size $ \p -> do 
     i <- c_getline p fp

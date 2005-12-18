@@ -22,7 +22,7 @@ module Binary ( Binary(..), openBinIO_ ) where
 
 import Data.Char        (ord, chr)
 import Foreign          (Int32, Int64, Word8, Word32, Word64
-	                    ,Bits(shiftR, shiftL, (.|.), (.&.)))
+                        ,Bits(shiftR, shiftL, (.|.), (.&.)))
 import System.IO as IO  (Handle, hPutChar, hGetChar)
 
 import GHC.IOBase       (IO(..))

@@ -96,7 +96,7 @@ start = do
 
     return sty
 
--- | Rezet
+-- | Reset
 resetui :: IO ()
 resetui = resizeui >> nocursor >> refresh
 
@@ -178,7 +178,7 @@ class Element a where
 --
 data PlayScreen = PlayScreen !PPlaying !ProgressBar !PTimes 
 
--- How does this all work? Firstly, we mostly want to draw fast strings
+-- | How does this all work? Firstly, we mostly want to draw fast strings
 -- directly to the screen. To break the drawing problem down, you need
 -- to write an instance of Element for each element in the ui. Larger
 -- and larger elements then combine these items together. 
@@ -378,7 +378,7 @@ instance Element PlayModes where
             (PMode  m ) = draw a b c d :: PMode
             (PMode2 m') = draw a b c d :: PMode2
 
-instance Element PlayInfo where     -- could FancyS it
+instance Element PlayInfo where
     draw _ _ st _ = PlayInfo $ P.concat
          [percent
          ,P.pack " ("
@@ -400,9 +400,9 @@ instance Element PlayInfo where     -- could FancyS it
             where 
                 s = P.pack (show percent') `P.append` pct
 
-        percent' :: Int = round $ 
-                    ((fromIntegral curr) / 
-                    ((fromIntegral . size $ st) - 1) * 100.0 :: Float)
+        percent' :: Int 
+        precent' = round $ ((fromIntegral curr) / 
+                           ((fromIntegral . size $ st) - 1) * 100.0 :: Float)
 
 instance Element PlayTitle where
     draw a@(_,x) b c d =
@@ -430,10 +430,7 @@ instance Element PlayTitle where
         space   = spaces 1
         hl      = titlebar . config $ c
 
--- | Playlist, TODO this should do threading-style rendering of filesystem trees
---
--- Rewrite the playlist code to draw trees.
---
+-- | Playlist
 instance Element PlayList where
     draw p@(y,x) q@(o,_) st z =
         PlayList $! title 

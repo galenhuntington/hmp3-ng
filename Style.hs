@@ -39,7 +39,7 @@ import Control.Exception        (handle)
 ------------------------------------------------------------------------
 
 -- | User-configurable colours
--- Each component of this structure corresponds to a fg/bg colour pair
+-- Each component of this structure corresponds to a fg\/bg colour pair
 -- for an item in the ui
 data UIStyle = UIStyle { 
      window      :: !Style  -- default window colour
@@ -55,6 +55,7 @@ data UIStyle = UIStyle {
 
 ------------------------------------------------------------------------
 
+-- | Colors 
 data Color
     = RGB {-# UNPACK #-} !Word8 !Word8 !Word8
     | Default
@@ -72,7 +73,7 @@ data StringA
 
 ------------------------------------------------------------------------
 --
--- | Some simple colours (derivied from proxima/src/common/CommonTypes.hs)
+-- | Some simple colours (derivied from proxima\/src\/common\/CommonTypes.hs)
 --
 -- But we don't have a light blue?
 --
@@ -166,7 +167,7 @@ initUiColors stys = do
 ------------------------------------------------------------------------
 --
 -- | Getting from nice abstract colours to ncurses-settable values
--- 
+
 -- 20% of allocss occur here! But there's only 3 or 4 colours :/
 -- Every call to uiAttr
 --

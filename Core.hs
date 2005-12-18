@@ -386,7 +386,6 @@ jumpToPlaying :: IO ()
 jumpToPlaying = modifyST $ \st -> st { cursor = (current st) }
 
 -- | Move cursor to first song in next directory (or wrap)
--- | Move cursor to first song in next directory (or wrap)
 jumpToNextDir, jumpToPrevDir :: IO ()
 jumpToNextDir = jumpToDir (\i len -> min (i+1) (len-1))
 jumpToPrevDir = jumpToDir (\i _   -> max (i-1) 0)
@@ -440,7 +439,7 @@ jumpToMatch re = do
 
 ------------------------------------------------------------------------
 
--- | Show/hide the help window
+-- | Show\/hide the help window
 toggleHelp :: IO ()
 toggleHelp = modifyST $ \st -> st { helpVisible = not (helpVisible st) }
 
@@ -495,7 +494,7 @@ getHome = Control.Exception.catch
 putmsg :: StringA -> IO ()
 putmsg s = silentlyModifyST $ \st -> st { minibuffer = s }
 
--- Modify without triggering a refresh
+-- | Modify without triggering a refresh
 clrmsg :: IO ()
 clrmsg = putmsg (Fast P.empty defaultSty)
 
@@ -504,4 +503,3 @@ warnA :: String -> IO ()
 warnA x = do 
     sty <- getsST config
     putmsg $ Fast (P.pack x) (warnings sty)
-

@@ -138,7 +138,7 @@ doI s = let f = P.dropSpaceEnd . P.dropSpace . P.tail $ s
 
 --
 -- | This function does the most allocations in the long run.
--- How can we discard most "@F" input?
+-- How can we discard most "\@F" input?
 --
 parser :: Ptr CFile -> IO (Either String Msg)
 parser h = do
