@@ -53,7 +53,7 @@ openBinIO h _mod = do
 putWord8 :: BinHandle -> Word8 -> IO ()
 putWord8 (BinIO ix_r h) w = do
     ix <- readFastMutInt ix_r
-    hPutChar h (chr (fromIntegral w))	-- XXX not really correct
+    hPutChar h (chr (fromIntegral w))   -- XXX not really correct
     writeFastMutInt ix_r (ix+1)
     return ()
 
@@ -62,7 +62,7 @@ getWord8 (BinIO ix_r h) = do
     ix <- readFastMutInt ix_r
     c <- hGetChar h
     writeFastMutInt ix_r (ix+1)
-    return $! (fromIntegral (ord c))	-- XXX not really correct
+    return $! (fromIntegral (ord c))    -- XXX not really correct
 
 putByte :: BinHandle -> Word8 -> IO ()
 putByte bh w = put_ bh w
@@ -86,9 +86,9 @@ instance Binary Word32 where
     w3 <- getWord8 h
     w4 <- getWord8 h
     return $! ((fromIntegral w1 `shiftL` 24) .|. 
-	       (fromIntegral w2 `shiftL` 16) .|. 
-	       (fromIntegral w3 `shiftL`  8) .|. 
-	       (fromIntegral w4))
+           (fromIntegral w2 `shiftL` 16) .|. 
+           (fromIntegral w3 `shiftL`  8) .|. 
+           (fromIntegral w4))
 
 instance Binary Word64 where
   put_ h w = do
@@ -110,13 +110,13 @@ instance Binary Word64 where
     w7 <- getWord8 h
     w8 <- getWord8 h
     return $! ((fromIntegral w1 `shiftL` 56) .|. 
-	       (fromIntegral w2 `shiftL` 48) .|. 
-	       (fromIntegral w3 `shiftL` 40) .|. 
-	       (fromIntegral w4 `shiftL` 32) .|. 
-	       (fromIntegral w5 `shiftL` 24) .|. 
-	       (fromIntegral w6 `shiftL` 16) .|. 
-	       (fromIntegral w7 `shiftL`  8) .|. 
-	       (fromIntegral w8))
+           (fromIntegral w2 `shiftL` 48) .|. 
+           (fromIntegral w3 `shiftL` 40) .|. 
+           (fromIntegral w4 `shiftL` 32) .|. 
+           (fromIntegral w5 `shiftL` 24) .|. 
+           (fromIntegral w6 `shiftL` 16) .|. 
+           (fromIntegral w7 `shiftL`  8) .|. 
+           (fromIntegral w8))
 
 instance Binary Int32 where
   put_ h w = put_ h (fromIntegral w :: Word32)
@@ -133,13 +133,13 @@ instance Binary Int where
 #if SIZEOF_HSINT == 4
     put_ bh i = put_ bh (fromIntegral i :: Int32)
     get  bh = do
-	x <- get bh
-	return $! (fromIntegral (x :: Int32))
+    x <- get bh
+    return $! (fromIntegral (x :: Int32))
 #elif SIZEOF_HSINT == 8
     put_ bh i = put_ bh (fromIntegral i :: Int64)
     get  bh = do
-	x <- get bh
-	return $! (fromIntegral (x :: Int64))
+    x <- get bh
+    return $! (fromIntegral (x :: Int64))
 #else
 #error "unsupported sizeof(HsInt)"
 #endif
