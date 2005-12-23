@@ -25,7 +25,8 @@ module Core (
         shutdown,
         seekLeft, seekRight, up, down, pause, nextMode, playNext,
         quit, putmsg, clrmsg, toggleHelp, play, jumpToPlaying, jump, {-, add-}
-        writeSt, readSt, jumpToMatch, toggleFocus, jumpToNextDir, jumpToPrevDir
+        writeSt, readSt, jumpToMatch, toggleFocus, jumpToNextDir, jumpToPrevDir,
+        loadConfig,
     ) where
 
 import Prelude hiding (catch)
@@ -33,12 +34,12 @@ import Prelude hiding (catch)
 import Syntax
 import Lexer                (parser)
 import State
-import Style                (StringA(..), warnings, defaultSty, UIStyle)
-import Utils                ((</>),popen,pid2phdl,fdToInt,repeatM_,drawUptime)
+import Style
+import Utils
 import FastIO               (send,fdToCFile,joinPathP,forceNextPacket)
 import Tree hiding (File)
 import Regex
-import qualified UI         (start, refreshClock, refresh, getKey, end)
+import qualified UI
 
 import {-# SOURCE #-} Keymap (keymap)
 
@@ -105,6 +106,8 @@ start ms = Control.Exception.handle (\e -> shutdown (Just (show e))) $ do
         , boottime     = now 
         , config       = c
         , threads      = [t0,t1,t2,t3,t4,t5] }
+
+    loadConfig
 
     when (0 <= (snd . bounds $ fs)) play -- start the first song
 
@@ -487,6 +490,20 @@ getHome :: IO String
 getHome = Control.Exception.catch 
     (getRealUserID >>= getUserEntryForID >>= (return . homeDirectory))
     (\_ -> getEnv "HOME")
+
+------------------------------------------------------------------------
+-- Read styles from ~/.hmp3
+--
+loadConfig :: IO ()   
+loadConfig = do
+    home <- getHome
+    let f = home </> ".hmp3"
+    b <- doesFileExist f
+    when b $ do     -- otherwise used compiled-in values
+        sty <- readFile f >>= readM >>= return . buildStyle
+        initcolours sty
+        modifyST $ \st -> st { config = sty }
+    UI.resetui
 
 ------------------------------------------------------------------------
 -- Editing the minibuffer

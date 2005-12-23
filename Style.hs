@@ -28,6 +28,7 @@ module Style where
 import qualified Curses
 import qualified Data.FastPackedString as P (FastString)
 
+import Data.Char                (toLower)
 import Data.Word                (Word8)
 import Data.Maybe               (fromJust)
 import Data.IORef               (readIORef, writeIORef, newIORef, IORef)
@@ -106,6 +107,31 @@ defaultbg   = black
 #endif
 reversefg   = Reverse
 reversebg   = Reverse
+
+--
+-- | map strings to colors
+--
+stringToColor :: String -> Maybe Color
+stringToColor s = case map toLower s of
+    "black"         -> Just black
+    "grey"          -> Just grey
+    "darkred"       -> Just darkred
+    "red"           -> Just red
+    "darkgreen"     -> Just darkgreen
+    "green"         -> Just green
+    "brown"         -> Just brown
+    "yellow"        -> Just yellow
+    "darkblue"      -> Just darkblue
+    "blue"          -> Just blue
+    "purple"        -> Just purple
+    "magenta"       -> Just magenta
+    "darkcyan"      -> Just darkcyan
+    "cyan"          -> Just cyan
+    "white"         -> Just white
+    "brightwhite"   -> Just brightwhite
+    "default"       -> Just Default
+    "reverse"       -> Just Reverse
+    _               -> Nothing
 
 ------------------------------------------------------------------------
 --
@@ -282,3 +308,48 @@ bgCursCol c = case c of
 
 defaultSty :: Style
 defaultSty = Style Default Default
+
+------------------------------------------------------------------------
+--
+-- Support for runtime configuration
+-- We choose a simple strategy, read/showable record types, with strings
+-- to represent colors
+--
+-- The fields must map to UIStyle
+--
+-- It is this data type that is stored in 'show' format in ~/.hmp3
+--
+data Config = Config {
+         hmp3_window      :: (String,String)
+       , hmp3_helpscreen  :: (String,String)
+       , hmp3_titlebar    :: (String,String)
+       , hmp3_selected    :: (String,String)
+       , hmp3_cursors     :: (String,String)
+       , hmp3_combined    :: (String,String)
+       , hmp3_warnings    :: (String,String)
+       , hmp3_blockcursor :: (String,String)
+       , hmp3_progress    :: (String,String)
+     } deriving (Show,Read)
+
+--
+-- | Read the ~/.hmp3 file, and construct a UIStyle from it, to insert
+-- into 
+--
+buildStyle :: Config -> UIStyle
+buildStyle bs = UIStyle {
+         window      = f $ hmp3_window      bs
+       , helpscreen  = f $ hmp3_helpscreen  bs
+       , titlebar    = f $ hmp3_titlebar    bs
+       , selected    = f $ hmp3_selected    bs
+       , cursors     = f $ hmp3_cursors     bs
+       , combined    = f $ hmp3_combined    bs
+       , warnings    = f $ hmp3_warnings    bs
+       , blockcursor = f $ hmp3_blockcursor bs
+       , progress    = f $ hmp3_progress    bs
+    }
+
+    where 
+        f (x,y) = Style (g x) (g y)
+        g x     = case stringToColor x of
+                    Nothing -> Default
+                    Just y  -> y

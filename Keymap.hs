@@ -152,6 +152,8 @@ keyTable =
         ['\^L'], UI.resetui)
     ,(p "Repeat last regex search"#, 
         ['n'],   jumpToMatch Nothing)
+    ,(p "Load config file"#, 
+        ['l'],   loadConfig)
     ]
   where
     -- Keep as Addr#. If we try the pack/packAddress rule, ghc seems to get

@@ -1,8 +1,14 @@
 Todo:
 - How about having 'i' display information on the file under the cursor?
   Often file names are not as descriptive, and one might want to see the
-  mp3 tags without playing the song.
+  mp3 tags without playing the song. This requires a binding to libid3.
+
 - Look at how cplay support mpg321 and ogg123
+
+- Add, remove
+
+- queue songs
+
 
 Possible:
  - breaks on Solaris and  Irix which lack ncurses.h due to WA_BOLD attrs

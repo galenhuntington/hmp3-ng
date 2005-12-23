@@ -158,3 +158,12 @@ isLightBg = Control.Exception.handle (\_ -> return False) $ do
     e <- getEnv "HMP_HAS_LIGHT_BG"
     return $ map toLower e == "true"
 
+------------------------------------------------------------------------
+
+-- | 'readM' behaves like read, but catches failure in a monad.
+readM :: (Monad m, Read a) => String -> m a
+readM s = case [x | (x,t) <- {-# SCC "Serial.readM.reads" #-} reads s    -- bad!
+               , ("","")  <- lex t] of
+        [x] -> return x
+        []  -> fail "Serial.readM: no parse"
+        _   -> fail "Serial.readM: ambiguous parse"

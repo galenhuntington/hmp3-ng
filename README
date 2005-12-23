@@ -39,6 +39,23 @@ Use:
 
 Configuration:
 
+    Colours may be configured at runtime by editing the "~/.hmp3" file.
+    An example would be:
+
+        Config { 
+                 hmp3_window      = ("brightwhite", "black")
+               , hmp3_helpscreen  = ("black",       "cyan")
+               , hmp3_titlebar    = ("green",       "blue")
+               , hmp3_selected    = ("brightwhite", "black")
+               , hmp3_cursors     = ("black",       "cyan")
+               , hmp3_combined    = ("black",       "cyan")
+               , hmp3_warnings    = ("brightwhite", "red")
+               , hmp3_blockcursor = ("black",       "darkred")
+               , hmp3_progress    = ("cyan",        "white")
+             }
+
+    After editing this file, hit 'l' to have the changes used by hmp3.
+
     The keymaps are configurable by adding your own bindings to
     Config.hs (as are the colours). Edit this file before compilation.
 

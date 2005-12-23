@@ -84,4 +84,3 @@ help = "- curses-based MP3 player"
 
 darcsinfo :: String
 darcsinfo = "darcs get --partial http://www.cse.unsw.edu.au/~dons/code/hmp3"
-

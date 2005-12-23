@@ -394,15 +394,16 @@ instance Element PlayInfo where
         plural = P.pack "s"   -- expose to inlining
         pct    = P.pack "%"
         curr   = cursor  st
+
         percent | percent' == 0  && curr == 0 = P.pack "top"
                 | percent' == 100             = P.pack "all"
                 | otherwise = if P.length s == 2 then ' ' `P.cons` s else s
             where 
                 s = P.pack (show percent') `P.append` pct
 
-        percent' :: Int 
-        precent' = round $ ((fromIntegral curr) / 
-                           ((fromIntegral . size $ st) - 1) * 100.0 :: Float)
+                percent' :: Int 
+                percent' = round $ ((fromIntegral curr) / 
+                                   ((fromIntegral . size $ st) - 1) * 100.0 :: Float)
 
 instance Element PlayTitle where
     draw a@(_,x) b c d =
