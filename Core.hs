@@ -500,9 +500,15 @@ loadConfig = do
     let f = home </> ".hmp3"
     b <- doesFileExist f
     when b $ do     -- otherwise used compiled-in values
-        sty <- readFile f >>= readM >>= return . buildStyle
-        initcolours sty
-        modifyST $ \st -> st { config = sty }
+        str  <- readFile f
+        msty <- catch (readM str >>= return . Just) 
+                      (const $ warnA "Parse error in ~/.hmp3" >> return Nothing)
+        case msty of
+            Nothing  -> return ()
+            Just rsty -> do
+                let sty = buildStyle rsty
+                initcolours sty
+                modifyST $ \st -> st { config = sty }
     UI.resetui
 
 ------------------------------------------------------------------------

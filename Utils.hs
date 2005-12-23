@@ -167,3 +167,4 @@ readM s = case [x | (x,t) <- {-# SCC "Serial.readM.reads" #-} reads s    -- bad!
         [x] -> return x
         []  -> fail "Serial.readM: no parse"
         _   -> fail "Serial.readM: ambiguous parse"
+
