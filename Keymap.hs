@@ -47,18 +47,29 @@ import Data.List    ((\\))
 import qualified Data.FastPackedString as P (packAddress,FastString,pack)
 import qualified Data.Map as M (fromList, lookup, Map)
 
-type LexerS = Lexer (Bool,[Char]) (IO ())
+data Search = SearchFile | SearchDir
+
+data Direction = Forwards | Backwards
+
+toBool :: Direction -> Bool
+toBool Forwards = True
+toBool _        = False
+
+type LexerS = Lexer (Search, Direction, String) (IO ())
 
 --
 -- The keymap
 --
 keymap :: [Char] -> [IO ()]
 keymap cs = map (clrmsg >>) actions
-    where (actions,_,_) = execLexer all (cs, (True,[])) 
+    where (actions,_,_) = execLexer all (cs, defaultS)
+
+defaultS :: (Search, Direction, String)
+defaultS = (SearchDir, Forwards, [])
 
 all :: LexerS
 all = commands >||< search
-  
+
 commands :: LexerS
 commands = (alt keys) `action` \[c] -> Just $ case M.lookup c keyMap of
         Nothing -> return ()    -- ignore
@@ -67,37 +78,48 @@ commands = (alt keys) `action` \[c] -> Just $ case M.lookup c keyMap of
 ------------------------------------------------------------------------
 
 search :: LexerS
-search = (char '/' >|< char '?') `meta` \[c] _ -> 
+search = searchDir >||< searchFile
+
+searchDir :: LexerS
+searchDir = (char '/' >|< char '?') `meta` \[c] _ ->
                 (with (toggleFocus >> putmsg (Fast (P.pack [c]) defaultSty) >> touchST)
-                ,((c == '/'), [c]) ,Just dosearch)
+                ,(SearchDir,if c == '/' then Forwards else Backwards,[c]) ,Just dosearch)
+
+searchFile :: LexerS
+searchFile = (char '\\' >|< char '|') `meta` \[c] _ ->
+                (with (toggleFocus >> putmsg (Fast (P.pack [c]) defaultSty) >> touchST)
+                ,(SearchFile,if c == '\\' then Forwards else Backwards,[c]) ,Just dosearch)
 
 dosearch :: LexerS
 dosearch = search_char >||< search_edit >||< search_esc >||< search_eval
 
 search_char :: LexerS
 search_char = anyButDelNL
-    `meta` \c (d,st) -> (with (putmsg (Fast (P.pack(st++c)) defaultSty) >> touchST), (d,st++c), Just dosearch)
-    where
-        anyButDelNL = alt $ any' \\ (enter' ++ delete' ++ ['\ESC'])
+    `meta` \c (t,d,st) ->
+        (with (putmsg (Fast (P.pack(st++c)) defaultSty) >> touchST), (t,d,st++c), Just dosearch)
+    where anyButDelNL = alt $ any' \\ (enter' ++ delete' ++ ['\ESC'])
 
 search_edit :: LexerS
-search_edit = delete 
-    `meta` \_ (d,st) -> 
-        let st' = case st of 
-                    [c] -> [c]
-                    xs  -> init xs
-        in (with (putmsg (Fast (P.pack st') defaultSty) >> touchST), (d,st'), Just dosearch)
+search_edit = delete
+    `meta` \_ (t,d,st) ->
+        let st' = case st of [c] -> [c]; xs  -> init xs
+        in (with (putmsg (Fast (P.pack st') defaultSty) >> touchST), (t,d,st'), Just dosearch)
 
 -- escape exits ex mode immediately
 search_esc :: LexerS
 search_esc = char '\ESC'
-    `meta` \_ _ -> (with (clrmsg >> touchST >> toggleFocus), (True,[]), Just all)
+    `meta` \_ _ -> wrap (clrmsg >> touchST)
+    where wrap a = (with (a >> toggleFocus), defaultS, Just all)
 
 search_eval :: LexerS
 search_eval = enter
-    `meta` \_ (d,(_:pat)) -> case pat of
-        [] -> (with (clrmsg >> touchST >> toggleFocus),     (True,[]), Just all)
-        _  -> (with (jumpToMatch (Just (pat,d)) >> toggleFocus), (True,[]), Just all)
+    `meta` \_ (t,d,(_:pat)) -> case pat of
+        [] -> wrap (clrmsg >> touchST)
+        _  -> case t of
+                SearchFile -> wrap (jumpToMatchFile (Just (pat,toBool d)))
+                SearchDir  -> wrap (jumpToMatch     (Just (pat,toBool d)))
+
+    where wrap a = (with (a >> toggleFocus), defaultS, Just all)
 
 ------------------------------------------------------------------------
 
@@ -107,7 +129,7 @@ delete'  = ['\BS', '\127', keyBackspace ]
 any'     = ['\0' .. '\255']
 digit'   = ['0' .. '9']
 
-delete, enter :: Regexp (Bool,[Char]) (IO ())
+delete, enter :: Regexp (Search,Direction,[Char]) (IO ())
 delete  = alt delete'
 enter   = alt enter'
 
@@ -118,41 +140,43 @@ enter   = alt enter'
 --
 keyTable :: [(P.FastString, [Char], IO ())]
 keyTable =
-    [(p "Previous track"#,         
+    [(p "Previous track"#,
         ['k',keyUp],    up)
-    ,(p "Next track"#,             
+    ,(p "Next track"#,
         ['j',keyDown],  down)
-    ,(p "Next directory down"#,                
+    ,(p "Next directory down"#,
         [keyNPage], jumpToNextDir)
-    ,(p "Next directory up"#,                
+    ,(p "Next directory up"#,
         [keyPPage], jumpToPrevDir)
-    ,(p "Jump to start of list"#, 
+    ,(p "Jump to start of list"#,
         [keyHome,'1'],  jump 0)
-    ,(p "Jump to end of list"#, 
+    ,(p "Jump to end of list"#,
         [keyEnd,'G'],   jump maxBound)
-    ,(p "Seek left within song"#,  
+    ,(p "Seek left within song"#,
         [keyLeft],  seekLeft)
-    ,(p "Seek right within song"#, 
+    ,(p "Seek right within song"#,
         [keyRight], seekRight)
-    ,(p "Toggle pause"#,           
+    ,(p "Toggle pause"#,
         ['p'],          pause)
-    ,(p "Play song under cursor"#, 
+    ,(p "Play song under cursor"#,
         ['\n',' '],     play)
-    ,(p "Toggle the help screen"#, 
-        ['h'],          toggleHelp)
-    ,(p "Jump to currently playing song"#, 
+    ,(p "Toggle the help screen"#,
+        ['h'],   toggleHelp)
+    ,(p "Jump to currently playing song"#,
         ['t'],   jumpToPlaying)
-    ,(p "Quit (or close help screen)"#, 
+    ,(p "Quit (or close help screen)"#,
         ['q'],   do b <- helpIsVisible ; if b then toggleHelp else quit Nothing)
-    ,(p "Select and play next track"#, 
+    ,(p "Select and play next track"#,
         ['d'],   playNext >> jumpToPlaying)
     ,(p "Cycle through normal, random and loop modes"#,
         ['m'],   nextMode)
     ,(p "Refresh the display"#,
         ['\^L'], UI.resetui)
-    ,(p "Repeat last regex search"#, 
+    ,(p "Repeat last regex search"#,
         ['n'],   jumpToMatch Nothing)
-    ,(p "Load config file"#, 
+    ,(p "Repeat last regex search on files"#,
+        ['N'],   jumpToMatchFile Nothing)
+    ,(p "Load config file"#,
         ['l'],   loadConfig)
     ]
   where
@@ -163,7 +187,9 @@ keyTable =
 
 extraTable :: [(P.FastString, [Char])]
 extraTable = [(p "Search for directory matching regex"#, ['/'])
-             ,(p "Search backwards for directory"#, ['?'])]
+             ,(p "Search backwards for directory"#, ['?'])
+             ,(p "Search for file matching regex"#, ['\\'])
+             ,(p "Search backwards for file"#, ['|']) ]
   where
     -- Keep as Addr#. If we try the pack/packAddress rule, ghc seems to get
     -- confused and want to *unpack* the strings :/

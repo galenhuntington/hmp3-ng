@@ -49,14 +49,14 @@ type FileArray = Array Int File
 
 -- | A directory entry is the directory name, and a list of bound
 -- indicies into the Files array.
-data Dir  = 
+data Dir  =
     Dir { dname :: !FilePathP        -- ^ directory name
         , dsize :: !Int              -- ^ number of file entries
         , dlo   :: !Int              -- ^ index of first entry
         , dhi   :: !Int }            -- ^ index of last entry
 
 -- Most data is allocated in this structure
-data File = 
+data File =
     File { fbase :: !FilePathP      -- ^ basename of file
          , fdir  :: !Int }          -- ^ index of Dir entry 
 

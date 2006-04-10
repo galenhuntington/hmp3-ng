@@ -25,7 +25,9 @@ module Core (
         shutdown,
         seekLeft, seekRight, up, down, pause, nextMode, playNext,
         quit, putmsg, clrmsg, toggleHelp, play, jumpToPlaying, jump, {-, add-}
-        writeSt, readSt, jumpToMatch, toggleFocus, jumpToNextDir, jumpToPrevDir,
+        writeSt, readSt,
+        jumpToMatch, jumpToMatchFile,
+        toggleFocus, jumpToNextDir, jumpToPrevDir,
         loadConfig,
     ) where
 
@@ -37,7 +39,8 @@ import State
 import Style
 import Utils
 import FastIO               (send,fdToCFile,joinPathP,forceNextPacket)
-import Tree hiding (File)
+import Tree hiding (File,Dir)
+import qualified Tree (File,Dir)
 import Regex
 import qualified UI
 
@@ -45,7 +48,7 @@ import {-# SOURCE #-} Keymap (keymap)
 
 import qualified Data.FastPackedString as P (unsafeUseAsCString,pack,empty,FastString)
 
-import Data.Array               ((!), bounds)
+import Data.Array               ((!), bounds, Array)
 import Data.Maybe               (isJust,fromJust)
 import Control.Monad            (liftM, when)
 import System.Directory         (doesFileExist,findExecutable)
@@ -403,9 +406,33 @@ jumpToDir fn = modifyST $ \st -> if size st == 0 then st else
 
 ------------------------------------------------------------------------
 
--- | Jump to first element (forwards or backwards) of folder that matches regex
-jumpToMatch :: Maybe (String,Bool) -> IO ()
-jumpToMatch re = do
+--
+-- a bit of bounded parametric polymorphism so we can abstract over record selectors
+-- in the regex search stuff below
+--
+class Lookup a       where extract :: a -> FilePathP
+instance Lookup Tree.Dir  where extract = dname
+instance Lookup Tree.File where extract = fbase
+
+jumpToMatchFile :: Maybe (String,Bool) -> IO ()
+jumpToMatchFile re = genericJumpToMatch re k sel
+    where k = \st -> (music st, if size st == 0 then -1 else cursor st, size st)
+          sel i _ = i
+
+jumpToMatch  :: Maybe (String,Bool) -> IO ()
+jumpToMatch     re = genericJumpToMatch re k sel
+    where k = \st -> (folders st
+                     ,if size st == 0 then -1 else fdir (music st ! cursor st)
+                     ,1 + (snd . bounds $ folders st))
+          sel i st = dlo (folders st ! i)
+
+genericJumpToMatch :: Lookup a
+                   => Maybe (String,Bool)
+                   -> (HState -> (Array Int a, Int, Int))
+                   -> (Int -> HState -> Int)
+                   -> IO ()
+
+genericJumpToMatch re k sel = do
     found <- modifySTM_ $ \st -> do
         mre <- case re of   -- work out if we have no pattern, a cached pattern, or a new pattern
                 Nothing -> case regex st of
@@ -413,30 +440,27 @@ jumpToMatch re = do
                                 Just (r,d)  -> return $ Just (r,d)
                 Just (s,d)  -> do v <- regcomp s (regExtended + regIgnoreCase + regNewline)
                                   return $ Just (v,d)
-
-        case mre of 
+        case mre of
             Nothing -> return (st,False)    -- no pattern
             Just (p,forwards) -> do
 
-            let fs = folders st
-                cur= if size st == 0 then -1 else fdir (music st ! cursor st)
-                m  = 1 + (snd . bounds $ folders st)
+            let (fs,cur,m) = k st
 
                 loop fn inc n
                     | fn n      = return Nothing
-                    | otherwise = P.unsafeUseAsCString (dname $ fs ! n) $ \s -> do
+                    | otherwise = P.unsafeUseAsCString (extract (fs ! n)) $ \s -> do
                         v <- regexec p s 0
                         case v of
                             Nothing -> loop fn inc $! inc n
                             Just _  -> return $ Just n
 
-            mi <- if forwards then loop (>=m) (+1)         (cur+1) 
+            mi <- if forwards then loop (>=m) (+1)         (cur+1)
                               else loop (<0)  (subtract 1) (cur-1)
 
             let st' = st { regex = Just (p,forwards) }
             return $ case mi of
                 Nothing -> (st',False)
-                Just i  -> (st' { cursor = dlo (folders st ! i) }, True)
+                Just i  -> (st' { cursor = sel i st }, True)
 
     when (not found) $ putmsg (Fast (P.pack "No match found.") defaultSty) >> touchST
 
@@ -453,7 +477,7 @@ toggleFocus = modifyST $ \st -> st { miniFocused = not (miniFocused st) }
 -- | Toggle the mode flag
 nextMode :: IO ()
 nextMode = modifyST $ \st -> st { mode = next (mode st) }
-    where 
+    where
         next v = if v == maxBound then minBound else succ v
 
 ------------------------------------------------------------------------

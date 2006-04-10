@@ -65,7 +65,7 @@ data HState = HState {
        ,threads         :: ![ThreadId]           -- all our threads
        ,id3             :: !(Maybe Id3)          -- maybe mp3 id3 info
        ,info            :: !(Maybe Info)         -- mp3 info
-       ,status          :: !Status                  
+       ,status          :: !Status
        ,minibuffer      :: !StringA              -- contents of minibuffer
        ,helpVisible     :: !Bool                 -- is the help window shown
        ,miniFocused     :: !Bool                 -- is the mini buffer focused?
