@@ -1,5 +1,5 @@
 -- 
--- Copyright (c) 2005 Don Stewart - http://www.cse.unsw.edu.au/~dons
+-- Copyright (c) 2005-6 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -30,9 +30,8 @@ import qualified Data.FastPackedString as P
 import Foreign.C.Error
 import Foreign.C.String         (CString)
 import Foreign.C.Types          (CFile, CInt, CLong, CSize)
-import Foreign.ForeignPtr       (withForeignPtr, mallocForeignPtrArray)
+import Foreign.ForeignPtr       (withForeignPtr)
 import Foreign.Marshal          (peekArray, advancePtr, allocaBytes, alloca)
-import Foreign.Marshal.Utils    (with)
 import Foreign.Ptr              (Ptr, nullPtr, minusPtr, plusPtr, castPtr)
 import Foreign.Storable         (poke, peek)
 
@@ -102,7 +101,7 @@ packedGetDirectoryContents path = do
                 if (dEnt == nullPtr)
                     then return []
                     else do  -- copy entry out before we free:
-                        entry   <- (d_name dEnt >>= copyCStringToFastString)
+                        entry   <- P.copyCStringToFastString `fmap` d_name dEnt 
                         freeDirEnt dEnt
                         entries <- loop ptr_dEnt dir
                         return $! (entry:entries)
@@ -150,18 +149,6 @@ isDirectory :: Ptr CStat -> IO Bool
 isDirectory stat = do
   mode <- st_mode stat
   return (s_isdir mode)
-
--- ---------------------------------------------------------------------
-
--- | Duplicate a CString as a FastString
-copyCStringToFastString :: CString -> IO P.FastString
-copyCStringToFastString cstr = do 
-    let len = fromIntegral $ c_strlen cstr
-    fp <- mallocForeignPtrArray (len+1)
-    withForeignPtr fp $ \p -> do
-        c_memcpy p (castPtr cstr) len
-        poke (p `plusPtr` len) (0 :: Word8)
-    return $! P.PS fp 0 len
 
 -- ---------------------------------------------------------------------
 
@@ -220,34 +207,6 @@ joinPathP f g =
       len = P.length f + P.length g + 1
       sep = fromIntegral . ord $ '/'
 {-# INLINE joinPathP #-}
-
--- ---------------------------------------------------------------------
-
--- readIntPS
-
--- | readIntPS skips any whitespace at the beginning of its argument, and
--- reads an Int from the beginning of the PackedString.  If there is no
--- integer at the beginning of the string, it returns Nothing, otherwise it
--- just returns the int read, along with a PackedString containing the
--- remainder of its input.  The actual parsing is done by the standard C
--- library function strtol.
-
-readIntPS :: P.FastString -> Maybe Int
-readIntPS (P.PS x s _) = unsafePerformIO $ withForeignPtr x $ \p-> 
-    with p $ \endpp -> do 
-       val     <- c_strtol (p `plusPtr` s) endpp 0
-       skipped <- (`minusPtr` (p `plusPtr` s)) `liftM` peek endpp
-       return $ if skipped == 0 then Nothing else Just (fromIntegral val)
-
--- ---------------------------------------------------------------------
-
--- replicateP w c = P.unfoldr w (\u -> Just (u,u)) c
-replicatePS :: Int -> Char -> P.FastString
-replicatePS w c = unsafePerformIO $ P.generate w $ \ptr -> go ptr w
-    where 
-        x = fromIntegral . ord $ c
-        go _   0 = return w
-        go ptr n = poke ptr x >> go (ptr `plusPtr` 1) (n-1)
 
 -- ---------------------------------------------------------------------
 -- | Send a msg over the channel to the decoder

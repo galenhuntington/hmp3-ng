@@ -47,7 +47,7 @@ module UI (
 
 import Style
 import Utils                    (isLightBg)
-import FastIO                   (basenameP, replicatePS, printfPS)
+import FastIO                   (basenameP, printfPS)
 import Tree                     (File(fdir, fbase), Dir(dname))
 import State
 import Syntax
@@ -543,14 +543,14 @@ alignLR w l r
 -- | Calculate whitespaces, very common, so precompute likely values
 spaces :: Int -> P.FastString
 spaces n
-    | n > 100   = replicatePS n ' ' -- unlikely
+    | n > 100   = P.replicate n ' ' -- unlikely
     | otherwise = arr ! n
   where
     arr :: Array Int P.FastString   -- precompute some whitespace strs
     arr = listArray (0,100) [ P.take i s100 | i <- [0..100] ]
 
     s100 :: P.FastString
-    s100 = replicatePS 100 ' '  -- seems reasonable
+    s100 = P.replicate 100 ' '  -- seems reasonable
 
 ellipsis :: P.FastString
 ellipsis = P.pack "... "

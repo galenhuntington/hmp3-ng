@@ -22,7 +22,7 @@
 module Lexer ( parser ) where
 
 import Syntax   (Msg(..),Status(..),Frame(..),Info(..),Id3(..),File(..),Tag(..))
-import FastIO   (readIntPS,getFilteredPacket)
+import FastIO   (getFilteredPacket)
 
 import Data.Maybe   (fromJust)
 import qualified Data.FastPackedString as P
@@ -56,12 +56,12 @@ doF s = R $ Frame {
                                               ; _ -> error "doF.f" }
 
 readPS :: P.FastString -> Int
-readPS ps = fromJust (readIntPS ps)
+readPS = fromJust . P.unsafeReadInt
 
 -- Outputs information about the mp3 file after loading.
 doS :: P.FastString -> Msg
 doS s = let fs = P.split ' ' . P.tail $ s
-        in I $ Info { 
+        in I $ Info {
             {-
                   version       = fs !! 0
                 , layer         = read . P.unpack $ fs !! 1
