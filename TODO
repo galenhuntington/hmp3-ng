@@ -1,4 +1,7 @@
 Todo:
+
+- search should wrap. end point == current line.
+
 - How about having 'i' display information on the file under the cursor?
   Often file names are not as descriptive, and one might want to see the
   mp3 tags without playing the song. This requires a binding to libid3.

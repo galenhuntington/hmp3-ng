@@ -32,7 +32,7 @@ import Foreign.C.String         (CString)
 import Foreign.C.Types          (CFile, CInt, CLong, CSize)
 import Foreign.ForeignPtr       (withForeignPtr)
 import Foreign.Marshal          (peekArray, advancePtr, allocaBytes, alloca)
-import Foreign.Ptr              (Ptr, nullPtr, minusPtr, plusPtr, castPtr)
+import Foreign.Ptr              (Ptr, nullPtr, plusPtr, castPtr)
 import Foreign.Storable         (poke, peek)
 
 import System.Directory         (Permissions(..))
