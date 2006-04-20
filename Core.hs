@@ -23,7 +23,7 @@
 module Core (
         start,
         shutdown,
-        seekLeft, seekRight, up, down, pause, nextMode, playNext,
+        seekLeft, seekRight, up, down, pause, nextMode, playNext, playPrev,
         quit, putmsg, clrmsg, toggleHelp, play, jumpToPlaying, jump, {-, add-}
         writeSt, readSt,
         jumpToMatch, jumpToMatchFile,
@@ -281,8 +281,10 @@ handleMsg (F (File (Right i))) = modifyST $ \s -> s { id3 = Just i  }
 handleMsg (S t) = do
     modifyST $ \s -> s { status  = t }
     when (t == Stopped) $ do   -- transition to next song
-        r <- getsST mode
-        if r == Random then playRandom else playNext
+        playNext
+-- vincenz: Redundant, this is checked in playNext
+--        r <- getsST mode
+--        if r == Random then playRandom else playNext
 
 handleMsg (R f) = do
     silentlyModifyST $ \st -> st { clock = Just f }
@@ -344,6 +346,21 @@ playRandom :: IO ()
 playRandom = modifySTM $ \st -> do
     n <- getStdRandom (randomR (0, max 0 (size st -1)))
     playAtN st (const n)
+
+-- | Play the song before the current song, if we're not at the beginning
+-- If we're at the beginning, and loop mode is on, then loop to the end
+-- If we're in random mode, play the next random track
+playPrev :: IO ()
+playPrev = do
+    md <- getsST mode
+    if md == Random then playRandom else
+      modifySTM $ \st -> do
+      let i   = current st
+      case () of {_
+        | i > 0             -> playAtN st (subtract 1)      -- just the prev track
+        | mode st == Loop   -> playAtN st (const (size st - 1))  -- maybe loop
+        | otherwise         -> return  st            -- else stop at end
+      }
 
 -- | Play the song following the current song, if we're not at the end
 -- If we're at the end, and loop mode is on, then loop to the start

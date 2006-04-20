@@ -140,10 +140,15 @@ enter   = alt enter'
 --
 keyTable :: [(P.ByteString, [Char], IO ())]
 keyTable =
-    [(p "Previous track"#,
-        ['k',keyUp],    up)
+    [
+     (p "Move up"#,
+        [keyUp],    up)
+    ,(p "Move down"#,
+        [keyDown],  down)
+    ,(p "Previous track"#,
+        ['k'],    playPrev)
     ,(p "Next track"#,
-        ['j',keyDown],  down)
+        ['j'],  playNext)
     ,(p "Next directory down"#,
         [keyNPage], jumpToNextDir)
     ,(p "Next directory up"#,
