@@ -17,23 +17,22 @@
 -- 02111-1307, USA.
 -- 
 
--- | FastPackedString versions of some common IO functions
+-- | ByteString versions of some common IO functions
 
 module FastIO where
 
 import Syntax                   (Pretty(ppr))
 
-import Data.Char                (ord)
-import Data.Word                (Word8)
-import qualified Data.FastPackedString as P
+import qualified Data.ByteString.Char8 as P
+import qualified Data.ByteString as B
 
+import Data.Word                (Word8)
 import Foreign.C.Error
 import Foreign.C.String         (CString)
 import Foreign.C.Types          (CFile, CInt, CLong, CSize)
-import Foreign.ForeignPtr       (withForeignPtr)
-import Foreign.Marshal          (peekArray, advancePtr, allocaBytes, alloca)
-import Foreign.Ptr              (Ptr, nullPtr, plusPtr, castPtr)
-import Foreign.Storable         (poke, peek)
+import Foreign.Marshal          (allocaBytes, alloca)
+import Foreign.Ptr              (Ptr, nullPtr, castPtr)
+import Foreign.Storable         (peek)
 
 import System.Directory         (Permissions(..))
 import System.IO.Error          (modifyIOError, ioeSetFileName)
@@ -42,57 +41,41 @@ import System.IO                (Handle,hFlush)
 import System.Posix.Internals
 import System.Posix.Types       (Fd, CMode)
 
-import Control.Monad            (liftM)
 import Control.Exception        (catch, bracket)
 
 
 ------------------------------------------------------------------------
 
 -- | Packed string version of basename
-basenameP :: P.FastString -> P.FastString
+basenameP :: P.ByteString -> P.ByteString
 basenameP fps = case P.elemIndexLast '/' fps of
     Nothing -> fps
     Just i  -> P.drop (i+1) fps
 {-# INLINE basenameP #-}
 
-dirnameP :: P.FastString -> P.FastString
+dirnameP :: P.ByteString -> P.ByteString
 dirnameP fps = case P.elemIndexLast '/' fps of
     Nothing -> P.pack "."
     Just i  -> P.take i fps
 {-# INLINE dirnameP #-}
 
 --
--- | Packed version of get args.
---
-packedGetArgs :: IO [P.FastString]
-packedGetArgs = 
-  alloca $ \ p_argc ->  
-  alloca $ \ p_argv -> do
-   getProgArgv p_argc p_argv
-   p    <- fromIntegral `liftM` peek p_argc
-   argv <- peek p_argv
-   peekArray (p - 1) (advancePtr argv 1) >>= return . map P.packCString
-
-foreign import ccall unsafe "RtsAPI.h getProgArgv"
-  getProgArgv :: Ptr CInt -> Ptr (Ptr CString) -> IO ()
-
---
 -- | Packed version of get directory contents
 -- Have them just return CStrings, then pack lazily?
 --
-packedGetDirectoryContents :: P.FastString -> IO [P.FastString]
+packedGetDirectoryContents :: P.ByteString -> IO [P.ByteString]
 packedGetDirectoryContents path = do
   modifyIOError (`ioeSetFileName` (P.unpack path)) $
    alloca $ \ ptr_dEnt ->
      bracket
-    (P.useAsCString path $ \s ->
+    (B.useAsCString path $ \s ->
        throwErrnoIfNullRetry desc (c_opendir s))
     (\p -> throwErrnoIfMinus1_ desc (c_closedir p))
     (\p -> loop ptr_dEnt p)
   where
     desc = "Utils.packedGetDirectoryContents"
 
-    loop :: Ptr (Ptr CDirent) -> Ptr CDir -> IO [P.FastString]
+    loop :: Ptr (Ptr CDirent) -> Ptr CDir -> IO [P.ByteString]
     loop ptr_dEnt dir = do
       resetErrno
       r <- readdir dir ptr_dEnt
@@ -101,7 +84,7 @@ packedGetDirectoryContents path = do
                 if (dEnt == nullPtr)
                     then return []
                     else do  -- copy entry out before we free:
-                        entry   <- P.copyCStringToFastString `fmap` d_name dEnt 
+                        entry   <- B.copyCString `fmap` d_name dEnt 
                         freeDirEnt dEnt
                         entries <- loop ptr_dEnt dir
                         return $! (entry:entries)
@@ -115,27 +98,27 @@ packedGetDirectoryContents path = do
                                 else throwErrno desc
 
 -- packed version:
-doesFileExist :: P.FastString -> IO Bool
+doesFileExist :: P.ByteString -> IO Bool
 doesFileExist name = Control.Exception.catch
    (packedWithFileStatus "Utils.doesFileExist" name $ \st -> do 
         b <- isDirectory st; return (not b))
    (\ _ -> return False)
 
 -- packed version:
-doesDirectoryExist :: P.FastString -> IO Bool
+doesDirectoryExist :: P.ByteString -> IO Bool
 doesDirectoryExist name = Control.Exception.catch
    (packedWithFileStatus "Utils.doesDirectoryExist" name $ \st -> isDirectory st)
    (\ _ -> return False)
 
-packedWithFileStatus :: String -> P.FastString -> (Ptr CStat -> IO a) -> IO a
+packedWithFileStatus :: String -> P.ByteString -> (Ptr CStat -> IO a) -> IO a
 packedWithFileStatus loc name f = do
   modifyIOError (`ioeSetFileName` []) $
     allocaBytes sizeof_stat $ \p -> do
-      P.useAsCString name $ \s -> do    -- i.e. every string is duplicated
+      B.useAsCString name $ \s -> do    -- i.e. every string is duplicated
         throwErrnoIfMinus1Retry_ loc (c_stat s p)
         f p
 
-packedFileNameEndClean :: P.FastString -> P.FastString
+packedFileNameEndClean :: P.ByteString -> P.ByteString
 packedFileNameEndClean name =
   if i > 0 && (ec == '\\' || ec == '/') then
      packedFileNameEndClean (P.take i name)
@@ -153,10 +136,10 @@ isDirectory stat = do
 -- ---------------------------------------------------------------------
 
 -- | Read a line from a file stream connected to an external prcoess,
--- Returning a FastString. Note that the underlying C code is dropping
+-- Returning a ByteString. Note that the underlying C code is dropping
 -- redundant \@F frames for us.
-getFilteredPacket :: Ptr CFile -> IO P.FastString
-getFilteredPacket fp = P.generate size $ \p -> do 
+getFilteredPacket :: Ptr CFile -> IO P.ByteString
+getFilteredPacket fp = B.generate size $ \p -> do 
     i <- c_getline p fp
     if i == -1 
         then throwErrno "FastIO.packedHGetLine"
@@ -170,9 +153,9 @@ fdToCFile = c_openfd
 
 -- ---------------------------------------------------------------------
 
-getPermissions :: P.FastString -> IO Permissions
+getPermissions :: P.ByteString -> IO Permissions
 getPermissions name = do
-  P.useAsCString name $ \s -> do
+  B.useAsCString name $ \s -> do
   readp <- c_access s r_OK
   write <- c_access s w_OK
   exec  <- c_access s x_OK
@@ -188,27 +171,6 @@ getPermissions name = do
    )
 
 -- ---------------------------------------------------------------------
---
--- A faster append . append
---
-joinPathP :: P.FastString -> P.FastString -> P.FastString
-joinPathP f g =
-    let (ffp, s, l) = P.toForeignPtr f 
-        (fgp, t, m) = P.toForeignPtr g
-    in unsafePerformIO $ 
-        P.generate len $ \ptr ->
-            withForeignPtr ffp $ \fp ->
-                withForeignPtr fgp $ \gp -> do
-                    c_memcpy ptr (fp `plusPtr` s) l
-                    poke   (ptr `plusPtr` l) (sep :: Word8)
-                    c_memcpy (ptr `plusPtr` (l + 1)) (gp `plusPtr` t) m
-                    return len
-    where
-      len = P.length f + P.length g + 1
-      sep = fromIntegral . ord $ '/'
-{-# INLINE joinPathP #-}
-
--- ---------------------------------------------------------------------
 -- | Send a msg over the channel to the decoder
 send :: Pretty a => Handle -> a -> IO ()
 send h m = P.hPut h (ppr m) >> P.hPut h nl >> hFlush h
@@ -220,10 +182,10 @@ send h m = P.hPut h (ppr m) >> P.hPut h nl >> hFlush h
 -- 
 -- A wrapper over printf for use in UI.PTimes
 -- 
-printfPS :: P.FastString -> Int -> Int -> P.FastString
+printfPS :: P.ByteString -> Int -> Int -> P.ByteString
 printfPS fmt arg1 arg2 =
-    unsafePerformIO $ P.generate lim $ \ptr ->
-        P.unsafeUseAsCString fmt $ \c_fmt -> do
+    unsafePerformIO $ B.generate lim $ \ptr ->
+        B.unsafeUseAsCString fmt $ \c_fmt -> do
             sz' <- c_printf2d ptr (fromIntegral lim) (castPtr c_fmt)
                         (fromIntegral arg1) (fromIntegral arg2)
             return (min lim (fromIntegral sz')) -- snprintf might truncate

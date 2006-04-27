@@ -33,7 +33,7 @@
 module Utils where
 
 import FastIO                   (printfPS)
-import qualified Data.FastPackedString as P (packAddress,FastString)
+import qualified Data.ByteString as P (packAddress,ByteString)
 
 import Data.Char                (toLower)
 import System.Time              (diffClockTimes, TimeDiff(tdSec), ClockTime)
@@ -63,7 +63,7 @@ a  <+> b = a ++ " " ++ b
 
 ------------------------------------------------------------------------
 
-drawUptime :: ClockTime -> ClockTime -> P.FastString
+drawUptime :: ClockTime -> ClockTime -> P.ByteString
 drawUptime before now =
     let r      = diffClockTimes now before
         s      = tdSec  r

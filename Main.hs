@@ -24,10 +24,9 @@ import Core     (start, readSt, shutdown)
 import Tree     (SerialT(..))
 import Utils    ((<+>))
 import Config   (darcsinfo, help, versinfo)
-import FastIO   (packedGetArgs)
 import Keymap   ({-# bogus import to work around 6.4 rec modules bug #-})
 
-import qualified Data.FastPackedString as P (pack,FastString)
+import qualified Data.ByteString.Char8 as P (pack,ByteString,getArgs)
 
 import Control.Exception    (catch)
 
@@ -75,7 +74,7 @@ usage = ["Usage: hmp3 [-Vh] [FILE|DIR ...]"
         ,"-h  --help     Show this help"]
 
 -- | Parse the args
-do_args :: [P.FastString] -> IO (Either SerialT [P.FastString])
+do_args :: [P.ByteString] -> IO (Either SerialT [P.ByteString])
 do_args []  = do    -- attempt to read db
     x <- readSt 
     case x of
@@ -99,7 +98,7 @@ do_args xs = return $ Right xs
 --
 main :: IO ()
 main = do  
-    args  <- packedGetArgs
+    args  <- P.getArgs
     files <- do_args args
     initSignals
     start files -- never returns

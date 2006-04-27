@@ -26,7 +26,7 @@ import Syntax                   (Status(Stopped), Mode(..), Frame, Info,Id3)
 import Tree                     (FileArray, DirArray)
 import Style                    (StringA(Fast), defaultSty, UIStyle)
 import Regex                    (Regex)
-import qualified Data.FastPackedString as P (empty,FastString)
+import qualified Data.ByteString as P (empty,ByteString)
 import qualified Config (defaultStyle)
 
 import Data.Array               (listArray)
@@ -70,7 +70,7 @@ data HState = HState {
        ,helpVisible     :: !Bool                 -- is the help window shown
        ,miniFocused     :: !Bool                 -- is the mini buffer focused?
        ,mode            :: !Mode                 -- random mode
-       ,uptime          :: !P.FastString
+       ,uptime          :: !P.ByteString
        ,boottime        :: !ClockTime
        ,regex           :: !(Maybe (Regex,Bool)) -- most recent search pattern and direction
        ,xterm           :: !Bool

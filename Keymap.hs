@@ -44,7 +44,7 @@ import Lexers       ((>|<),(>||<),action,meta,execLexer
 
 import Data.List    ((\\))
 
-import qualified Data.FastPackedString as P (packAddress,FastString,pack)
+import qualified Data.ByteString.Char8 as P (packAddress,ByteString,pack)
 import qualified Data.Map as M (fromList, lookup, Map)
 
 data Search = SearchFile | SearchDir
@@ -138,7 +138,7 @@ enter   = alt enter'
 --
 -- The default keymap, and its description
 --
-keyTable :: [(P.FastString, [Char], IO ())]
+keyTable :: [(P.ByteString, [Char], IO ())]
 keyTable =
     [(p "Previous track"#,
         ['k',keyUp],    up)
@@ -185,7 +185,7 @@ keyTable =
     p = P.packAddress
     {-# INLINE p #-}
 
-extraTable :: [(P.FastString, [Char])]
+extraTable :: [(P.ByteString, [Char])]
 extraTable = [(p "Search for directory matching regex"#, ['/'])
              ,(p "Search backwards for directory"#, ['?'])
              ,(p "Search for file matching regex"#, ['\\'])

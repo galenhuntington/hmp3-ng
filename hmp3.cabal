@@ -4,7 +4,7 @@ License:             GPL
 License-file:        LICENSE
 Author:              Don Stewart
 Maintainer:          dons@cse.unsw.edu.au
-Build-Depends:       base, unix, fps
+Build-Depends:       base, unix, fps>=0.5
 
 Executable:          hmp3
 Main-is:             Main.hs

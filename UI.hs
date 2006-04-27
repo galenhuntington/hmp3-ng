@@ -64,7 +64,8 @@ import System.IO                (stderr, hFlush)
 import System.Posix.Signals     (raiseSignal, sigTSTP)
 import System.Posix.Env         (getEnv, putEnv)
 
-import qualified Data.FastPackedString as P
+import qualified Data.ByteString.Char8 as P
+import qualified Data.ByteString       as B
 
 ------------------------------------------------------------------------
 
@@ -189,19 +190,19 @@ data PlayScreen = PlayScreen !PPlaying !ProgressBar !PTimes
 newtype PlayList = PlayList [StringA]
 
 newtype PPlaying    = PPlaying    StringA
-newtype PVersion    = PVersion    P.FastString
-newtype PMode       = PMode       P.FastString
-newtype PMode2      = PMode2      P.FastString
+newtype PVersion    = PVersion    P.ByteString
+newtype PMode       = PMode       P.ByteString
+newtype PMode2      = PMode2      P.ByteString
 newtype ProgressBar = ProgressBar StringA
 newtype PTimes      = PTimes      StringA
 
-newtype PInfo       = PInfo       P.FastString
-newtype PId3        = PId3        P.FastString
-newtype PTime       = PTime       P.FastString
+newtype PInfo       = PInfo       P.ByteString
+newtype PId3        = PId3        P.ByteString
+newtype PTime       = PTime       P.ByteString
 
 newtype PlayTitle = PlayTitle StringA
-newtype PlayInfo  = PlayInfo  P.FastString
-newtype PlayModes = PlayModes P.FastString
+newtype PlayInfo  = PlayInfo  P.ByteString
+newtype PlayModes = PlayModes P.ByteString
 newtype HelpScreen = HelpScreen [StringA]
 
 ------------------------------------------------------------------------
@@ -249,10 +250,10 @@ instance Element PInfo where
         Nothing  -> emptyVal
         Just i   -> userinfo i
 
-emptyVal :: P.FastString
+emptyVal :: P.ByteString
 emptyVal = P.pack "(empty)"
 
-spc2 :: P.FastString
+spc2 :: P.ByteString
 spc2 = spaces 2
 
 ------------------------------------------------------------------------
@@ -264,7 +265,7 @@ instance Element HelpScreen where
         where
             sty  = helpscreen . config $ st
 
-            f :: [Char] -> P.FastString -> P.FastString
+            f :: [Char] -> P.ByteString -> P.ByteString
             f cs ps = 
                 let p = P.pack str `P.append` ps
                     s = P.pack (take (tot - P.length p) (repeat ' '))
@@ -461,7 +462,7 @@ instance Element PlayList where
                 where off = screens * buflen
 
             -- todo: put dir on its own line
-            visible' :: [(Maybe Int, P.FastString)]
+            visible' :: [(Maybe Int, P.ByteString)]
             visible' = loop (-1) visible
                 where  loop _ []     = []
                        loop n (v:vs) = 
@@ -476,7 +477,7 @@ instance Element PlayList where
 
             indent = (round $ (0.35 :: Float) * fromIntegral x) :: Int
                 
-            color :: ((Maybe Int,P.FastString),Int) -> (Maybe Int, StringA)
+            color :: ((Maybe Int,P.ByteString),Int) -> (Maybe Int, StringA)
             color ((m,s),i) 
                 | i == select && i == playing = f sty3
                 | i == select                 = f sty2
@@ -516,7 +517,7 @@ instance Element PlayList where
 
             drawIt _ = error "UI.drawIt: color gaves us a non-Fast StringA!"
 
-            mchop :: ((Maybe Int,P.FastString),Int) -> ((Maybe Int,P.FastString),Int) 
+            mchop :: ((Maybe Int,P.ByteString),Int) -> ((Maybe Int,P.ByteString),Int) 
             mchop a@((i,s),j)
                 | P.length s > (x-indent-4-1) 
                 = ((i, P.take (x-indent-4-1) s `P.append` ellipsis),j)
@@ -532,7 +533,7 @@ printPlayList (PlayList s) = s
 ------------------------------------------------------------------------
 
 -- | Take two strings, and pad them in the middle
-alignLR :: Int -> P.FastString -> P.FastString -> P.FastString
+alignLR :: Int -> P.ByteString -> P.ByteString -> P.ByteString
 alignLR w l r 
     | padding >  0 = P.concat [l, gap, r]
     | otherwise    = P.concat [ P.take (w - P.length r - 4 - 1) l, ellipsis, spaces 1, r]
@@ -541,18 +542,18 @@ alignLR w l r
           gap     = spaces padding
 
 -- | Calculate whitespaces, very common, so precompute likely values
-spaces :: Int -> P.FastString
+spaces :: Int -> P.ByteString
 spaces n
     | n > 100   = P.replicate n ' ' -- unlikely
     | otherwise = arr ! n
   where
-    arr :: Array Int P.FastString   -- precompute some whitespace strs
+    arr :: Array Int P.ByteString   -- precompute some whitespace strs
     arr = listArray (0,100) [ P.take i s100 | i <- [0..100] ]
 
-    s100 :: P.FastString
+    s100 :: P.ByteString
     s100 = P.replicate 100 ' '  -- seems reasonable
 
-ellipsis :: P.FastString
+ellipsis :: P.ByteString
 ellipsis = P.pack "... "
 {-# INLINE ellipsis #-}
 
@@ -640,9 +641,9 @@ drawLine _ (FancyS ls) = loop ls
           loop ((l,sty):xs)   = drawPackedString l sty >> loop xs
 
 -- worker
-drawPackedString :: P.FastString -> Style -> IO ()
+drawPackedString :: P.ByteString -> Style -> IO ()
 drawPackedString ps sty = 
-    withStyle sty $ P.unsafeUseAsCString ps $ \cstr -> 
+    withStyle sty $ B.unsafeUseAsCString ps $ \cstr -> 
         Curses.throwIfErr_ msg $
             Curses.waddnstr Curses.stdScr cstr (fromIntegral . P.length $ ps)
     where
@@ -687,7 +688,7 @@ slice i j arr =
 --
 -- | magics for setting xterm titles using ansi escape sequences
 --
-setXtermTitle :: [P.FastString] -> IO ()
+setXtermTitle :: [P.ByteString] -> IO ()
 setXtermTitle strs = do
     mapM_ (P.hPut stderr) (before : strs ++ [after])
     hFlush stderr 

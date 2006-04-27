@@ -26,7 +26,7 @@
 
 module Syntax where
 
-import qualified Data.FastPackedString as P (packAddress,concat,pack,FastString)
+import qualified Data.ByteString.Char8 as P (packAddress,concat,pack,ByteString)
 
 ------------------------------------------------------------------------
 --
@@ -34,7 +34,7 @@ import qualified Data.FastPackedString as P (packAddress,concat,pack,FastString)
 
 -- Loads and starts playing <file>
 --
-data Load = Load {-# UNPACK #-} !P.FastString
+data Load = Load {-# UNPACK #-} !P.ByteString
 
 instance Pretty Load where
     ppr (Load f) = P.concat [P.packAddress "LOAD "#, f]
@@ -67,17 +67,17 @@ instance Pretty Quit where
 data Tag = Tag
 
 -- Track info if ID fields are in the file, otherwise file name.
-data File = File {-# UNPACK #-} !(Either P.FastString Id3)
+data File = File {-# UNPACK #-} !(Either P.ByteString Id3)
 
 -- ID3 info 
 data Id3 = Id3 
-        { id3title  :: !P.FastString 
-        , id3artist :: !P.FastString 
-        , id3album  :: !P.FastString 
-        , id3str    :: !P.FastString }   -- cache screen string to draw
+        { id3title  :: !P.ByteString 
+        , id3artist :: !P.ByteString 
+        , id3album  :: !P.ByteString 
+        , id3str    :: !P.ByteString }   -- cache screen string to draw
 
---      , year   :: Maybe P.FastString
---      , genre  :: Maybe P.FastString }
+--      , year   :: Maybe P.ByteString
+--      , genre  :: Maybe P.ByteString }
 
 
 
@@ -97,11 +97,11 @@ data Id3 = Id3
 -- <k>: Bitrate, in kbps. (i.e., 128.) Integer.
 -- <l>: Extension. Integer.
 data Info = Info {
-                userinfo      :: !P.FastString  -- user friendly string
-           --   version       :: !P.FastString,
+                userinfo      :: !P.ByteString  -- user friendly string
+           --   version       :: !P.ByteString,
            --   layer         :: !Int,     -- 1,2 or 3
            --   sampleRate    :: !Int,
-           --   playMode      :: !P.FastString,
+           --   playMode      :: !P.ByteString,
            --   modeExtns     :: !Int,
            --   bytesPerFrame :: !Int,
            --   channelCount  :: !Int,
@@ -145,7 +145,7 @@ data Mode = Normal | Loop | Random deriving (Eq,Bounded,Enum) -- for pred,succ
 -- a pretty printing class
 --
 class Pretty a where
-    ppr :: a -> P.FastString
+    ppr :: a -> P.ByteString
 
 --
 -- And a wrapper type 

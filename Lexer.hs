@@ -25,14 +25,14 @@ import Syntax   (Msg(..),Status(..),Frame(..),Info(..),Id3(..),File(..),Tag(..))
 import FastIO   (getFilteredPacket)
 
 import Data.Maybe   (fromJust)
-import qualified Data.FastPackedString as P
+import qualified Data.ByteString.Char8 as P
 
 import Foreign.C.Types  (CFile)
 import Foreign.Ptr      (Ptr)
 
 ------------------------------------------------------------------------
 
-doP :: P.FastString -> Msg
+doP :: P.ByteString -> Msg
 doP s = S $! case P.head . P.tail $ s of
                 '0' -> Stopped
                 '1' -> Paused
@@ -40,7 +40,7 @@ doP s = S $! case P.head . P.tail $ s of
                 _ -> error "Invalid Status"
 
 -- Frame decoding status updates (once per frame).
-doF :: P.FastString -> Msg
+doF :: P.ByteString -> Msg
 doF s = R $ Frame {
                 currentFrame = readPS (fs !! 0)
               , framesLeft   = readPS (fs !! 1)
@@ -55,11 +55,11 @@ doF s = R $ Frame {
                 case readPS y              of { ry    -> (rx,ry) }}
                                               ; _ -> error "doF.f" }
 
-readPS :: P.FastString -> Int
-readPS = fromJust . P.unsafeReadInt
+readPS :: P.ByteString -> Int
+readPS = fst . fromJust . P.unsafeReadInt
 
 -- Outputs information about the mp3 file after loading.
-doS :: P.FastString -> Msg
+doS :: P.ByteString -> Msg
 doS s = let fs = P.split ' ' . P.tail $ s
         in I $ Info {
             {-
@@ -88,7 +88,7 @@ doS s = let fs = P.split ' ' . P.tail $ s
 
 -- Track info if ID fields are in the file, otherwise file name.
 -- 30 chars per field?
-doI :: P.FastString -> Msg
+doI :: P.ByteString -> Msg
 doI s = let f = P.dropSpaceEnd . P.dropSpace . P.tail $ s 
         in case P.take 4 f of
             cs | cs == P.pack "ID3:" -> F . File . Right . toId id3 . splitUp . P.drop 4 $ f
@@ -99,7 +99,7 @@ doI s = let f = P.dropSpaceEnd . P.dropSpace . P.tail $ s
         id3 = Id3 P.empty P.empty P.empty P.empty
 
         -- break the ID3 string up
-        splitUp :: P.FastString -> [P.FastString]
+        splitUp :: P.ByteString -> [P.ByteString]
         splitUp f
             | f == P.empty  = []
             | otherwise     
@@ -108,7 +108,7 @@ doI s = let f = P.dropSpaceEnd . P.dropSpace . P.tail $ s
               in a : xs'
 
         -- and some ugly code:
-        toId :: Id3 -> [P.FastString] -> Id3
+        toId :: Id3 -> [P.ByteString] -> Id3
         toId i ls = 
             let j = case length ls of
                     0   -> i

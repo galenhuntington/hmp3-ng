@@ -26,7 +26,7 @@ module Style where
 #include "config.h"
 
 import qualified Curses
-import qualified Data.FastPackedString as P (FastString)
+import Data.ByteString (ByteString)
 
 import Data.Char                (toLower)
 import Data.Word                (Word8)
@@ -69,8 +69,8 @@ data Style = Style {-# UNPACK #-} !Color !Color
 
 -- | A list of such values (the representation is optimised)
 data StringA 
-    = Fast   {-# UNPACK #-} !P.FastString !Style
-    | FancyS {-# UNPACK #-} ![(P.FastString,Style)]  -- one line made up of segments
+    = Fast   {-# UNPACK #-} !ByteString !Style
+    | FancyS {-# UNPACK #-} ![(ByteString,Style)]  -- one line made up of segments
 
 ------------------------------------------------------------------------
 --

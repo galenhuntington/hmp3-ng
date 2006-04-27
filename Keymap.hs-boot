@@ -1,8 +1,8 @@
 module Keymap where
 
-import Data.FastPackedString
+import Data.ByteString
 
 keymap :: [Char] -> [IO ()]
 
-keyTable   :: [(FastString, [Char], IO ())]
-extraTable :: [(FastString, [Char])]
+keyTable   :: [(ByteString, [Char], IO ())]
+extraTable :: [(ByteString, [Char])]

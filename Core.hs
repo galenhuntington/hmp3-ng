@@ -38,7 +38,7 @@ import Lexer                (parser)
 import State
 import Style
 import Utils
-import FastIO               (send,fdToCFile,joinPathP,forceNextPacket)
+import FastIO               (send,fdToCFile,forceNextPacket)
 import Tree hiding (File,Dir)
 import qualified Tree (File,Dir)
 import Regex
@@ -46,7 +46,8 @@ import qualified UI
 
 import {-# SOURCE #-} Keymap (keymap)
 
-import qualified Data.FastPackedString as P (unsafeUseAsCString,pack,empty,FastString)
+import qualified Data.ByteString.Char8 as P (pack,empty,ByteString,joinWithChar)
+import Data.ByteString (unsafeUseAsCString)
 
 import Data.Array               ((!), bounds, Array)
 import Data.Maybe               (isJust,fromJust)
@@ -72,7 +73,7 @@ import GHC.Handle               (fdToHandle)
 
 ------------------------------------------------------------------------
 
-start :: Either SerialT [P.FastString] -> IO ()
+start :: Either SerialT [P.ByteString] -> IO ()
 start ms = Control.Exception.handle (\e -> shutdown (Just (show e))) $ do
 
     t0 <- forkIO mpgLoop    -- start this off early, to give mpg321 a time to settle
@@ -366,7 +367,7 @@ playAtN st fn = do
     let m   = music st
         i   = current st
         fe  = m ! (fn i)
-        f   = (dname $ folders st ! fdir fe) `joinPathP` (fbase fe)
+        f   = P.joinWithChar '/' (dname $ folders st ! fdir fe) (fbase fe)
         j   = cursor  st
         st' = st { current = fn i
                  , status  = Playing
@@ -448,7 +449,7 @@ genericJumpToMatch re k sel = do
 
                 loop fn inc n
                     | fn n      = return Nothing
-                    | otherwise = P.unsafeUseAsCString (extract (fs ! n)) $ \s -> do
+                    | otherwise = unsafeUseAsCString (extract (fs ! n)) $ \s -> do
                         v <- regexec p s 0
                         case v of
                             Nothing -> loop fn inc $! inc n

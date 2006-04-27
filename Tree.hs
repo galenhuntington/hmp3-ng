@@ -27,7 +27,7 @@ module Tree where
 import FastIO
 import Syntax           (Mode(..))
 import Binary           (openBinIO_, Binary(put_, get))
-import qualified Data.FastPackedString as P (drop,map,length,pack,FastString)
+import qualified Data.ByteString.Char8 as P (drop,map,length,pack,ByteString,joinWithChar)
 
 import Data.Maybe       (catMaybes)
 import Data.Array       (listArray, elems, bounds, Array)
@@ -39,7 +39,7 @@ import System.Directory (Permissions(readable))
 import Control.Exception(handle)
 import Control.Monad    (liftM)
 
-type FilePathP = P.FastString
+type FilePathP = P.ByteString
 
 -- | A filesystem hierarchy is flattened to just the end nodes
 type DirArray = Array Int Dir
@@ -123,7 +123,7 @@ expandDir f | seq f False = undefined -- stricitfy
 expandDir f = do
     ls_raw <- Control.Exception.handle (\e -> hPutStrLn stderr (show e) >> return []) $ 
                 packedGetDirectoryContents f
-    let ls = map (joinPathP f) . sort . filter validFiles $! ls_raw
+    let ls = map (P.joinWithChar '/' f) . sort . filter validFiles $! ls_raw
     ls `seq` return ()
     (fs',ds) <- partition ls
     let fs = filter onlyMp3s fs'
