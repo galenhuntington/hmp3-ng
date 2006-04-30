@@ -39,12 +39,14 @@ import Data.Char                (toLower)
 import System.Time              (diffClockTimes, TimeDiff(tdSec), ClockTime)
 import System.Environment       (getEnv)
 import System.Posix.Types       (Fd(..),ProcessID)
-import System.Process.Internals (ProcessHandle(..))
+import System.Process.Internals (mkProcessHandle,ProcessHandle)
 import System.Posix.Process     (forkProcess,executeFile)
 import System.Posix.IO          (createPipe,stdInput,stdError
                                 ,stdOutput,closeFd,dupTo)
 
 import qualified Control.Exception (handle)
+
+import System.IO.Unsafe         (unsafePerformIO)
 
 ------------------------------------------------------------------------
 
@@ -90,7 +92,8 @@ fdToInt (Fd cint) = fromIntegral cint
 
 -- | Wrap a CPid as a System.Process.ProcessHandle
 pid2phdl :: ProcessID -> ProcessHandle
-pid2phdl pid = (ProcessHandle pid)
+pid2phdl pid = unsafePerformIO $ mkProcessHandle pid
+{-# NOINLINE pid2phdl #-}
 
 ------------------------------------------------------------------------
 --
