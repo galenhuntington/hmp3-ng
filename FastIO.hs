@@ -43,7 +43,6 @@ import System.Posix.Types       (Fd, CMode)
 
 import Control.Exception        (catch, bracket)
 
-
 ------------------------------------------------------------------------
 
 -- | Packed string version of basename
@@ -84,14 +83,15 @@ packedGetDirectoryContents path = do
                 if (dEnt == nullPtr)
                     then return []
                     else do  -- copy entry out before we free:
-                        entry   <- B.copyCString `fmap` d_name dEnt 
+                        entry <- B.copyCString `fmap` d_name dEnt
+                        P.length entry `seq` return ()  -- strictify
                         freeDirEnt dEnt
                         entries <- loop ptr_dEnt dir
                         return $! (entry:entries)
 
         else do errno <- getErrno
-                if (errno == eINTR) 
-                    then loop ptr_dEnt dir 
+                if (errno == eINTR)
+                    then loop ptr_dEnt dir
                     else do let (Errno eo) = errno
                             if (eo == end_of_dir)
                                 then return []
