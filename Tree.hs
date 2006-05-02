@@ -93,19 +93,19 @@ doOrphans (f:xs) = (dirnameP f, [basenameP f]) : doOrphans xs
 -- | Merge entries with the same root node into a single node
 merge :: [(FilePathP, [FilePathP])] -> [(FilePathP, [FilePathP])]
 merge [] = []
-merge xs = 
-    let xs' = sortBy  (\a b -> fst a `compare` fst b) xs 
+merge xs =
+    let xs' = sortBy  (\a b -> fst a `compare` fst b) xs
         xs''= groupBy (\a b -> fst a == fst b) xs'
     in catMaybes $ map flatten xs''
   where
     flatten :: [(FilePathP,[FilePathP])] -> Maybe (FilePathP, [FilePathP])
     flatten []     = Nothing    -- can't happen
     flatten (x:ys) = let d = fst x in Just (d, snd x ++ concatMap snd ys)
-        
+
 -- | fold builder, for generating Dirs and Files
 make :: (Int,Int,[Dir],[File]) -> (FilePathP,[FilePathP]) -> (Int,Int,[Dir],[File])
-make (i,n,acc1,acc2) (d,fs) = 
-    case listToDir n d fs of 
+make (i,n,acc1,acc2) (d,fs) =
+    case listToDir n d fs of
         (dir,n') -> case map makeFile fs of
             fs' -> (i+1, n', dir:acc1, (reverse fs') ++ acc2)
     where
@@ -121,7 +121,7 @@ make (i,n,acc1,acc2) (d,fs) =
 expandDir :: FilePathP -> IO (Maybe (FilePathP, [FilePathP]),  [FilePathP])
 expandDir f | seq f False = undefined -- stricitfy
 expandDir f = do
-    ls_raw <- Control.Exception.handle (\e -> hPutStrLn stderr (show e) >> return []) $ 
+    ls_raw <- Control.Exception.handle (\e -> hPutStrLn stderr (show e) >> return []) $
                 packedGetDirectoryContents f
     let ls = map (P.joinWithChar '/' f) . sort . filter validFiles $! ls_raw
     ls `seq` return ()
@@ -132,7 +132,7 @@ expandDir f = do
     where
           notEdge    p = p /= dot && p /= dotdot
           validFiles p = notEdge p
-          onlyMp3s   p = mp3 == (P.map toLower . P.drop (P.length p -3) $ p) 
+          onlyMp3s   p = mp3 == (P.map toLower . P.drop (P.length p -3) $ p)
 
           mp3        = P.pack "mp3"
           dot        = P.pack "."
@@ -144,7 +144,7 @@ expandDir f = do
 -- into the array
 --
 listToDir :: Int -> FilePathP -> [FilePathP] -> (Dir, Int)
-listToDir n d fs = 
+listToDir n d fs =
         let dir = Dir { dname = packedFileNameEndClean d
                       , dsize = len
                       , dlo   = n
@@ -157,7 +157,7 @@ listToDir n d fs =
 -- to the paths that point to files and to directories.
 partition :: [FilePathP] -> IO ([FilePathP], [FilePathP])
 partition xs | seq xs False = undefined -- how to make `partition' strict
-partition [] = return ([],[]) 
+partition [] = return ([],[])
 partition (a:xs) = do
     (fs,ds) <- partition xs
     x <- doesFileExist a
