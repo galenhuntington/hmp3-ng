@@ -1,5 +1,5 @@
 
-AC_INIT(Setup.lhs)
+AC_INIT(Setup.hs)
 AC_CONFIG_HEADERS([cbits/config.h])
 AC_PREREQ([2.52])
 
