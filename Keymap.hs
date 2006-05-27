@@ -142,13 +142,9 @@ keyTable :: [(P.ByteString, [Char], IO ())]
 keyTable =
     [
      (p "Move up"#,
-        [keyUp],    up)
+        ['k',keyUp],    up)
     ,(p "Move down"#,
-        [keyDown],  down)
-    ,(p "Previous track"#,
-        ['k'],    playPrev)
-    ,(p "Next track"#,
-        ['j'],  playNext)
+        ['j',keyDown],  down)
     ,(p "Next directory down"#,
         [keyNPage], jumpToNextDir)
     ,(p "Next directory up"#,
@@ -165,6 +161,10 @@ keyTable =
         ['p'],          pause)
     ,(p "Play song under cursor"#,
         ['\n',' '],     play)
+    ,(p "Play previous track"#,
+        ['K'],    playPrev)
+    ,(p "Play next track"#,
+        ['J'],  playNext)
     ,(p "Toggle the help screen"#,
         ['h'],   toggleHelp)
     ,(p "Jump to currently playing song"#,
