@@ -25,6 +25,7 @@ import Syntax                   (Pretty(ppr))
 
 import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Base as B
 
 import Data.Word                (Word8)
 import Foreign.C.Error
@@ -47,13 +48,13 @@ import Control.Exception        (catch, bracket)
 
 -- | Packed string version of basename
 basenameP :: P.ByteString -> P.ByteString
-basenameP fps = case P.elemIndexLast '/' fps of
+basenameP fps = case P.elemIndexEnd '/' fps of
     Nothing -> fps
     Just i  -> P.drop (i+1) fps
 {-# INLINE basenameP #-}
 
 dirnameP :: P.ByteString -> P.ByteString
-dirnameP fps = case P.elemIndexLast '/' fps of
+dirnameP fps = case P.elemIndexEnd '/' fps of
     Nothing -> P.pack "."
     Just i  -> P.take i fps
 {-# INLINE dirnameP #-}
@@ -83,7 +84,7 @@ packedGetDirectoryContents path = do
                 if (dEnt == nullPtr)
                     then return []
                     else do  -- copy entry out before we free:
-                        entry <- B.copyCString `fmap` d_name dEnt
+                        entry <- B.copyCString =<< d_name dEnt
                         P.length entry `seq` return ()  -- strictify
                         freeDirEnt dEnt
                         entries <- loop ptr_dEnt dir

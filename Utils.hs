@@ -33,7 +33,7 @@
 module Utils where
 
 import FastIO                   (printfPS)
-import qualified Data.ByteString as P (packAddress,ByteString)
+import qualified Data.ByteString.Base as P (packAddress,ByteString)
 
 import Data.Char                (toLower)
 import System.Time              (diffClockTimes, TimeDiff(tdSec), ClockTime)
