@@ -11,7 +11,7 @@ Main-is:             Main.hs
 extensions:          CPP, ForeignFunctionInterface
 extra-libraries:     curses
 include-dirs:        cbits
-c-sources:           cbits/utils.c cbits/hooks.c
+c-sources:           cbits/utils.c
 other-modules:       Curses Regex
 ghc-options:         -Wall -fglasgow-exts -O2 -funbox-strict-fields -fasm -optl-Wl,-s -Icbits -threaded
  
