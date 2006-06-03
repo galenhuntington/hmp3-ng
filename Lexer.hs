@@ -56,7 +56,7 @@ doF s = R $ Frame {
                                               ; _ -> error "doF.f" }
 
 readPS :: P.ByteString -> Int
-readPS = fst . fromJust . P.unsafeReadInt
+readPS = fst . fromJust . P.readInt
 
 -- Outputs information about the mp3 file after loading.
 doS :: P.ByteString -> Msg

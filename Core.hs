@@ -47,7 +47,7 @@ import qualified UI
 import {-# SOURCE #-} Keymap (keymap)
 
 import qualified Data.ByteString.Char8 as P (pack,empty,ByteString,joinWithChar)
-import Data.ByteString (unsafeUseAsCString)
+import Data.ByteString (useAsCString)
 
 import Data.Array               ((!), bounds, Array)
 import Data.Maybe               (isJust,fromJust)
@@ -466,7 +466,7 @@ genericJumpToMatch re k sel = do
 
                 loop fn inc n
                     | fn n      = return Nothing
-                    | otherwise = unsafeUseAsCString (extract (fs ! n)) $ \s -> do
+                    | otherwise = useAsCString (extract (fs ! n)) $ \s -> do
                         v <- regexec p s 0
                         case v of
                             Nothing -> loop fn inc $! inc n

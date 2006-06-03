@@ -186,7 +186,7 @@ send h m = P.hPut h (ppr m) >> P.hPut h nl >> hFlush h
 printfPS :: P.ByteString -> Int -> Int -> P.ByteString
 printfPS fmt arg1 arg2 =
     unsafePerformIO $ B.createAndTrim lim $ \ptr ->
-        B.unsafeUseAsCString fmt $ \c_fmt -> do
+        B.useAsCString fmt $ \c_fmt -> do
             sz' <- c_printf2d ptr (fromIntegral lim) (castPtr c_fmt)
                         (fromIntegral arg1) (fromIntegral arg2)
             return (min lim (fromIntegral sz')) -- snprintf might truncate

@@ -642,8 +642,8 @@ drawLine _ (FancyS ls) = loop ls
 
 -- worker
 drawPackedString :: P.ByteString -> Style -> IO ()
-drawPackedString ps sty = 
-    withStyle sty $ B.unsafeUseAsCString ps $ \cstr -> 
+drawPackedString ps sty =
+    withStyle sty $ B.useAsCString ps $ \cstr ->
         Curses.throwIfErr_ msg $
             Curses.waddnstr Curses.stdScr cstr (fromIntegral . P.length $ ps)
     where
