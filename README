@@ -3,9 +3,9 @@
           ---------------------------------------------------
 
 Dependencies:
-    The Glasgow Haskell Compiler >= 6.4       http://haskell.org/ghc
+    The Glasgow Haskell Compiler >= 6.4.2     http://haskell.org/ghc
     mpg321                                    http://mpg321.sourceforge.net/
-    The snapshot or darcs version FPS         http://www.cse.unsw.edu.au/~dons/fps.html
+    A version of FPS >= 0.7                   http://www.cse.unsw.edu.au/~dons/fps.html
     A Cabal newer than 1.0                    http://haskell.org/cabal
     curses
 
@@ -17,7 +17,7 @@ Building:
 
 This assumes you have Cabal installed. Cabal is installed by default
 with newer GHCs. If your Cabal version is too old (v1.0 that comes with
-GHC 6.4.x is too old), or if you see:
+GHC 6.4.1 is too old), or if you see:
       dist/build/hmp3-tmp/cbits/utils.o: No such file or directory
 errors, then you need to download a newer Cabal version first.
 
@@ -88,7 +88,7 @@ License:
     GPL
 
 Author:
-    Don Stewart, Thu Nov 10 16:26:23 EST 2005
+    Don Stewart, Tue Jun 27 17:11:03 EST 2006
 
 Contributors:
     Samuel Bronson
