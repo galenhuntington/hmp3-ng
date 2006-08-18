@@ -26,7 +26,7 @@ import Utils    ((<+>))
 import Config   (darcsinfo, help, versinfo)
 import Keymap   ({-# bogus import to work around 6.4 rec modules bug #-})
 
-import qualified Data.ByteString.Char8 as P (pack,ByteString,getArgs)
+import qualified Data.ByteString.Char8 as P (pack,ByteString)
 
 import Control.Exception    (catch)
 
@@ -34,6 +34,8 @@ import System.IO            (hPutStrLn, stderr)
 import System.Exit          (ExitCode(..), exitWith)
 import System.Posix.Signals (installHandler, sigTERM, sigPIPE, sigINT, sigHUP
                             ,sigALRM, sigABRT, Handler(Ignore, Default, Catch))
+
+import System.Environment   (getArgs)
 
 -- ---------------------------------------------------------------------
 -- | Set up the signal handlers
@@ -98,7 +100,7 @@ do_args xs = return $ Right xs
 --
 main :: IO ()
 main = do  
-    args  <- P.getArgs
+    args  <- return . map P.pack =<< getArgs
     files <- do_args args
     initSignals
     start files -- never returns
