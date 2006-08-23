@@ -22,7 +22,8 @@
 module Lexer ( parser ) where
 
 import Syntax   (Msg(..),Status(..),Frame(..),Info(..),Id3(..),File(..),Tag(..))
-import FastIO   (getFilteredPacket)
+import FastIO   (getFilteredPacket, dropSpaceEnd)
+import Data.Char
 
 import Data.Maybe   (fromJust)
 import qualified Data.ByteString.Char8 as P
@@ -89,7 +90,7 @@ doS s = let fs = P.split ' ' . P.tail $ s
 -- Track info if ID fields are in the file, otherwise file name.
 -- 30 chars per field?
 doI :: P.ByteString -> Msg
-doI s = let f = P.dropSpaceEnd . P.dropSpace . P.tail $ s 
+doI s = let f = dropSpaceEnd . P.dropWhile isSpace . P.tail $ s 
         in case P.take 4 f of
             cs | cs == P.pack "ID3:" -> F . File . Right . toId id3 . splitUp . P.drop 4 $ f
                | otherwise           -> F . File . Left $ f
@@ -132,7 +133,7 @@ doI s = let f = P.dropSpaceEnd . P.dropSpace . P.tail $ s
 
         gap x y = P.concat [ x, (P.pack " : "), y ]
 
-        normalise = P.dropSpace . P.dropSpaceEnd
+        normalise = P.dropWhile isSpace . dropSpaceEnd
 
 ------------------------------------------------------------------------
 

@@ -32,8 +32,9 @@ import Foreign.C.Error
 import Foreign.C.String         (CString)
 import Foreign.C.Types          (CFile, CInt, CLong, CSize)
 import Foreign.Marshal          (allocaBytes, alloca)
-import Foreign.Ptr              (Ptr, nullPtr, castPtr)
-import Foreign.Storable         (peek)
+import Foreign.Ptr              (Ptr, nullPtr, castPtr, plusPtr)
+import Foreign.Storable         (peek,peekElemOff)
+import Foreign.ForeignPtr
 
 import System.Directory         (Permissions(..))
 import System.IO.Error          (modifyIOError, ioeSetFileName)
@@ -177,6 +178,29 @@ send :: Pretty a => Handle -> a -> IO ()
 send h m = P.hPut h (ppr m) >> P.hPut h nl >> hFlush h
     where
       nl = P.pack "\n"
+
+------------------------------------------------------------------------ 
+
+-- | 'dropSpaceEnd' efficiently returns the 'ByteString' argument with
+-- white space removed from the end. I.e.
+-- 
+-- > reverse . (dropWhile isSpace) . reverse == dropSpaceEnd
+--
+-- but it is more efficient than using multiple reverses.
+--
+dropSpaceEnd :: P.ByteString -> P.ByteString
+{-# INLINE dropSpaceEnd #-}
+dropSpaceEnd (B.PS x s l) = unsafePerformIO $ withForeignPtr x $ \p -> do
+    i <- lastnonspace (p `plusPtr` s) (l-1)
+    return $! if i == (-1) then B.empty else B.PS x s (i+1)
+    where
+        lastnonspace :: Ptr Word8 -> Int -> IO Int
+        lastnonspace ptr n
+            | ptr `seq` n `seq` False = undefined
+            | n < 0     = return n
+            | otherwise = do w <- peekElemOff ptr n
+                             if B.isSpaceWord8 w then lastnonspace ptr (n-1)
+                                                 else return n
 
 ------------------------------------------------------------------------ 
 

@@ -46,7 +46,7 @@ import qualified UI
 
 import {-# SOURCE #-} Keymap (keymap)
 
-import qualified Data.ByteString.Char8 as P (pack,empty,ByteString,joinWithChar)
+import qualified Data.ByteString.Char8 as P (pack,empty,ByteString,join,singleton)
 import Data.ByteString (useAsCString)
 
 import Data.Array               ((!), bounds, Array)
@@ -384,7 +384,7 @@ playAtN st fn = do
     let m   = music st
         i   = current st
         fe  = m ! (fn i)
-        f   = P.joinWithChar '/' (dname $ folders st ! fdir fe) (fbase fe)
+        f   = P.join (P.singleton '/') [(dname $ folders st ! fdir fe),(fbase fe)]
         j   = cursor  st
         st' = st { current = fn i
                  , status  = Playing

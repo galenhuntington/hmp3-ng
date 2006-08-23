@@ -27,7 +27,7 @@ module Tree where
 import FastIO
 import Syntax           (Mode(..))
 import Binary           (openBinIO_, Binary(put_, get))
-import qualified Data.ByteString.Char8 as P (drop,map,length,pack,ByteString,joinWithChar)
+import qualified Data.ByteString.Char8 as P
 
 import Data.Maybe       (catMaybes)
 import Data.Array       (listArray, elems, bounds, Array)
@@ -123,7 +123,7 @@ expandDir f | seq f False = undefined -- stricitfy
 expandDir f = do
     ls_raw <- Control.Exception.handle (\e -> hPutStrLn stderr (show e) >> return []) $
                 packedGetDirectoryContents f
-    let ls = map (P.joinWithChar '/' f) . sort . filter validFiles $! ls_raw
+    let ls = map (\s -> P.join (P.singleton '/') [f,s]) . sort . filter validFiles $! ls_raw
     ls `seq` return ()
     (fs',ds) <- partition ls
     let fs = filter onlyMp3s fs'
