@@ -26,8 +26,10 @@ module Tree where
 
 import FastIO
 import Syntax           (Mode(..))
-import Binary           (openBinIO_, Binary(put_, get))
 import qualified Data.ByteString.Char8 as P
+import qualified Data.ByteString.Lazy  as L
+
+import Data.Binary
 
 import Data.Maybe       (catMaybes)
 import Data.Array       (listArray, elems, bounds, Array)
@@ -166,53 +168,52 @@ partition (a:xs) = do
          else return (fs, a:ds)
 
 ------------------------------------------------------------------------
+--
+-- And some more Binary instances
+--
 
+{-
 instance Binary a => Binary (Array Int a) where
-    put_ bh arr = do
-        put_ bh (bounds arr)
-        mapM_ (put_ bh) (elems arr)
-    get bh      = do
-        ((x,y) :: (Int,Int)) <- get bh
-        (els   :: [a])       <- sequence $ take (y+1) $ repeat (get bh)
+    put arr = do
+        put (bounds arr)
+        mapM_ put (elems arr)
+    get     = do
+        ((x,y) :: (Int,Int)) <- get
+        (els   :: [a])       <- sequence $ take (y+1) $ repeat get
         return $! listArray (x,y) els
+-}
 
 instance Binary File where
-    put_ bh (File nm i) = do
-        put_ bh nm
-        put_ bh i
-    get bh = do
-        nm <- get bh
-        i  <- get bh
+    put (File nm i) = put nm >> put i
+    get = do
+        nm <- get
+        i  <- get
         return (File nm i)
 
 instance Binary Dir where
-    put_ bh (Dir nm sz lo hi) = do
-        put_ bh nm
-        put_ bh sz
-        put_ bh lo
-        put_ bh hi
-    get bh = do
-        nm <- get bh
-        sz <- get bh
-        lo <- get bh
-        hi <- get bh
+    put (Dir nm sz lo hi) = put nm >> put sz >> put lo >> put hi
+    get = do
+        nm <- get
+        sz <- get
+        lo <- get
+        hi <- get
         return (Dir nm sz lo hi)
 
 instance Binary Mode where
-    put_ bh = put_ bh . fromEnum
-    get  bh = liftM toEnum $ get bh
+    put = put . fromEnum
+    get = liftM toEnum get
 
 -- How we write everything out
 instance Binary SerialT where
-    put_ bh st = do
-        put_ bh (ser_farr st, ser_darr st)
-        put_ bh (ser_indx st)
-        put_ bh (ser_mode st)
+    put st = do
+        put (ser_farr st, ser_darr st)
+        put (ser_indx st)
+        put (ser_mode st)
 
-    get bh     = do
-        (a,b)<- get bh
-        i    <- get bh
-        m    <- get bh
+    get    = do
+        (a,b)<- get
+        i    <- get
+        m    <- get
         return $ SerialT {
                     ser_farr = a
                    ,ser_darr = b
@@ -227,28 +228,14 @@ data SerialT = SerialT {
         ser_farr :: FileArray,
         ser_darr :: DirArray,
         ser_indx :: Int,
-        ser_mode :: Mode 
+        ser_mode :: Mode
      }
 
---
--- write the arrays out
---
 writeTree :: FilePath -> SerialT -> IO ()
-writeTree f st = do
-    h    <- openFile   f WriteMode
-    bh   <- openBinIO_ h
-    put_ bh st
-    hClose h
+writeTree f = L.writeFile f . encode
 
---
--- | Read the arrays from a file
--- Read from binMem?
---
 readTree :: FilePath -> IO SerialT
 readTree f = do
-    h    <- openFile   f ReadMode
-    bh   <- openBinIO_ h        -- openBinMem
-    st   <- get bh
-    hClose h
-    return st
-
+    s <- L.readFile f
+    print (L.length s)
+    return (decode s)
