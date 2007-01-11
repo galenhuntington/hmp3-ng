@@ -31,12 +31,12 @@ import qualified Data.ByteString.Lazy  as L
 
 import Data.Binary
 
+import Data.Array
 import Data.Maybe       (catMaybes)
-import Data.Array       (listArray, elems, bounds, Array)
 import Data.Char        (toLower)
 import Data.List        (sortBy,sort,foldl',groupBy)
 
-import System.IO        (IOMode(..),hPutStrLn,stderr,openFile,hClose)
+import System.IO        (hPutStrLn,stderr)
 import System.Directory (Permissions(readable))
 import Control.Exception(handle)
 import Control.Monad    (liftM)
