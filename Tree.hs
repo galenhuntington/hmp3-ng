@@ -27,7 +27,6 @@ module Tree where
 import FastIO
 import Syntax           (Mode(..))
 import qualified Data.ByteString.Char8 as P
-import qualified Data.ByteString.Lazy  as L
 
 import Data.Binary
 
@@ -232,10 +231,7 @@ data SerialT = SerialT {
      }
 
 writeTree :: FilePath -> SerialT -> IO ()
-writeTree f = L.writeFile f . encode
+writeTree = encodeFile
 
 readTree :: FilePath -> IO SerialT
-readTree f = do
-    s <- L.readFile f
-    print (L.length s)
-    return (decode s)
+readTree = decodeFile
