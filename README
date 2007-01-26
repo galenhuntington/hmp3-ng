@@ -8,6 +8,7 @@ Dependencies:
     A version of FPS >= 0.7                   http://www.cse.unsw.edu.au/~dons/fps.html
     A Cabal newer than 1.0                    http://haskell.org/cabal
     curses
+    binary >= 0.2                             http://darcs.haskell.org/binary/
 
 Building:
     $ chmod +x configure Setup.hs
