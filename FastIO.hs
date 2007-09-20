@@ -158,9 +158,9 @@ fdToCFile = c_openfd
 getPermissions :: P.ByteString -> IO Permissions
 getPermissions name = do
   B.useAsCString name $ \s -> do
-  readp <- c_access s r_OK
-  write <- c_access s w_OK
-  exec  <- c_access s x_OK
+  readp <- c_access s $ fromIntegral r_OK
+  write <- c_access s $ fromIntegral w_OK
+  exec  <- c_access s $ fromIntegral x_OK
   packedWithFileStatus "FastIO.getPermissions" name $ \st -> do
   is_dir <- isDirectory st
   return (
