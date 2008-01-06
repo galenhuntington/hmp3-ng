@@ -4,7 +4,7 @@ license:             GPL
 license-file:        LICENSE
 author:              Don Stewart
 maintainer:          dons@cse.unsw.edu.au
-build-depends:       base, unix, binary >= 0.2
+build-depends:       base, unix, binary >= 0.2, bytestring >= 0.9.0.4, containers, array, old-time, directory, process, random
 synopsis:            An ncurses mp3 player written in Haskell 
 category:            Sound
 description: 

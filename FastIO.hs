@@ -25,7 +25,9 @@ import Syntax                   (Pretty(ppr))
 
 import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Base as B
+--import qualified Data.ByteString.Base as B
+import qualified Data.ByteString.Internal as B
+import qualified Data.ByteString.Unsafe as B
 
 import Data.Word                (Word8)
 import Foreign.C.Error
