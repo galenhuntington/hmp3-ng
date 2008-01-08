@@ -25,9 +25,8 @@ import Syntax                   (Pretty(ppr))
 
 import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString as B
---import qualified Data.ByteString.Base as B
 import qualified Data.ByteString.Internal as B
-import qualified Data.ByteString.Unsafe as B
+--import qualified Data.ByteString.Unsafe as B
 
 import Data.Word                (Word8)
 import Foreign.C.Error
@@ -87,7 +86,7 @@ packedGetDirectoryContents path = do
                 if (dEnt == nullPtr)
                     then return []
                     else do  -- copy entry out before we free:
-                        entry <- B.copyCString =<< d_name dEnt
+                        entry <- B.packCString =<< d_name dEnt
                         P.length entry `seq` return ()  -- strictify
                         freeDirEnt dEnt
                         entries <- loop ptr_dEnt dir

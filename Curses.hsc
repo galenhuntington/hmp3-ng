@@ -213,7 +213,7 @@ foreign import ccall "static &stdscr"
 -- > to stdscr.
 --
 initScr :: IO Window
-initScr = throwPackedIfNull (P.packAddress "initscr"##) c_initscr
+initScr = throwPackedIfNull (P.pack "initscr") c_initscr
 
 foreign import ccall unsafe "initscr" 
     c_initscr :: IO Window
@@ -227,8 +227,8 @@ foreign import ccall unsafe "initscr"
 -- > the terminal to normal (cooked) mode.
 --
 cBreak :: Bool -> IO ()
-cBreak True  = throwIfErr_ (P.packAddress "cbreak"##)   cbreak
-cBreak False = throwIfErr_ (P.packAddress "nocbreak"##) nocbreak
+cBreak True  = throwIfErr_ (P.pack "cbreak")   cbreak
+cBreak False = throwIfErr_ (P.pack "nocbreak") nocbreak
 
 foreign import ccall unsafe "cbreak"     cbreak :: IO CInt
 foreign import ccall unsafe "nocbreak" nocbreak :: IO CInt
@@ -245,8 +245,8 @@ foreign import ccall unsafe "nocbreak" nocbreak :: IO CInt
 -- > routines interact with cbreak and nocbreak.]
 --
 echo :: Bool -> IO ()
-echo False = throwIfErr_ (P.packAddress "noecho"##) noecho
-echo True  = throwIfErr_ (P.packAddress "echo"##)   echo_c
+echo False = throwIfErr_ (P.pack "noecho") noecho
+echo True  = throwIfErr_ (P.pack "echo")   echo_c
 
 foreign import ccall unsafe "noecho" noecho :: IO CInt
 foreign import ccall unsafe "echo"   echo_c :: IO CInt
@@ -264,8 +264,8 @@ foreign import ccall unsafe "echo"   echo_c :: IO CInt
 -- > the return key.
 -- > 
 nl :: Bool -> IO ()
-nl True  = throwIfErr_ (P.packAddress "nl"##) nl_c
-nl False = throwIfErr_ (P.packAddress "nonl"##) nonl
+nl True  = throwIfErr_ (P.pack "nl") nl_c
+nl False = throwIfErr_ (P.pack "nonl") nonl
 
 foreign import ccall unsafe "nl" nl_c :: IO CInt
 foreign import ccall unsafe "nonl" nonl :: IO CInt
@@ -274,7 +274,7 @@ foreign import ccall unsafe "nonl" nonl :: IO CInt
 -- | Enable the keypad of the user's terminal.
 --
 keypad :: Window -> Bool -> IO ()
-keypad win bf = throwIfErr_ (P.packAddress "keypad"##) $ 
+keypad win bf = throwIfErr_ (P.pack "keypad") $ 
     keypad_c win (if bf then 1 else 0)
 
 foreign import ccall unsafe "keypad" 
@@ -285,7 +285,7 @@ foreign import ccall unsafe "keypad"
 -- > is FALSE), getch waits until a key is pressed.
 --
 noDelay :: Window -> Bool -> IO ()
-noDelay win bf = throwIfErr_ (P.packAddress "nodelay"##) $ 
+noDelay win bf = throwIfErr_ (P.pack "nodelay") $ 
     nodelay win (if bf then 1 else 0)
 
 foreign import ccall unsafe nodelay 
@@ -330,7 +330,7 @@ useDefaultColors = return ()
 -- > exiting from curses.
 --
 endWin :: IO ()
-endWin = throwIfErr_ (P.packAddress "endwin"##) endwin
+endWin = throwIfErr_ (P.pack "endwin") endwin
 
 foreign import ccall unsafe "endwin" 
     endwin :: IO CInt
@@ -353,7 +353,7 @@ foreign import ccall "&COLS"  colsPtr  :: Ptr CInt
 -- | refresh curses windows and lines. curs_refresh(3)
 --
 refresh :: IO ()
-refresh = throwIfErr_ (P.packAddress "refresh"##) refresh_c
+refresh = throwIfErr_ (P.pack "refresh") refresh_c
 
 foreign import ccall unsafe "refresh" 
     refresh_c :: IO CInt
@@ -371,7 +371,7 @@ foreign import ccall unsafe "has_colors"
 -- default colors (white on black)
 --
 startColor :: IO ()
-startColor = throwIfErr_ (P.packAddress "start_color"##) start_color
+startColor = throwIfErr_ (P.pack "start_color") start_color
 
 foreign import ccall unsafe start_color :: IO CInt
 
@@ -423,7 +423,7 @@ color _          = Just $ Color (#const COLOR_BLACK)    -- NB
 --
 initPair :: Pair -> Color -> Color -> IO ()
 initPair (Pair p) (Color f) (Color b) =
-    throwIfErr_ (P.packAddress "init_pair"##) $
+    throwIfErr_ (P.pack "init_pair") $
         init_pair (fi p) (fi f) (fi b)
 
 foreign import ccall unsafe 
@@ -437,7 +437,7 @@ foreign import ccall unsafe "attrset"
 
 attrSet :: Attr -> Pair -> IO ()
 attrSet (Attr attr) (Pair p) = do
-    throwIfErr_ (P.packAddress "attrset"##)   $ c_attrset (attr .|. fi (colorPair p))
+    throwIfErr_ (P.pack "attrset")   $ c_attrset (attr .|. fi (colorPair p))
 
 ------------------------------------------------------------------------
 
@@ -491,7 +491,7 @@ foreign import ccall threadsafe
     waddnstr :: Window -> CString -> CInt -> IO CInt
 
 clrToEol :: IO ()
-clrToEol = throwIfErr_ (P.packAddress "clrtoeol"##) c_clrtoeol
+clrToEol = throwIfErr_ (P.pack "clrtoeol") c_clrtoeol
 
 foreign import ccall unsafe "clrtoeol" c_clrtoeol :: IO CInt
 
@@ -503,7 +503,7 @@ foreign import ccall unsafe "clrtoeol" c_clrtoeol :: IO CInt
 --   >    corner of the window, which is (0,0).
 --
 wMove :: Window -> Int -> Int -> IO ()
-wMove w y x = throwIfErr_ (P.packAddress "wmove"##) $ wmove w (fi y) (fi x)
+wMove w y x = throwIfErr_ (P.pack "wmove") $ wmove w (fi y) (fi x)
 
 foreign import ccall unsafe  
     wmove :: Window -> CInt -> CInt -> IO CInt
@@ -602,7 +602,7 @@ keyResize       = chr (#const KEY_RESIZE)
 -- try to set the upper bits
 
 meta :: Window -> Bool -> IO ()
-meta win bf = throwIfErr_ (P.packAddress "meta"##) $
+meta win bf = throwIfErr_ (P.pack "meta") $
     c_meta win (if bf then 1 else 0)
 
 foreign import ccall unsafe "meta" 

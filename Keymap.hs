@@ -44,7 +44,7 @@ import Lexers       ((>|<),(>||<),action,meta,execLexer
 
 import Data.List    ((\\))
 
-import qualified Data.ByteString.Char8 as P (packAddress,ByteString,pack)
+import qualified Data.ByteString.Char8 as P (ByteString, pack)
 import qualified Data.Map as M (fromList, lookup, Map)
 
 data Search = SearchFile | SearchDir
@@ -141,64 +141,64 @@ enter   = alt enter'
 keyTable :: [(P.ByteString, [Char], IO ())]
 keyTable =
     [
-     (p "Move up"#,
+     (p "Move up",
         ['k',keyUp],    up)
-    ,(p "Move down"#,
+    ,(p "Move down",
         ['j',keyDown],  down)
-    ,(p "Next directory down"#,
+    ,(p "Next directory down",
         [keyNPage], jumpToNextDir)
-    ,(p "Next directory up"#,
+    ,(p "Next directory up",
         [keyPPage], jumpToPrevDir)
-    ,(p "Jump to start of list"#,
+    ,(p "Jump to start of list",
         [keyHome,'1'],  jump 0)
-    ,(p "Jump to end of list"#,
+    ,(p "Jump to end of list",
         [keyEnd,'G'],   jump maxBound)
-    ,(p "Seek left within song"#,
+    ,(p "Seek left within song",
         [keyLeft],  seekLeft)
-    ,(p "Seek right within song"#,
+    ,(p "Seek right within song",
         [keyRight], seekRight)
-    ,(p "Toggle pause"#,
+    ,(p "Toggle pause",
         ['p'],          pause)
-    ,(p "Play song under cursor"#,
+    ,(p "Play song under cursor",
         ['\n',' '],     play)
-    ,(p "Play previous track"#,
+    ,(p "Play previous track",
         ['K'],    playPrev)
-    ,(p "Play next track"#,
+    ,(p "Play next track",
         ['J'],  playNext)
-    ,(p "Toggle the help screen"#,
+    ,(p "Toggle the help screen",
         ['h'],   toggleHelp)
-    ,(p "Jump to currently playing song"#,
+    ,(p "Jump to currently playing song",
         ['t'],   jumpToPlaying)
-    ,(p "Quit (or close help screen)"#,
+    ,(p "Quit (or close help screen)",
         ['q'],   do b <- helpIsVisible ; if b then toggleHelp else quit Nothing)
-    ,(p "Select and play next track"#,
+    ,(p "Select and play next track",
         ['d'],   playNext >> jumpToPlaying)
-    ,(p "Cycle through normal, random and loop modes"#,
+    ,(p "Cycle through normal, random and loop modes",
         ['m'],   nextMode)
-    ,(p "Refresh the display"#,
+    ,(p "Refresh the display",
         ['\^L'], UI.resetui)
-    ,(p "Repeat last regex search"#,
+    ,(p "Repeat last regex search",
         ['n'],   jumpToMatch Nothing)
-    ,(p "Repeat last regex search on files"#,
+    ,(p "Repeat last regex search on files",
         ['N'],   jumpToMatchFile Nothing)
-    ,(p "Load config file"#,
+    ,(p "Load config file",
         ['l'],   loadConfig)
     ]
   where
     -- Keep as Addr#. If we try the pack/packAddress rule, ghc seems to get
     -- confused and want to *unpack* the strings :/
-    p = P.packAddress
+    p = P.pack
     {-# INLINE p #-}
 
 extraTable :: [(P.ByteString, [Char])]
-extraTable = [(p "Search for directory matching regex"#, ['/'])
-             ,(p "Search backwards for directory"#, ['?'])
-             ,(p "Search for file matching regex"#, ['\\'])
-             ,(p "Search backwards for file"#, ['|']) ]
+extraTable = [(p "Search for directory matching regex", ['/'])
+             ,(p "Search backwards for directory", ['?'])
+             ,(p "Search for file matching regex", ['\\'])
+             ,(p "Search backwards for file", ['|']) ]
   where
     -- Keep as Addr#. If we try the pack/packAddress rule, ghc seems to get
     -- confused and want to *unpack* the strings :/
-    p = P.packAddress
+    p = P.pack
     {-# INLINE p #-}
 
 

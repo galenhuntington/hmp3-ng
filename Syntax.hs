@@ -26,7 +26,7 @@
 
 module Syntax where
 
-import qualified Data.ByteString.Char8 as P (packAddress,concat,pack,ByteString)
+import qualified Data.ByteString.Char8 as P (concat,pack,ByteString)
 
 ------------------------------------------------------------------------
 --
@@ -37,7 +37,7 @@ import qualified Data.ByteString.Char8 as P (packAddress,concat,pack,ByteString)
 data Load = Load {-# UNPACK #-} !P.ByteString
 
 instance Pretty Load where
-    ppr (Load f) = P.concat [P.packAddress "LOAD "#, f]
+    ppr (Load f) = P.concat [P.pack "LOAD ", f]
 
 -- If '+' or '-' is specified, jumps <frames> frames forward, or backwards,
 -- respectively, in the the mp3 file.  If neither is specifies, jumps to
@@ -45,19 +45,19 @@ instance Pretty Load where
 data Jump = Jump {-# UNPACK #-} !Int
 
 instance Pretty Jump where
-    ppr (Jump i) = P.concat [P.packAddress "JUMP "#, P.pack . show $ i]
+    ppr (Jump i) = P.concat [P.pack "JUMP ", P.pack . show $ i]
 
 -- Pauses the playback of the mp3 file; if already paused, restarts playback.
 data Pause = Pause
 
 instance Pretty Pause where
-    ppr Pause = P.packAddress "PAUSE"#
+    ppr Pause = P.pack "PAUSE"
 
 -- Quits mpg321.
 data Quit = Quit
 
 instance Pretty Quit where
-    ppr Quit = P.packAddress "QUIT"#
+    ppr Quit = P.pack "QUIT"
 
 ------------------------------------------------------------------------
 --

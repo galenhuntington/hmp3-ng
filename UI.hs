@@ -647,7 +647,7 @@ drawPackedString ps sty =
         Curses.throwIfErr_ msg $
             Curses.waddnstr Curses.stdScr cstr (fromIntegral . P.length $ ps)
     where
-        msg = P.packAddress "drawPackedString"#
+        msg = P.pack "drawPackedString"
 
 
 ------------------------------------------------------------------------
