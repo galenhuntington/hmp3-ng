@@ -1,5 +1,5 @@
 -- 
--- Copyright (c) Don Stewart 2004-5.
+-- Copyright (c) Don Stewart 2004-2008.
 -- Copyright (c) Tuomo Valkonen 2004.
 --
 -- This program is free software; you can redistribute it and/or
@@ -78,7 +78,7 @@ usage = ["Usage: hmp3 [-Vh] [FILE|DIR ...]"
 -- | Parse the args
 do_args :: [P.ByteString] -> IO (Either SerialT [P.ByteString])
 do_args []  = do    -- attempt to read db
-    x <- readSt 
+    x <- readSt
     case x of
         Nothing -> do mapM_ putStrLn usage; exitWith ExitSuccess
         Just st -> return $ Left st
@@ -99,7 +99,7 @@ do_args xs = return $ Right xs
 -- handlers, then jump to ui event loop with the state.
 --
 main :: IO ()
-main = do  
+main = do
     args  <- return . map P.pack =<< getArgs
     files <- do_args args
     initSignals

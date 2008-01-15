@@ -1,5 +1,5 @@
 -- 
--- Copyright (c) 2005 Don Stewart - http://www.cse.unsw.edu.au/~dons
+-- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -51,8 +51,8 @@ doF s = R $ Frame {
         where
 
           fs  = P.split ' ' . P.tail $ s
-          f n = case P.split '.' (fs !! n) of { [x,y] -> 
-                case readPS x              of { rx    -> 
+          f n = case P.split '.' (fs !! n) of { [x,y] ->
+                case readPS x              of { rx    ->
                 case readPS y              of { ry    -> (rx,ry) }}
                                               ; _ -> error "doF.f" }
 
@@ -77,7 +77,7 @@ doS s = let fs = P.split ' ' . P.tail $ s
                 , bitrate       = read $ P.unpack $ fs !! 10
                 , extension     = read $ P.unpack $ fs !! 11
             -}
-                userinfo      = P.concat 
+                userinfo      = P.concat
                        [P.pack "mpeg "
                        ,fs !! 0
                        ,P.pack " "
@@ -103,14 +103,14 @@ doI s = let f = dropSpaceEnd . P.dropWhile isSpace . P.tail $ s
         splitUp :: P.ByteString -> [P.ByteString]
         splitUp f
             | f == P.empty  = []
-            | otherwise     
+            | otherwise
             = let (a,xs) = P.splitAt 30 f   -- we expect it to be 
                   xs'    = splitUp xs
               in a : xs'
 
         -- and some ugly code:
         toId :: Id3 -> [P.ByteString] -> Id3
-        toId i ls = 
+        toId i ls =
             let j = case length ls of
                     0   -> i
 
@@ -148,7 +148,7 @@ parser h = do
     -- normalise the packet
     let (s,m) = let a    = P.dropWhile (== ' ') x       -- drop any leading whitespace
                     (b,d)= P.break (== ' ') a           -- split into header and body
-                    b'   = if '@' `P.elem` b 
+                    b'   = if '@' `P.elem` b
                            then P.dropWhile (/= '@') b -- make sure '@' is first char
                            else b
                 in (P.dropWhile (== '@') b', d)

@@ -1,5 +1,5 @@
 -- 
--- Copyright (c) 2005-6 Don Stewart - http://www.cse.unsw.edu.au/~dons
+-- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -103,7 +103,7 @@ packedGetDirectoryContents path = do
 -- packed version:
 doesFileExist :: P.ByteString -> IO Bool
 doesFileExist name = Control.Exception.catch
-   (packedWithFileStatus "Utils.doesFileExist" name $ \st -> do 
+   (packedWithFileStatus "Utils.doesFileExist" name $ \st -> do
         b <- isDirectory st; return (not b))
    (\ _ -> return False)
 
@@ -142,9 +142,9 @@ isDirectory stat = do
 -- Returning a ByteString. Note that the underlying C code is dropping
 -- redundant \@F frames for us.
 getFilteredPacket :: Ptr CFile -> IO P.ByteString
-getFilteredPacket fp = B.createAndTrim size $ \p -> do 
+getFilteredPacket fp = B.createAndTrim size $ \p -> do
     i <- c_getline p fp
-    if i == -1 
+    if i == -1
         then throwErrno "FastIO.packedHGetLine"
         else return i
     where

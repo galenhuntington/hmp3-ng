@@ -3,12 +3,7 @@
           ---------------------------------------------------
 
 Dependencies:
-    The Glasgow Haskell Compiler >= 6.4.2     http://haskell.org/ghc
-    mpg321                                    http://mpg321.sourceforge.net/
-    A version of FPS >= 0.7                   http://www.cse.unsw.edu.au/~dons/fps.html
-    A Cabal newer than 1.0                    http://haskell.org/cabal
-    curses
-    binary >= 0.2                             http://darcs.haskell.org/binary/
+    mpg321    http://mpg321.sourceforge.net/
 
 Building:
     $ chmod +x configure Setup.hs
@@ -89,7 +84,7 @@ License:
     GPL
 
 Author:
-    Don Stewart, Tue Jun 27 17:11:03 EST 2006
+    Don Stewart, Tue Jan 15 15:16:55 PST 2008
 
 Contributors:
     Samuel Bronson

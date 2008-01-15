@@ -1,5 +1,5 @@
 -- 
--- Copyright (c) 2004-5 Don Stewart - http://www.cse.unsw.edu.au/~dons
+-- Copyright (c) 2004-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -42,7 +42,7 @@ import Control.Exception        (handle)
 -- | User-configurable colours
 -- Each component of this structure corresponds to a fg\/bg colour pair
 -- for an item in the ui
-data UIStyle = UIStyle { 
+data UIStyle = UIStyle {
      window      :: !Style  -- default window colour
    , helpscreen  :: !Style  -- help screen
    , titlebar    :: !Style  -- titlebar of window
@@ -165,12 +165,12 @@ initcolours sty = do
                selected sty, titlebar sty, progress sty,
                blockcursor sty, cursors sty, combined sty ]
         (Style fg bg) = progress sty    -- bonus style
-        
+
     pairs <- initUiColors (ls ++ [Style bg bg, Style fg fg])
     writeIORef pairMap pairs
     -- set the background
     uiAttr (window sty) >>= \(_,p) -> Curses.bkgrndSet nullA p
-    
+
 ------------------------------------------------------------------------
 --
 -- | Set up the ui attributes, given a ui style record

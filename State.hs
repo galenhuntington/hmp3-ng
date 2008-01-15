@@ -1,5 +1,5 @@
 -- 
--- Copyright (c) 2004-5 Don Stewart - http://www.cse.unsw.edu.au/~dons
+-- Copyright (c) 2004-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -25,10 +25,10 @@ module State where
 import Syntax                   (Status(Stopped), Mode(..), Frame, Info,Id3)
 import Tree                     (FileArray, DirArray)
 import Style                    (StringA(Fast), defaultSty, UIStyle)
-import Regex                    (Regex)
 import qualified Data.ByteString as P (empty,ByteString)
 import qualified Config (defaultStyle)
 
+import Text.Regex.PCRE.Light    (Regex)
 import Data.Array               (listArray)
 import System.IO.Unsafe         (unsafePerformIO)
 import System.Posix.Types       (ProcessID)

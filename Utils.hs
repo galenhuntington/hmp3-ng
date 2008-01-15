@@ -1,5 +1,5 @@
 -- 
--- Copyright (c) 2003-5 Don Stewart - http://www.cse.unsw.edu.au/~dons
+-- Copyright (c) 2003-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -33,7 +33,8 @@
 module Utils where
 
 import FastIO                   (printfPS)
-import qualified Data.ByteString as P (ByteString, pack)
+import qualified Data.ByteString.Char8 as P (pack)
+import qualified Data.ByteString       as P (ByteString)
 
 import Data.Char                (toLower)
 import System.Time              (diffClockTimes, TimeDiff(tdSec), ClockTime)
@@ -75,7 +76,7 @@ drawUptime before now =
   where
     fmt = P.pack "%3d:%02d" -- sometimes ghc doesn't want to fire a RULE here, why?
                                     -- its crucial for snprintf that this is unpacked
-        
+
 ------------------------------------------------------------------------
 -- | Repeat an action
 -- Also known as `forever' in the Awkward squad paper
@@ -111,8 +112,8 @@ pid2phdl pid = unsafePerformIO $ mkProcessHandle pid
 popen :: FilePath -> [String] -> IO (Fd, Fd, Fd, ProcessID)
 popen cmd args = do
         (pr, pw)   <- createPipe
-        (cr, cw)   <- createPipe    
-        (cre, cwe) <- createPipe    
+        (cr, cw)   <- createPipe
+        (cre, cwe) <- createPipe
 
         -- parent --
         let parent = do closeFd cw
@@ -120,7 +121,7 @@ popen cmd args = do
                         closeFd pr
         -- child --
         let child  = do closeFd pw
-                        closeFd cr 
+                        closeFd cr
                         closeFd cre
                         exec cmd args (pr,cw,cwe)
                         error "exec cmd failed!" -- typing only

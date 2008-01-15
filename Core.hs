@@ -1,5 +1,5 @@
 -- 
--- Copyright (c) 2005 Don Stewart - http://www.cse.unsw.edu.au/~dons
+-- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -41,13 +41,12 @@ import Utils
 import FastIO               (send,fdToCFile,forceNextPacket)
 import Tree hiding (File,Dir)
 import qualified Tree (File,Dir)
-import Regex
 import qualified UI
 
+import Text.Regex.PCRE.Light
 import {-# SOURCE #-} Keymap (keymap)
 
-import qualified Data.ByteString.Char8 as P (pack,empty,ByteString,join,singleton)
-import Data.ByteString (useAsCString)
+import qualified Data.ByteString.Char8 as P (ByteString,pack,empty,intercalate,singleton)
 
 import Data.Array               ((!), bounds, Array)
 import Data.Maybe               (isJust,fromJust)
@@ -82,7 +81,7 @@ start ms = Control.Exception.handle (\e -> shutdown (Just (show e))) $ do
 
     (ds,fs,i,m)   -- construct the state
         <- case ms of
-           Right roots -> do (a,b) <- buildTree roots 
+           Right roots -> do (a,b) <- buildTree roots
                              return (a,b,0,Normal)
 
            Left st     -> return (ser_darr st
@@ -99,7 +98,7 @@ start ms = Control.Exception.handle (\e -> shutdown (Just (show e))) $ do
     t4 <- forkIO uptimeLoop
     t5 <- forkIO errorLoop
 
-    silentlyModifyST $ \s -> s 
+    silentlyModifyST $ \s -> s
         { music        = fs
         , folders      = ds
         , size         = 1 + (snd . bounds $ fs)
@@ -107,7 +106,7 @@ start ms = Control.Exception.handle (\e -> shutdown (Just (show e))) $ do
         , current      = i
         , mode         = m
         , uptime       = drawUptime now now
-        , boottime     = now 
+        , boottime     = now
         , config       = c
         , threads      = [t0,t1,t2,t3,t4,t5] }
 
@@ -150,7 +149,7 @@ mpgLoop = forever $ do
     mmpg <- findExecutable (MPG321 :: String)
     case mmpg of
       Nothing     -> quit (Just $ "Cannot find " ++ MPG321 ++ " in path")
-      Just mpg321 -> do 
+      Just mpg321 -> do
 
         -- if we're never able to start mpg321, do something sensible
         mv <- catch (popen (mpg321 :: String) ["-R","-"] >>= return . Just)
@@ -160,8 +159,8 @@ mpgLoop = forever $ do
             Nothing -> threadDelay (1000 * 500) >> mpgLoop
             Just (r,w,e,pid) -> do
 
-            hw          <- fdToHandle (fdToInt w)  -- so we can use Haskell IO
-            ew          <- fdToHandle (fdToInt e)  -- so we can use Haskell IO
+            hw          <- fdToHandle (fromIntegral w)  -- so we can use Haskell IO
+            ew          <- fdToHandle (fromIntegral e)  -- so we can use Haskell IO
             filep       <- fdToCFile r                   -- so we can use C IO
             mhw         <- newMVar hw
             mew         <- newMVar ew
@@ -171,11 +170,11 @@ mpgLoop = forever $ do
                        st { mp3pid    = Just pid
                           , writeh    = mhw
                           , errh      = mew
-                          , readf     = mfilep 
+                          , readf     = mfilep
                           , status    = Stopped
                           , info      = Nothing
                           , id3       = Nothing }
-          
+
             catch (waitForProcess (pid2phdl pid)) (\_ -> return ExitSuccess)
             stop <- getsST doNotResuscitate
             when (stop) $ exitWith ExitSuccess
@@ -193,8 +192,8 @@ refreshLoop = getsST modified >>= \mvar -> forever $ takeMVar mvar >> UI.refresh
 -- | Once a minute read the clock time
 uptimeLoop :: IO ()
 uptimeLoop = forever $ do
-    threadDelay delay 
-    now <- getClockTime 
+    threadDelay delay
+    now <- getClockTime
     modifyST $ \st -> st { uptime = drawUptime (boottime st) now }
   where
     delay = 60 * 1000 * 1000 -- 1 minute
@@ -247,7 +246,7 @@ run = forever $ sequence_ . keymap =<< getKeys
 
 -- | Close most things. Important to do all the jobs:
 shutdown :: Maybe String -> IO ()
-shutdown ms = 
+shutdown ms =
     (do silentlyModifyST $ \st -> st { doNotResuscitate = True }
         catch writeSt (\_ -> return ())
         withST $ \st -> do
@@ -259,12 +258,14 @@ shutdown ms =
                     waitForProcess $ pid2phdl pid
                     return ())
 
-    `finally` 
+    `finally`
 
     (do isXterm <- getsST xterm
         UI.end isXterm
         when (isJust ms) $ hPutStrLn stderr (fromJust ms) >> hFlush stderr
-        exitImmediately ExitSuccess)    -- race. a thread might touch the screen
+        exitImmediately ExitSuccess)
+                -- race. a thread might touch the screen
+                -- gets in the way of profiling
 --      return ())
 
 ------------------------------------------------------------------------
@@ -307,7 +308,7 @@ seekRight = seek $ \g -> currentFrame g + (min 400 (framesLeft g))
 seek :: (Frame -> Int) -> IO ()
 seek fn = do
     f <- getsST clock
-    case f of 
+    case f of
         Nothing -> return ()
         Just g  -> do
             withST $ \st -> do
@@ -384,7 +385,8 @@ playAtN st fn = do
     let m   = music st
         i   = current st
         fe  = m ! (fn i)
-        f   = P.join (P.singleton '/') [(dname $ folders st ! fdir fe),(fbase fe)]
+        f   = P.intercalate (P.singleton '/')
+                     [(dname $ folders st ! fdir fe),(fbase fe)]
         j   = cursor  st
         st' = st { current = fn i
                  , status  = Playing
@@ -452,12 +454,14 @@ genericJumpToMatch :: Lookup a
 
 genericJumpToMatch re k sel = do
     found <- modifySTM_ $ \st -> do
-        mre <- case re of   -- work out if we have no pattern, a cached pattern, or a new pattern
-                Nothing -> case regex st of
-                                Nothing     -> return Nothing
-                                Just (r,d)  -> return $ Just (r,d)
-                Just (s,d)  -> do v <- regcomp s (regExtended + regIgnoreCase + regNewline)
-                                  return $ Just (v,d)
+        let mre = case re of
+            -- work out if we have no pattern, a cached pattern, or a new pattern
+                Nothing     -> case regex st of
+                                Nothing     -> Nothing
+                                Just (r,d)  -> Just (r,d)
+                Just (s,d)  -> case compileM (P.pack s) [caseless] of
+                                Nothing     -> Nothing
+                                Just v      -> Just (v,d)
         case mre of
             Nothing -> return (st,False)    -- no pattern
             Just (p,forwards) -> do
@@ -466,9 +470,9 @@ genericJumpToMatch re k sel = do
 
                 loop fn inc n
                     | fn n      = return Nothing
-                    | otherwise = useAsCString (extract (fs ! n)) $ \s -> do
-                        v <- regexec p s 0
-                        case v of
+                    | otherwise = do
+                        let s = extract (fs ! n)
+                        case match p s [] of
                             Nothing -> loop fn inc $! inc n
                             Just _  -> return $ Just n
 
@@ -529,21 +533,21 @@ readSt = do
 
 -- | Find a user's home in a canonical sort of way
 getHome :: IO String
-getHome = Control.Exception.catch 
+getHome = Control.Exception.catch
     (getRealUserID >>= getUserEntryForID >>= (return . homeDirectory))
     (\_ -> getEnv "HOME")
 
 ------------------------------------------------------------------------
 -- Read styles from ~/.hmp3
 --
-loadConfig :: IO ()   
+loadConfig :: IO ()
 loadConfig = do
     home <- getHome
     let f = home </> ".hmp3"
     b <- doesFileExist f
     when b $ do     -- otherwise used compiled-in values
         str  <- readFile f
-        msty <- catch (readM str >>= return . Just) 
+        msty <- catch (readM str >>= return . Just)
                       (const $ warnA "Parse error in ~/.hmp3" >> return Nothing)
         case msty of
             Nothing  -> return ()
@@ -565,6 +569,6 @@ clrmsg = putmsg (Fast P.empty defaultSty)
 
 --
 warnA :: String -> IO ()
-warnA x = do 
+warnA x = do
     sty <- getsST config
     putmsg $ Fast (P.pack x) (warnings sty)

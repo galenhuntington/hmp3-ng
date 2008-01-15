@@ -1,5 +1,5 @@
 -- 
--- Copyright (c) 2005 Don Stewart - http://www.cse.unsw.edu.au/~dons
+-- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -70,10 +70,10 @@ data Tag = Tag
 data File = File {-# UNPACK #-} !(Either P.ByteString Id3)
 
 -- ID3 info 
-data Id3 = Id3 
-        { id3title  :: !P.ByteString 
-        , id3artist :: !P.ByteString 
-        , id3album  :: !P.ByteString 
+data Id3 = Id3
+        { id3title  :: !P.ByteString
+        , id3artist :: !P.ByteString
+        , id3album  :: !P.ByteString
         , id3str    :: !P.ByteString }   -- cache screen string to draw
 
 --      , year   :: Maybe P.ByteString

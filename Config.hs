@@ -1,5 +1,5 @@
 -- 
--- Copyright (c) 2005 Don Stewart - http://www.cse.unsw.edu.au/~dons
+-- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -29,13 +29,13 @@ defaultStyle  = UIStyle { window     = Style defaultfg    defaultbg
                         , cursors    = Style black        cyan
                         , combined   = Style brightwhite  cyan
                         , warnings   = Style red          defaultbg
-                        , helpscreen = Style black        white 
+                        , helpscreen = Style black        white
                         , blockcursor= Style black        red
                         , progress   = Style cyan         white }
 
 -- | A style more suitable for light backgrounds (used if HMP_HAS_LIGHT_BG=true)
 lightBgStyle :: UIStyle
-lightBgStyle = 
+lightBgStyle =
            defaultStyle { selected   = Style darkblue     defaultbg
                         , warnings   = Style darkred      defaultbg }
 
@@ -53,7 +53,7 @@ muttStyle   = UIStyle { window     = Style brightwhite  black
                       , blockcursor= Style black        darkred
                       , progress   = Style cyan         white  }
 
-bwStyle :: UIStyle 
+bwStyle :: UIStyle
 bwStyle = UIStyle {
         window      = Style defaultfg   defaultbg
        ,titlebar    = Style reversefg   reversebg
@@ -65,7 +65,7 @@ bwStyle = UIStyle {
        ,blockcursor = Style reversefg   reversebg
        ,progress    = Style reversefg   reversebg
     }
-           
+
 ------------------------------------------------------------------------
 
 package :: String
@@ -73,9 +73,9 @@ package = "hmp3"
 
 versinfo :: String
 versinfo  = package++" "++ version
-    where 
+    where
       version :: String
-      version = "1.1" ++ if (not . null) (PATCH_COUNT :: String) && (PATCH_COUNT /= "1")
+      version = "1.4" ++ if (not . null) (PATCH_COUNT :: String) && (PATCH_COUNT /= "1")
                          then "p" ++ PATCH_COUNT
                          else ""
 
@@ -83,4 +83,4 @@ help :: String
 help = "- curses-based MP3 player"
 
 darcsinfo :: String
-darcsinfo = "darcs get --partial http://www.cse.unsw.edu.au/~dons/code/hmp3"
+darcsinfo = "darcs get http://code.haskell.org/~dons/code/hmp3"
