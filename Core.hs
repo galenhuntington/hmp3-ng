@@ -460,8 +460,8 @@ genericJumpToMatch re k sel = do
                                 Nothing     -> Nothing
                                 Just (r,d)  -> Just (r,d)
                 Just (s,d)  -> case compileM (P.pack s) [caseless] of
-                                Nothing     -> Nothing
-                                Just v      -> Just (v,d)
+                                Left _      -> Nothing
+                                Right v     -> Just (v,d)
         case mre of
             Nothing -> return (st,False)    -- no pattern
             Just (p,forwards) -> do
