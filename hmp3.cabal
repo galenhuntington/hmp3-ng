@@ -20,10 +20,19 @@ flag small_base
   description: Choose the new smaller, split-up base package.
 
 executable hmp3
-    build-depends:     unix, zlib >= 0.4, binary >= 0.4, pcre-light >=0.3
+    build-depends:     unix,
+                       zlib >= 0.4,
+                       binary >= 0.4,
+                       pcre-light >= 0.3,
+                       mersenne-random >= 0.1
     if flag(small_base)
-        build-depends: base >= 3, bytestring >= 0.9, containers,
-                       array, old-time, directory, process, random
+        build-depends: base >= 3,
+                       bytestring >= 0.9,
+                       containers,
+                       array,
+                       old-time,
+                       directory,
+                       process
     else
         build-depends: base < 3
 

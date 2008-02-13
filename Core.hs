@@ -57,8 +57,8 @@ import System.Exit              (ExitCode(ExitSuccess),exitWith)
 import System.IO                (hPutStrLn, hGetLine, stderr, hFlush)
 import System.IO.Unsafe         (unsafeInterleaveIO)
 import System.Process           (waitForProcess)
-import System.Random            (getStdRandom, randomR)
 import System.Time              (getClockTime)
+import System.Random.Mersenne
 
 import System.Posix.Process     (exitImmediately)
 import System.Posix.User        (getUserEntryForID, getRealUserID, homeDirectory)
@@ -345,7 +345,9 @@ play = modifySTM $ \st -> playAtN st (const $ cursor st)
 -- | Play a random song
 playRandom :: IO ()
 playRandom = modifySTM $ \st -> do
-    n <- getStdRandom (randomR (0, max 0 (size st -1)))
+    let g = randomGen st
+    n' <- random g :: IO Int
+    let n = abs n' `mod` (size st -1)
     playAtN st (const n)
 
 -- | Play the song before the current song, if we're not at the beginning
