@@ -1,6 +1,6 @@
 {-# OPTIONS -fno-warn-orphans #-}
 -- 
--- Copyright (c) 2005 Don Stewart - http://www.cse.unsw.edu.au/~dons
+-- Copyright (c) 2005-8 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -27,6 +27,8 @@ module Tree where
 import FastIO
 import Syntax           (Mode(..))
 import qualified Data.ByteString.Char8 as P
+import qualified Data.ByteString.Lazy  as L
+import Codec.Compression.GZip
 
 import Data.Binary
 
@@ -231,7 +233,8 @@ data SerialT = SerialT {
      }
 
 writeTree :: FilePath -> SerialT -> IO ()
-writeTree = encodeFile
+writeTree f s = L.writeFile f (compress (encode s))
 
 readTree :: FilePath -> IO SerialT
-readTree = decodeFile
+readTree f    = do s <- L.readFile f
+                   return (decode (decompress s))

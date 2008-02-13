@@ -1,5 +1,5 @@
 name:                hmp3
-version:             1.4
+version:             1.5
 homepage:            http://www.cse.unsw.edu.au/~dons/hmp3.html
 license:             GPL
 license-file:        LICENSE
@@ -20,7 +20,7 @@ flag small_base
   description: Choose the new smaller, split-up base package.
 
 executable hmp3
-    build-depends:     unix, binary >= 0.4, pcre-light >=0.3
+    build-depends:     unix, zlib >= 0.4, binary >= 0.4, pcre-light >=0.3
     if flag(small_base)
         build-depends: base >= 3, bytestring >= 0.9, containers,
                        array, old-time, directory, process, random
