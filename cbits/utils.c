@@ -38,7 +38,7 @@ void forcenext(void) {
 }
 
 /* sometimes we write to the wrong spot after a refresh */
-int getline(char *buf, FILE *hdl) { 
+int getline_(char *buf, FILE *hdl) { 
     char *p;
     int c;
 
@@ -52,7 +52,7 @@ int getline(char *buf, FILE *hdl) {
 
         while (c != '\n') 
             c = getc(hdl);
-        return getline(buf,hdl);        /* read another line */
+        return getline_(buf,hdl);        /* read another line */
 
     /* normal packet */
     } else {

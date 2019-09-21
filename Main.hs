@@ -28,7 +28,7 @@ import Keymap   ({-# bogus import to work around 6.4 rec modules bug #-})
 
 import qualified Data.ByteString.Char8 as P (pack,ByteString)
 
-import Control.Exception    (catch)
+import Control.Exception    (catch, SomeException)
 
 import System.IO            (hPutStrLn, stderr)
 import System.Exit          (ExitCode(..), exitWith)
@@ -58,7 +58,7 @@ initSignals = do
     -- and exit if we get the following:
     flip mapM_ [sigINT, sigHUP, sigABRT, sigTERM] $ \sig -> do
             installHandler sig (Catch (do
-                Control.Exception.catch (shutdown Nothing) (\f -> hPutStrLn stderr (show f))
+                Control.Exception.catch (shutdown Nothing) (\ (f :: SomeException) -> hPutStrLn stderr (show f))
                 exitWith (ExitFailure 1) )) Nothing
 
 releaseSignals :: IO ()

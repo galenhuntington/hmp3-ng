@@ -39,7 +39,7 @@ import Data.List        (sortBy,sort,foldl',groupBy)
 
 import System.IO        (hPutStrLn,stderr)
 import System.Directory (Permissions(readable))
-import Control.Exception(handle)
+import Control.Exception(handle, SomeException)
 import Control.Monad    (liftM)
 
 type FilePathP = P.ByteString
@@ -124,7 +124,7 @@ make (i,n,acc1,acc2) (d,fs) =
 expandDir :: FilePathP -> IO (Maybe (FilePathP, [FilePathP]),  [FilePathP])
 expandDir f | seq f False = undefined -- stricitfy
 expandDir f = do
-    ls_raw <- Control.Exception.handle (\e -> hPutStrLn stderr (show e) >> return []) $
+    ls_raw <- Control.Exception.handle (\ (e :: SomeException) -> hPutStrLn stderr (show e) >> return []) $
                 packedGetDirectoryContents f
     let ls = map (\s -> P.intercalate (P.singleton '/') [f,s]) . sort . filter validFiles $! ls_raw
     ls `seq` return ()

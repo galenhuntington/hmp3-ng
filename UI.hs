@@ -59,7 +59,7 @@ import Data.List                (intersperse,isPrefixOf)
 import Data.Array               ((!), bounds, Array, listArray)
 import Data.Array.Base          (unsafeAt)
 import Control.Monad            (when)
-import qualified Control.Exception (catch, handle)
+import Control.Exception (catch, handle, SomeException)
 import System.IO                (stderr, hFlush)
 import System.Posix.Signals     (raiseSignal, sigTSTP)
 import System.Posix.Env         (getEnv, putEnv)
@@ -74,7 +74,7 @@ import qualified Data.ByteString       as B
 --
 start :: IO UIStyle
 start = do
-    Control.Exception.handle (const $ return ()) $ do -- tweak for OpenBSD console
+    Control.Exception.handle (\ (_ :: SomeException) -> return ()) $ do -- tweak for OpenBSD console
         thisterm <- getEnv "TERM"
         case thisterm of 
             Just "vt220" -> putEnv "TERM=xterm-color"
@@ -105,7 +105,7 @@ resetui = resizeui >> nocursor >> refresh
 nocursor :: IO ()
 nocursor = do
     Control.Exception.catch (Curses.cursSet (fromIntegral (0::Int)) >> return ()) 
-                            (\_ -> return ())
+                            (\ (_ :: SomeException) -> return ())
 
 --
 -- | Clean up and go home. Refresh is needed on linux. grr.
@@ -564,7 +564,7 @@ ellipsis = P.pack "... "
 --
 redrawJustClock :: IO ()
 redrawJustClock = do 
-   Control.Exception.handle (\_ -> return ()) $ do
+   Control.Exception.handle (\ (_ :: SomeException) -> return ()) $ do
 
    st      <- getsST id
    let fr = clock st
@@ -601,7 +601,7 @@ drawHelp st fr s@(h,w) =
 redraw :: IO ()
 redraw = 
    -- linux ncurses, in particular, seems to complain a lot. this is an easy solution
-   Control.Exception.handle (\_ -> return ()) $ do
+   Control.Exception.handle (\ (_ :: SomeException) -> return ()) $ do
 
    s <- getsST id    -- another refresh could be triggered?
    let f = clock s
@@ -667,7 +667,7 @@ lineDown h y = Curses.wMove Curses.stdScr (min h (y+1)) 0
 -- | Fill to end of line spaces
 --
 fillLine :: IO ()
-fillLine = Control.Exception.catch (Curses.clrToEol) (\_ -> return ()) -- harmless?
+fillLine = Control.Exception.catch (Curses.clrToEol) (\ (_ :: SomeException) -> return ()) -- harmless?
 
 --
 -- | move cursor to origin of stdScr.

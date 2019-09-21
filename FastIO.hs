@@ -31,20 +31,20 @@ import qualified Data.ByteString.Internal as B
 import Data.Word                (Word8)
 import Foreign.C.Error
 import Foreign.C.String         (CString)
-import Foreign.C.Types          (CFile, CInt, CLong, CSize)
+import Foreign.C.Types          (CFile, CInt(..), CLong(..), CSize(..))
 import Foreign.Marshal          (allocaBytes, alloca)
 import Foreign.Ptr              (Ptr, nullPtr, castPtr, plusPtr)
 import Foreign.Storable         (peek,peekElemOff)
 import Foreign.ForeignPtr
 
-import System.Directory         (Permissions(..))
+import qualified System.Directory as Dir
 import System.IO.Error          (modifyIOError, ioeSetFileName)
 import System.IO.Unsafe         (unsafePerformIO)
 import System.IO                (Handle,hFlush)
 import System.Posix.Internals
-import System.Posix.Types       (Fd, CMode)
+import System.Posix.Types       (Fd(..), CMode(..))
 
-import Control.Exception        (catch, bracket)
+import Control.Exception        (catch, bracket, SomeException)
 
 ------------------------------------------------------------------------
 
@@ -67,6 +67,8 @@ dirnameP fps = case P.elemIndexEnd '/' fps of
 --
 packedGetDirectoryContents :: P.ByteString -> IO [P.ByteString]
 packedGetDirectoryContents path = do
+  fmap (map P.pack) $ Dir.listDirectory $ P.unpack path
+  {-
   modifyIOError (`ioeSetFileName` (P.unpack path)) $
    alloca $ \ ptr_dEnt ->
      bracket
@@ -99,19 +101,20 @@ packedGetDirectoryContents path = do
                             if (eo == end_of_dir)
                                 then return []
                                 else throwErrno desc
+-}
 
 -- packed version:
 doesFileExist :: P.ByteString -> IO Bool
 doesFileExist name = Control.Exception.catch
    (packedWithFileStatus "Utils.doesFileExist" name $ \st -> do
         b <- isDirectory st; return (not b))
-   (\ _ -> return False)
+   (\ (_ :: SomeException) -> return False)
 
 -- packed version:
 doesDirectoryExist :: P.ByteString -> IO Bool
 doesDirectoryExist name = Control.Exception.catch
    (packedWithFileStatus "Utils.doesDirectoryExist" name $ \st -> isDirectory st)
-   (\ _ -> return False)
+   (\ (_ :: SomeException) -> return False)
 
 packedWithFileStatus :: String -> P.ByteString -> (Ptr CStat -> IO a) -> IO a
 packedWithFileStatus loc name f = do
@@ -156,8 +159,9 @@ fdToCFile = c_openfd
 
 -- ---------------------------------------------------------------------
 
-getPermissions :: P.ByteString -> IO Permissions
-getPermissions name = do
+getPermissions :: P.ByteString -> IO Dir.Permissions
+getPermissions = Dir.getPermissions . P.unpack
+  {-
   B.useAsCString name $ \s -> do
   readp <- c_access s $ fromIntegral r_OK
   write <- c_access s $ fromIntegral w_OK
@@ -172,6 +176,7 @@ getPermissions name = do
       searchable = is_dir && exec == 0
     }
    )
+	-}
 
 -- ---------------------------------------------------------------------
 -- | Send a msg over the channel to the decoder
@@ -223,7 +228,7 @@ printfPS fmt arg1 arg2 =
 foreign import ccall safe "utils.h forcenext"
     forceNextPacket :: IO ()
 
-foreign import ccall safe "utils.h getline" 
+foreign import ccall safe "utils.h getline_" 
     c_getline :: Ptr Word8 -> Ptr CFile -> IO Int
 
 foreign import ccall safe "utils.h openfd"
@@ -235,9 +240,11 @@ foreign import ccall unsafe "static string.h strlen"
 foreign import ccall unsafe "static string.h memcpy" 
     c_memcpy  :: Ptr Word8 -> Ptr Word8 -> Int -> IO ()
 
+{-
 foreign import ccall unsafe "__hscore_R_OK" r_OK :: CMode
 foreign import ccall unsafe "__hscore_W_OK" w_OK :: CMode
 foreign import ccall unsafe "__hscore_X_OK" x_OK :: CMode
+-}
 
 foreign import ccall unsafe "static stdlib.h strtol" c_strtol
     :: Ptr Word8 -> Ptr (Ptr Word8) -> Int -> IO CLong

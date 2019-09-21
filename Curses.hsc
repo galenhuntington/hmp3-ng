@@ -101,9 +101,12 @@ import Data.Char            (ord, chr)
 import Control.Monad        (liftM, when)
 import Control.Concurrent   (yield, threadWaitRead)
 
-import Foreign.C.Types      (CInt, CShort)
+import Foreign.C.Types      (CInt(..), CShort(..))
 import Foreign.C.String     (CString)
-import Foreign
+import Foreign              hiding (void)
+
+import System.IO.Unsafe     (unsafePerformIO)
+import Control.Monad        (void)
 
 #ifdef SIGWINCH
 import System.Posix.Signals (installHandler, Signal, Handler(Catch))
@@ -169,12 +172,12 @@ throwPackedIf p msg action = do
 {-# INLINE throwPackedIf #-}
 
 -- | Arbitrary test 
-throwIfErr :: Num a => P.ByteString -> IO a -> IO a
+throwIfErr :: (Eq a, Num a) => P.ByteString -> IO a -> IO a
 throwIfErr = throwPackedIf (== (#const ERR))
 {-# INLINE throwIfErr #-}
 
 -- | Discard result
-throwIfErr_ :: Num a => P.ByteString -> IO a -> IO ()
+throwIfErr_ :: (Eq a, Num a) => P.ByteString -> IO a -> IO ()
 throwIfErr_ a b = void $ throwIfErr a b
 {-# INLINE throwIfErr_ #-}
 
@@ -487,7 +490,7 @@ foreign import ccall unsafe bkgdset :: (#type chtype) -> IO ()
 
 ------------------------------------------------------------------------
 
-foreign import ccall threadsafe
+foreign import ccall safe
     waddnstr :: Window -> CString -> CInt -> IO CInt
 
 clrToEol :: IO ()
@@ -556,7 +559,7 @@ foreign import ccall unsafe "nomacro_getyx"
 -- | >      The getch, wgetch, mvgetch and mvwgetch, routines read a
 --   >      character  from the window.
 --
-foreign import ccall threadsafe getch :: IO CInt
+foreign import ccall safe getch :: IO CInt
 
 ------------------------------------------------------------------------
 --

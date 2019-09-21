@@ -35,7 +35,7 @@ import Data.IORef               (readIORef, writeIORef, newIORef, IORef)
 import qualified Data.Map as M  (fromList, empty, lookup, Map)
 
 import System.IO.Unsafe         (unsafePerformIO)
-import Control.Exception        (handle)
+import Control.Exception        (handle, SomeException)
 
 ------------------------------------------------------------------------
 
@@ -187,7 +187,8 @@ initUiColors stys = do
     fn :: Style -> Int -> IO (Style, (Curses.Attr,Curses.Pair))
     fn sty p = do
         let (CColor (a,fgc),CColor (b,bgc)) = style2curses sty
-        handle (\_ -> return ()) $ Curses.initPair (Curses.Pair p) fgc bgc
+        handle (\ (_ :: SomeException) -> return ()) $
+            Curses.initPair (Curses.Pair p) fgc bgc
         return (sty, (a `Curses.attrPlus` b, Curses.Pair p))
 
 ------------------------------------------------------------------------

@@ -45,7 +45,7 @@ import System.Posix.Process     (forkProcess,executeFile)
 import System.Posix.IO          (createPipe,stdInput,stdError
                                 ,stdOutput,closeFd,dupTo)
 
-import qualified Control.Exception (handle)
+import Control.Exception        (handle, SomeException)
 
 import System.IO.Unsafe         (unsafePerformIO)
 
@@ -93,7 +93,7 @@ fdToInt (Fd cint) = fromIntegral cint
 
 -- | Wrap a CPid as a System.Process.ProcessHandle
 pid2phdl :: ProcessID -> ProcessHandle
-pid2phdl pid = unsafePerformIO $ mkProcessHandle pid
+pid2phdl pid = unsafePerformIO $ mkProcessHandle pid False
 {-# NOINLINE pid2phdl #-}
 
 ------------------------------------------------------------------------
@@ -158,7 +158,7 @@ exec cmd args (pr,cw,ce) = do
 -- | Some evil to work out if the background is light, or dark. Assume dark.
 --
 isLightBg :: IO Bool
-isLightBg = Control.Exception.handle (\_ -> return False) $ do
+isLightBg = Control.Exception.handle (\ (_ :: SomeException) -> return False) $ do
     e <- getEnv "HMP_HAS_LIGHT_BG"
     return $ map toLower e == "true"
 

@@ -66,14 +66,14 @@ import System.Posix.User        (getUserEntryForID, getRealUserID, homeDirectory
 import Control.Concurrent
 import Control.Exception
 
-import GHC.Handle               (fdToHandle)
+import GHC.IO.Handle.FD         (fdToHandle)
 
 #include "config.h"
 
 ------------------------------------------------------------------------
 
 start :: Either SerialT [P.ByteString] -> IO ()
-start ms = Control.Exception.handle (\e -> shutdown (Just (show e))) $ do
+start ms = Control.Exception.handle (\ (e :: SomeException) -> shutdown (Just (show e))) $ do
 
     t0 <- forkIO mpgLoop    -- start this off early, to give mpg321 a time to settle
 
@@ -122,19 +122,22 @@ start ms = Control.Exception.handle (\e -> shutdown (Just (show e))) $ do
 forever :: IO () -> IO ()
 forever fn = catch (repeatM_ fn) handler
     where
-        handler :: Exception -> IO ()
+        handler :: SomeException -> IO ()
         handler e =
             when (not.exitTime $ e) $
                 (warnA . show) e >> (forever fn)        -- reopen the catch
 
 -- | Generic handler
 -- For profiling, make sure to return True for anything:
-exitTime :: Exception -> Bool
+exitTime :: SomeException -> Bool
+-- TODO  make this work with new exception hierarchy
+{-
 exitTime e | isJust . ioErrors $ e   = False -- ignore
            | isJust . errorCalls $ e = False -- ignore
            | isJust . userErrors $ e = False -- ignore
            | otherwise               = True
--- exitTime _ = True
+-}
+exitTime _ = True
 
 ------------------------------------------------------------------------
 
@@ -153,7 +156,8 @@ mpgLoop = forever $ do
 
         -- if we're never able to start mpg321, do something sensible
         mv <- catch (popen (mpg321 :: String) ["-R","-"] >>= return . Just)
-                    (\e -> do warnA ("Unable to start " ++ MPG321 ++ ": " ++ show e)
+                    (\ (e :: SomeException) ->
+                           do warnA ("Unable to start " ++ MPG321 ++ ": " ++ show e)
                               return Nothing)
         case mv of
             Nothing -> threadDelay (1000 * 500) >> mpgLoop
@@ -175,7 +179,7 @@ mpgLoop = forever $ do
                           , info      = Nothing
                           , id3       = Nothing }
 
-            catch (waitForProcess (pid2phdl pid)) (\_ -> return ExitSuccess)
+            catch (waitForProcess (pid2phdl pid)) (\ (_ :: SomeException) -> return ExitSuccess)
             stop <- getsST doNotResuscitate
             when (stop) $ exitWith ExitSuccess
             warnA $ "Restarting " ++ mpg321 ++ " ..."
@@ -248,7 +252,7 @@ run = forever $ sequence_ . keymap =<< getKeys
 shutdown :: Maybe String -> IO ()
 shutdown ms =
     (do silentlyModifyST $ \st -> st { doNotResuscitate = True }
-        catch writeSt (\_ -> return ())
+        catch writeSt (\ (_ :: SomeException) -> return ())
         withST $ \st -> do
             case mp3pid st of
                 Nothing  -> return ()
@@ -537,7 +541,7 @@ readSt = do
 getHome :: IO String
 getHome = Control.Exception.catch
     (getRealUserID >>= getUserEntryForID >>= (return . homeDirectory))
-    (\_ -> getEnv "HOME")
+    (\ (_ :: SomeException) -> getEnv "HOME")
 
 ------------------------------------------------------------------------
 -- Read styles from ~/.hmp3
@@ -550,7 +554,7 @@ loadConfig = do
     when b $ do     -- otherwise used compiled-in values
         str  <- readFile f
         msty <- catch (readM str >>= return . Just)
-                      (const $ warnA "Parse error in ~/.hmp3" >> return Nothing)
+                      (\ (_ :: SomeException) -> warnA "Parse error in ~/.hmp3" >> return Nothing)
         case msty of
             Nothing  -> return ()
             Just rsty -> do
