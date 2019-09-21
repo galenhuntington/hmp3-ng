@@ -1,5 +1,5 @@
 name:                hmp3
-version:             1.5.1
+version:             1.5.2
 homepage:            http://www.cse.unsw.edu.au/~dons/hmp3.html
 license:             GPL
 license-file:        LICENSE
@@ -12,11 +12,10 @@ description:
     passing directory names on the commandline, and saved to the
     ~/.hmp3db database. Type 'h' to display the help page.  Colours may
     be configured at runtime by editing the "~/.hmp3" file.
-cabal-version:      >= 1.2
-build-type:         Simple
+cabal-version:       >= 1.2
+build-type:          Configure
 extra-source-files:  Keymap.hs-boot README TODO configure configure.ac
                      cbits/config.h.in ./cbits/utils.h ./cbits/utils.c
-
 
 flag small_base
   description: Choose the new smaller, split-up base package.
@@ -38,7 +37,7 @@ executable hmp3
     else
         build-depends: base < 3
 
-    ghc-options:         -Wall -O2 -funbox-strict-fields -optl-Wl,-s -threaded
+    ghc-options:         -Wall -funbox-strict-fields -threaded
     main-is:             Main.hs
     other-modules:       Curses Config Core FastIO Keymap
                          Lexer Lexers State Style Syntax Tree UI Utils

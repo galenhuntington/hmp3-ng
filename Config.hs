@@ -19,8 +19,7 @@
 module Config where
 
 import Style
-
-#include "config.h"
+import Paths_hmp3 (version)
 
 defaultStyle :: UIStyle
 defaultStyle  = UIStyle { window     = Style defaultfg    defaultbg
@@ -72,12 +71,7 @@ package :: String
 package = "hmp3"
 
 versinfo :: String
-versinfo  = package++" "++ version
-    where
-      version :: String
-      version = "1.4" ++ if (not . null) (PATCH_COUNT :: String) && (PATCH_COUNT /= "1")
-                         then "p" ++ PATCH_COUNT
-                         else ""
+versinfo  = package++" "++ show version
 
 help :: String
 help = "- curses-based MP3 player"
