@@ -32,6 +32,9 @@ planned changes.
 
 *  Work on other features and changes is ongoing.
 
+I have changed around a few of the key bindings per my own preference,
+and added Backspace to rewind to the start of a song.
+
 The original README, which will have to be updated and integrated:
 
 ```

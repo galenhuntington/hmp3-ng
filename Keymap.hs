@@ -1,5 +1,6 @@
 -- 
 -- Copyright (c) 2004-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
+-- Copyright (c) 2008 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -81,14 +82,14 @@ search :: LexerS
 search = searchDir >||< searchFile
 
 searchDir :: LexerS
-searchDir = (char '/' >|< char '?') `meta` \[c] _ ->
+searchDir = (char '\\' >|< char '|') `meta` \[c] _ ->
                 (with (toggleFocus >> putmsg (Fast (P.pack [c]) defaultSty) >> touchST)
-                ,(SearchDir,if c == '/' then Forwards else Backwards,[c]) ,Just dosearch)
+                ,(SearchDir,if c == '\\' then Forwards else Backwards,[c]) ,Just dosearch)
 
 searchFile :: LexerS
-searchFile = (char '\\' >|< char '|') `meta` \[c] _ ->
+searchFile = (char '/' >|< char '?') `meta` \[c] _ ->
                 (with (toggleFocus >> putmsg (Fast (P.pack [c]) defaultSty) >> touchST)
-                ,(SearchFile,if c == '\\' then Forwards else Backwards,[c]) ,Just dosearch)
+                ,(SearchFile,if c == '/' then Forwards else Backwards,[c]) ,Just dosearch)
 
 dosearch :: LexerS
 dosearch = search_char >||< search_edit >||< search_esc >||< search_eval
@@ -116,8 +117,8 @@ search_eval = enter
     `meta` \_ (t,d,(_:pat)) -> case pat of
         [] -> wrap (clrmsg >> touchST)
         _  -> case t of
-                SearchFile -> wrap (jumpToMatchFile (Just (pat,toBool d)))
-                SearchDir  -> wrap (jumpToMatch     (Just (pat,toBool d)))
+                SearchFile -> wrap (jumpToMatchFile (Just pat) (toBool d))
+                SearchDir  -> wrap (jumpToMatch     (Just pat) (toBool d))
 
     where wrap a = (with (a >> toggleFocus), defaultS, Just all)
 
@@ -145,10 +146,10 @@ keyTable =
         ['k',keyUp],    up)
     ,(p "Move down",
         ['j',keyDown],  down)
-    ,(p "Next directory down",
-        [keyNPage], jumpToNextDir)
-    ,(p "Next directory up",
-        [keyPPage], jumpToPrevDir)
+    ,(p "Page down",
+        [keyNPage], downPage)
+    ,(p "Page up",
+        [keyPPage], upPage)
     ,(p "Jump to start of list",
         [keyHome,'1'],  jump 0)
     ,(p "Jump to end of list",
@@ -158,9 +159,9 @@ keyTable =
     ,(p "Seek right within song",
         [keyRight], seekRight)
     ,(p "Toggle pause",
-        ['p'],          pause)
+        [' '],          pause)
     ,(p "Play song under cursor",
-        ['\n',' '],     play)
+        ['\n'],     play)
     ,(p "Play previous track",
         ['K'],    playPrev)
     ,(p "Play next track",
@@ -178,11 +179,17 @@ keyTable =
     ,(p "Refresh the display",
         ['\^L'], UI.resetui)
     ,(p "Repeat last regex search",
-        ['n'],   jumpToMatch Nothing)
-    ,(p "Repeat last regex search on files",
-        ['N'],   jumpToMatchFile Nothing)
+        ['n'],   jumpToMatchFile Nothing True)
+    ,(p "Repeat last regex search backwards",
+        ['N'],   jumpToMatchFile Nothing False)
+    ,(p "Play",
+        ['p'],   playCur)
+    ,(p "Mark as deletable",
+        ['d'],   blacklist)
     ,(p "Load config file",
         ['l'],   loadConfig)
+    ,(p "Restart song",
+        [keyBackspace],   seekStart)
     ]
   where
     -- Keep as Addr#. If we try the pack/packAddress rule, ghc seems to get
@@ -191,10 +198,10 @@ keyTable =
     {-# INLINE p #-}
 
 extraTable :: [(P.ByteString, [Char])]
-extraTable = [(p "Search for directory matching regex", ['/'])
-             ,(p "Search backwards for directory", ['?'])
-             ,(p "Search for file matching regex", ['\\'])
-             ,(p "Search backwards for file", ['|']) ]
+extraTable = [(p "Search for file matching regex", ['/'])
+             ,(p "Search backwards for file", ['?'])
+             ,(p "Search for directory matching regex", ['\\'])
+             ,(p "Search backwards for directory", ['|']) ]
   where
     -- Keep as Addr#. If we try the pack/packAddress rule, ghc seems to get
     -- confused and want to *unpack* the strings :/

@@ -1,6 +1,6 @@
 -- 
 -- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2019 Galen Huntington
+-- Copyright (c) 2008, 2019 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -25,7 +25,10 @@ module Core (
         start,
         shutdown,
         seekLeft, seekRight, up, down, pause, nextMode, playNext, playPrev,
-        quit, putmsg, clrmsg, toggleHelp, play, jumpToPlaying, jump, {-, add-}
+        quit, putmsg, clrmsg, toggleHelp, play, playCur, jumpToPlaying, jump, {-, add-}
+        upPage, downPage,
+        seekStart,
+        blacklist,
         writeSt, readSt,
         jumpToMatch, jumpToMatchFile,
         toggleFocus, jumpToNextDir, jumpToPrevDir,
@@ -47,11 +50,11 @@ import qualified UI
 import Text.Regex.PCRE.Light
 import {-# SOURCE #-} Keymap (keymap)
 
-import qualified Data.ByteString.Char8 as P (ByteString,pack,empty,intercalate,singleton)
+import qualified Data.ByteString.Char8 as P (ByteString,pack,empty,intercalate,singleton,unpack)
 
 import Data.Array               ((!), bounds, Array)
 import Data.Maybe               (isJust,fromJust)
-import Control.Monad            (liftM, when)
+import Control.Monad            (liftM, when, msum)
 import System.Directory         (doesFileExist,findExecutable)
 import System.Environment       (getEnv)
 import System.Exit              (ExitCode(ExitSuccess),exitWith)
@@ -309,6 +312,10 @@ seekLeft = seek $ \g -> max 0 (currentFrame g - 400)
 seekRight :: IO ()
 seekRight = seek $ \g -> currentFrame g + (min 400 (framesLeft g))
 
+seekStart :: IO ()
+seekStart = seek $ const 0
+
+
 -- | Generic seek
 seek :: (Frame -> Int) -> IO ()
 seek fn = do
@@ -321,6 +328,15 @@ seek fn = do
                 send h $ Jump (fn g)
                 forceNextPacket         -- don't drop the next Frame.
             silentlyModifyST $ \st -> st { clockUpdate = True }
+
+page :: Int -> IO ()
+page dir = do
+    (sz, _) <- UI.screenSize
+    modifySTM $ flip jumpTo (+ dir*(sz-5))
+upPage, downPage :: IO ()
+upPage   = page (-1)
+downPage = page ( 1)
+
 
 ------------------------------------------------------------------------
 
@@ -345,7 +361,26 @@ jumpTo st fn = do
 
 -- | Load and play the song under the cursor
 play :: IO ()
-play = modifySTM $ \st -> playAtN st (const $ cursor st)
+play = modifySTM $ \st ->
+    if current st == cursor st
+    then do
+        let g = randomGen st
+        n' <- random g :: IO Int
+        let n = abs n' `mod` (size st -1)
+        playAtN st (const n)
+    else
+        playAtN st (const $ cursor st)
+
+playCur :: IO ()
+playCur = modifySTM $ \st -> playAtN st (const $ cursor st)
+
+blacklist :: IO ()
+blacklist = do
+  st <- getsST id
+  appendFile "myblacklist" . (++"\n") . P.unpack $
+    let fe = music st ! cursor st
+    in (P.intercalate (P.singleton '/') [(dname $ folders st ! fdir fe),(fbase fe)])
+
 
 -- | Play a random song
 playRandom :: IO ()
@@ -392,6 +427,7 @@ playAtN st fn = do
     let m   = music st
         i   = current st
         fe  = m ! (fn i)
+        -- unsure of this GBH (2008)
         f   = P.intercalate (P.singleton '/')
                      [(dname $ folders st ! fdir fe),(fbase fe)]
         j   = cursor  st
@@ -441,52 +477,63 @@ class Lookup a       where extract :: a -> FilePathP
 instance Lookup Tree.Dir  where extract = dname
 instance Lookup Tree.File where extract = fbase
 
-jumpToMatchFile :: Maybe (String,Bool) -> IO ()
-jumpToMatchFile re = genericJumpToMatch re k sel
+jumpToMatchFile :: Maybe String -> Bool -> IO ()
+jumpToMatchFile re sw = genericJumpToMatch re sw k sel
     where k = \st -> (music st, if size st == 0 then -1 else cursor st, size st)
           sel i _ = i
 
-jumpToMatch  :: Maybe (String,Bool) -> IO ()
-jumpToMatch     re = genericJumpToMatch re k sel
+jumpToMatch  :: Maybe String -> Bool -> IO ()
+jumpToMatch     re sw = genericJumpToMatch re sw k sel
     where k = \st -> (folders st
                      ,if size st == 0 then -1 else fdir (music st ! cursor st)
                      ,1 + (snd . bounds $ folders st))
           sel i st = dlo (folders st ! i)
 
 genericJumpToMatch :: Lookup a
-                   => Maybe (String,Bool)
+                   => Maybe String
+                   -> Bool
                    -> (HState -> (Array Int a, Int, Int))
                    -> (Int -> HState -> Int)
                    -> IO ()
 
-genericJumpToMatch re k sel = do
+genericJumpToMatch re sw k sel = do
     found <- modifySTM_ $ \st -> do
         let mre = case re of
             -- work out if we have no pattern, a cached pattern, or a new pattern
                 Nothing     -> case regex st of
                                 Nothing     -> Nothing
-                                Just (r,d)  -> Just (r,d)
-                Just (s,d)  -> case compileM (P.pack s) [caseless] of
+                                Just (r,d)  -> Just (r,d==sw)
+                Just s  -> case compileM (P.pack s) [caseless] of
                                 Left _      -> Nothing
-                                Right v     -> Just (v,d)
+                                Right v     -> Just (v,sw)
         case mre of
             Nothing -> return (st,False)    -- no pattern
             Just (p,forwards) -> do
 
             let (fs,cur,m) = k st
 
+{-
                 loop fn inc n
                     | fn n      = return Nothing
                     | otherwise = do
                         let s = extract (fs ! n)
                         case match p s [] of
                             Nothing -> loop fn inc $! inc n
+-}
+
+                check n = let s = extract (fs ! n) in
+                        case match p s [] of
+                            Nothing -> return Nothing
                             Just _  -> return $ Just n
 
-            mi <- if forwards then loop (>=m) (+1)         (cur+1)
-                              else loop (<0)  (subtract 1) (cur-1)
+            -- mi <- if forwards then loop (>=m) (+1)         (cur+1)
+                              -- else loop (<0)  (subtract 1) (cur-1)
+            mi <- liftM msum $ mapM check $
+                        if forwards then [cur+1..m-1] ++ [0..cur]
+                                    else [cur-1,cur-2..0] ++ [m-1,m-2..cur]
 
-            let st' = st { regex = Just (p,forwards) }
+
+            let st' = st { regex = Just (p,forwards==sw) }
             return $ case mi of
                 Nothing -> (st',False)
                 Just i  -> (st' { cursor = sel i st }, True)

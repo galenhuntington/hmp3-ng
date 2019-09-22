@@ -1,5 +1,6 @@
 -- 
 -- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
+-- Copyright (c) 2008 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -38,7 +39,8 @@ doP s = S $! case P.head . P.tail $ s of
                 '0' -> Stopped
                 '1' -> Paused
                 '2' -> Playing
-                _ -> error "Invalid Status"
+                _ -> Playing
+                -- _ -> error "Invalid Status"
 
 -- Frame decoding status updates (once per frame).
 doF :: P.ByteString -> Msg
