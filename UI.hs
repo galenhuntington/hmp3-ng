@@ -288,6 +288,8 @@ instance Element HelpScreen where
                           | k == '\f'            -> "^L"
                           | k == Curses.keyEnd   -> "End"
                           | k == Curses.keyHome  -> "Home"
+                          | k == Curses.keyBackspace -> "Backspace"
+                          | k == '\\'            -> "'\\'"
                         _ -> show c
 
 ------------------------------------------------------------------------
