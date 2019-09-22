@@ -1,0 +1,6 @@
+resolver: lts-14.6
+system-ghc: true
+compiler-check: newer-minor
+
+extra-deps:
+   - mersenne-random-1.0.0.1@sha256:c2c7c88765030e4a6003e921e7676858a048f75bc2f38d58ddafd3b102be6d82,3637

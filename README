@@ -28,7 +28,9 @@ mainly low-level optimizations, and so was replaced.
 *  There is a Github issue tracker to cover other problems and
 planned changes.
 
-*  I am adding and modifying features per my preferences.
+*  I have added support for building with Stack.
+
+*  Work on other features and changes is ongoing.
 
 The original README, which will have to be updated and integrated:
 
