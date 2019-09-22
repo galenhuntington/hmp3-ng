@@ -59,19 +59,19 @@ data UIStyle = UIStyle {
 
 -- | Colors 
 data Color
-    = RGB {-# UNPACK #-} !Word8 !Word8 !Word8
+    = RGB {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8
     | Default
     | Reverse
     deriving (Eq,Ord)
 
 -- | Foreground and background color pairs
-data Style = Style {-# UNPACK #-} !Color !Color 
+data Style = Style !Color !Color 
     deriving (Eq,Ord)
 
 -- | A list of such values (the representation is optimised)
 data StringA 
-    = Fast   {-# UNPACK #-} !ByteString !Style
-    | FancyS {-# UNPACK #-} ![(ByteString,Style)]  -- one line made up of segments
+    = Fast   {-# UNPACK #-} !ByteString {-# UNPACK #-} !Style
+    | FancyS ![(ByteString,Style)]  -- one line made up of segments
 
 ------------------------------------------------------------------------
 --

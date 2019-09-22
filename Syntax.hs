@@ -67,7 +67,7 @@ instance Pretty Quit where
 data Tag = Tag
 
 -- Track info if ID fields are in the file, otherwise file name.
-data File = File {-# UNPACK #-} !(Either P.ByteString Id3)
+data File = File !(Either P.ByteString Id3)
 
 -- ID3 info 
 data Id3 = Id3
@@ -154,4 +154,4 @@ data Msg = T {-# UNPACK #-} !Tag
          | F {-# UNPACK #-} !File
          | I {-# UNPACK #-} !Info
          | R {-# UNPACK #-} !Frame
-         | S {-# UNPACK #-} !Status
+         | S                !Status
