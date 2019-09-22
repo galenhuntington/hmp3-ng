@@ -1,9 +1,9 @@
-name:                hmp3
-version:             1.5.2.1
-homepage:            http://www.cse.unsw.edu.au/~dons/hmp3.html
+name:                hmp3-ng
+version:             2.0.0
+homepage:            https://github.com/galenhuntington/hmp3-ng
 license:             GPL
 license-file:        LICENSE
-author:              Don Stewart
+author:              Don Stewart, Galen Huntington
 maintainer:          Galen Huntington
 category:            Sound
 synopsis:            An ncurses mp3 player written in Haskell
@@ -16,9 +16,6 @@ cabal-version:       >= 1.2
 build-type:          Configure
 extra-source-files:  Keymap.hs-boot README TODO configure configure.ac
                      cbits/config.h.in ./cbits/utils.h ./cbits/utils.c
-
-flag small_base
-  description: Choose the new smaller, split-up base package.
 
 executable hmp3
     build-depends:     unix >= 2.7,
@@ -38,7 +35,7 @@ executable hmp3
     main-is:             Main.hs
     other-modules:       Curses Config Core FastIO Keymap
                          Lexer Lexers State Style Syntax Tree UI Utils
-                         Paths_hmp3
+                         Paths_hmp3_ng
 
     extensions:          CPP, ForeignFunctionInterface, ScopedTypeVariables
     extra-libraries:     curses

@@ -1,6 +1,7 @@
 --
 -- Copyright (c) 2002-2004 John Meacham (john at repetae dot net)
 -- Copyright (c) 2004-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
+-- Copyright (c) 2019 Galen Huntington
 -- 
 -- Permission is hereby granted, free of charge, to any person obtaining a
 -- copy of this software and associated documentation files (the

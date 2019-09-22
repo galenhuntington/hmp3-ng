@@ -1,4 +1,38 @@
 
+##  hmp3-ng
+
+The `hmp3` music player was introduced in 2005, and has a nice,
+curses-based interface.  I have myself been using it for over a decade.
+But it has become abandonware: the last update was in June 2008,
+and it no longer builds with today's Haskell and standard libraries.
+
+This repository is an attempt to resurrect this software.  It is a
+work in progress.
+
+The original Darcs repo has vanished from the Internet.  However, I
+have a copy I checked out in 2008 (to hack on!) with all the patches
+through version 1.5.1 (the latest is 1.5.2.1, which I had at one point
+but cannot find), and Hackage hosts tarballs for following versions.
+
+*  I used [darcs-to-git](https://github.com/purcell/darcs-to-git)
+to port to Git.
+
+*  I added commits for the changes in the two later versions.
+These were fairly small, the bulk being the regeneration of the
+`configure` file using GNU `autoconf`.
+
+*  I updated the code to compile under modern GHC (8.6.5 as of this
+writing) and libraries.  Some code could not be directly ported,
+mainly low-level optimizations, and so was replaced.
+
+*  There is a Github issue tracker to cover other problems and
+planned changes.
+
+*  I am adding and modifying features per my preferences.
+
+The original README, which will have to be updated and integrated:
+
+```
             hmp3 : an ncurses mp3 player written in Haskell
           ---------------------------------------------------
 
@@ -91,3 +125,5 @@ Contributors:
     Stefan Wehr
     Tomasz Zielonka
     David Himmelstrup
+
+```

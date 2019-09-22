@@ -19,7 +19,7 @@
 module Config where
 
 import Style
-import Paths_hmp3 (version)
+import Paths_hmp3_ng (version)
 
 defaultStyle :: UIStyle
 defaultStyle  = UIStyle { window     = Style defaultfg    defaultbg
