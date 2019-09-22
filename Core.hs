@@ -377,7 +377,7 @@ playCur = modifySTM $ \st -> playAtN st (const $ cursor st)
 blacklist :: IO ()
 blacklist = do
   st <- getsST id
-  appendFile "myblacklist" . (++"\n") . P.unpack $
+  appendFile ".hmp3-delete" . (++"\n") . P.unpack $
     let fe = music st ! cursor st
     in (P.intercalate (P.singleton '/') [(dname $ folders st ! fdir fe),(fbase fe)])
 
