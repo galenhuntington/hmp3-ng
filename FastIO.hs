@@ -29,6 +29,7 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Internal as B
 
 import Data.Word                (Word8)
+import qualified Data.ByteString.UTF8 as UTF8
 import Foreign.C.Error
 import Foreign.C.String         (CString)
 import Foreign.C.Types          (CFile, CInt(..), CLong(..), CSize(..))
@@ -66,8 +67,8 @@ dirnameP fps = case P.elemIndexEnd '/' fps of
 -- Have them just return CStrings, then pack lazily?
 --
 packedGetDirectoryContents :: P.ByteString -> IO [P.ByteString]
-packedGetDirectoryContents path = do
-  fmap (map P.pack) $ Dir.listDirectory $ P.unpack path
+packedGetDirectoryContents = do
+  fmap (map UTF8.fromString) . Dir.listDirectory . UTF8.toString
 
 -- packed version:
 doesFileExist :: P.ByteString -> IO Bool
@@ -126,23 +127,7 @@ fdToCFile = c_openfd
 -- ---------------------------------------------------------------------
 
 getPermissions :: P.ByteString -> IO Dir.Permissions
-getPermissions = Dir.getPermissions . P.unpack
-  {-
-  B.useAsCString name $ \s -> do
-  readp <- c_access s $ fromIntegral r_OK
-  write <- c_access s $ fromIntegral w_OK
-  exec  <- c_access s $ fromIntegral x_OK
-  packedWithFileStatus "FastIO.getPermissions" name $ \st -> do
-  is_dir <- isDirectory st
-  return (
-    Permissions {
-      readable   = readp == 0,
-      writable   = write == 0,
-      executable = not is_dir && exec == 0,
-      searchable = is_dir && exec == 0
-    }
-   )
-	-}
+getPermissions = Dir.getPermissions . UTF8.toString
 
 -- ---------------------------------------------------------------------
 -- | Send a msg over the channel to the decoder
