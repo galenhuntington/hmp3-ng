@@ -35,7 +35,7 @@ module Core (
         loadConfig,
     ) where
 
-import Prelude hiding (catch)
+import Prelude
 
 import Syntax
 import Lexer                (parser)

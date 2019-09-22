@@ -27,15 +27,14 @@ import Syntax                   (Pretty(ppr))
 import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Internal as B
---import qualified Data.ByteString.Unsafe as B
 
 import Data.Word                (Word8)
 import Foreign.C.Error
 import Foreign.C.String         (CString)
 import Foreign.C.Types          (CFile, CInt(..), CLong(..), CSize(..))
-import Foreign.Marshal          (allocaBytes, alloca)
-import Foreign.Ptr              (Ptr, nullPtr, castPtr, plusPtr)
-import Foreign.Storable         (peek,peekElemOff)
+import Foreign.Marshal          (allocaBytes)
+import Foreign.Ptr              (Ptr, castPtr, plusPtr)
+import Foreign.Storable         (peekElemOff)
 import Foreign.ForeignPtr
 
 import qualified System.Directory as Dir
@@ -43,9 +42,9 @@ import System.IO.Error          (modifyIOError, ioeSetFileName)
 import System.IO.Unsafe         (unsafePerformIO)
 import System.IO                (Handle,hFlush)
 import System.Posix.Internals
-import System.Posix.Types       (Fd(..), CMode(..))
+import System.Posix.Types       (Fd(..))
 
-import Control.Exception        (catch, bracket, SomeException)
+import Control.Exception        (catch, SomeException)
 
 ------------------------------------------------------------------------
 
@@ -69,40 +68,6 @@ dirnameP fps = case P.elemIndexEnd '/' fps of
 packedGetDirectoryContents :: P.ByteString -> IO [P.ByteString]
 packedGetDirectoryContents path = do
   fmap (map P.pack) $ Dir.listDirectory $ P.unpack path
-  {-
-  modifyIOError (`ioeSetFileName` (P.unpack path)) $
-   alloca $ \ ptr_dEnt ->
-     bracket
-    (B.useAsCString path $ \s ->
-       throwErrnoIfNullRetry desc (c_opendir s))
-    (\p -> throwErrnoIfMinus1_ desc (c_closedir p))
-    (\p -> loop ptr_dEnt p)
-  where
-    desc = "Utils.packedGetDirectoryContents"
-
-    loop :: Ptr (Ptr CDirent) -> Ptr CDir -> IO [P.ByteString]
-    loop ptr_dEnt dir = do
-      resetErrno
-      r <- readdir dir ptr_dEnt
-      if (r == 0)
-        then do dEnt <- peek ptr_dEnt
-                if (dEnt == nullPtr)
-                    then return []
-                    else do  -- copy entry out before we free:
-                        entry <- B.packCString =<< d_name dEnt
-                        P.length entry `seq` return ()  -- strictify
-                        freeDirEnt dEnt
-                        entries <- loop ptr_dEnt dir
-                        return $! (entry:entries)
-
-        else do errno <- getErrno
-                if (errno == eINTR)
-                    then loop ptr_dEnt dir
-                    else do let (Errno eo) = errno
-                            if (eo == end_of_dir)
-                                then return []
-                                else throwErrno desc
--}
 
 -- packed version:
 doesFileExist :: P.ByteString -> IO Bool
@@ -240,12 +205,6 @@ foreign import ccall unsafe "static string.h strlen"
 
 foreign import ccall unsafe "static string.h memcpy" 
     c_memcpy  :: Ptr Word8 -> Ptr Word8 -> Int -> IO ()
-
-{-
-foreign import ccall unsafe "__hscore_R_OK" r_OK :: CMode
-foreign import ccall unsafe "__hscore_W_OK" w_OK :: CMode
-foreign import ccall unsafe "__hscore_X_OK" x_OK :: CMode
--}
 
 foreign import ccall unsafe "static stdlib.h strtol" c_strtol
     :: Ptr Word8 -> Ptr (Ptr Word8) -> Int -> IO CLong

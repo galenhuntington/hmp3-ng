@@ -1,5 +1,3 @@
-{-# OPTIONS -cpp -#include "curses.h" #-}
-
 #if HAVE_SIGNAL_H
 {-#include <signal.h> #-}
 #endif
