@@ -644,11 +644,13 @@ drawLine _ (FancyS ls) = loop ls
 -- worker
 drawPackedString :: P.ByteString -> Style -> IO ()
 drawPackedString ps sty =
-    withStyle sty $ B.useAsCString ps $ \cstr ->
+    withStyle sty $ B.useAsCString (P.map asAscii ps) $ \cstr ->
         Curses.throwIfErr_ msg $
             Curses.waddnstr Curses.stdScr cstr (fromIntegral . P.length $ ps)
     where
         msg = P.pack "drawPackedString"
+        asAscii x | x >= ' ' && x < '\127' = x
+                  | otherwise              = '*'
 
 
 ------------------------------------------------------------------------
