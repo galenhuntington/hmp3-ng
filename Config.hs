@@ -1,5 +1,6 @@
 -- 
 -- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
+-- Copyright (c) 2019 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -19,6 +20,7 @@
 module Config where
 
 import Style
+import Data.Version (showVersion)
 import Paths_hmp3_ng (version)
 
 defaultStyle :: UIStyle
@@ -68,10 +70,10 @@ bwStyle = UIStyle {
 ------------------------------------------------------------------------
 
 package :: String
-package = "hmp3"
+package = "hmp3-ng"
 
 versinfo :: String
-versinfo  = package++" "++ show version
+versinfo  = package ++ " v" ++ showVersion version
 
 help :: String
 help = "- curses-based MP3 player"
