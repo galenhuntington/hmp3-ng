@@ -198,6 +198,7 @@ refreshLoop = getsST modified >>= \mvar -> forever $ takeMVar mvar >> UI.refresh
 ------------------------------------------------------------------------
 
 -- | Once a minute read the clock time
+--   TODO use a monotonic clock
 uptimeLoop :: IO ()
 uptimeLoop = forever $ do
     threadDelay delay
