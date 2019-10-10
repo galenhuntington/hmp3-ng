@@ -1,25 +1,25 @@
 
 ##  hmp3-ng
 
-The `hmp3` music player was introduced in 2005, and has a nice,
-curses-based interface.  I have myself been using it for over a decade.
-But it has become abandonware: the last update was in June 2008,
-and it no longer builds with today's Haskell and standard libraries.
+The `hmp3` music player, written in Haskell, was introduced in 2005,
+and has a curses-based interface which can be used in an ordinary
+text terminal.  But it has become abandonware: the last update was in
+June 2008, and it no longer builds with today's Haskell and standard
+libraries.
 
-This repository is an attempt to resurrect this software.  It is a
-work in progress.
+This repository is a work in progress to resurrect this software.
 
 The original Darcs repo has vanished from the Internet.  However, I
 have a copy I checked out in 2008 (to hack on!) with all the patches
 through version 1.5.1 (the latest is 1.5.2.1, which I had at one point
-but cannot find), and Hackage hosts tarballs for following versions.
+but cannot find), and Hackage hosts tarballs for several versions.
 
 *  I used [darcs-to-git](https://github.com/purcell/darcs-to-git)
 to port to Git.
 
-*  I added commits for the changes in the two later versions.
+*  I added commits for the changes in the two later published versions.
 These were fairly small, the bulk being the regeneration of the
-`configure` file using GNU `autoconf`.
+`configure` file using a newer version of GNU `autoconf`.
 
 *  I updated the code to compile under modern GHC (8.6.5 as of this
 writing) and libraries.  Some code could not be directly ported,
@@ -30,10 +30,10 @@ planned changes.
 
 *  I have added support for building with Stack.
 
-*  Work on other features and changes is ongoing.
+*  Work on other features and changes, and documentation, is ongoing.
 
-I have changed around a few of the key bindings per my own preference,
-and added Backspace to rewind to the start of a song.
+I have also made a few changes and additions to the key bindings per
+my preference.
 
 The original README, which will have to be updated and integrated:
 
