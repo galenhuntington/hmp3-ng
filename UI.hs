@@ -1,9 +1,5 @@
 #include "config.h"
 
-#if HAVE_SIGNAL_H
-{-#include <signal.h> #-}
-#endif
-
 -- 
 -- Copyright (C) 2004-5 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- Copyright (c) 2019 Galen Huntington
@@ -57,10 +53,10 @@ import {-# SOURCE #-} Keymap    (extraTable, keyTable, unkey, charToKey)
 import Data.List                (intersperse,isPrefixOf)
 import Data.Array               ((!), bounds, Array, listArray)
 import Data.Array.Base          (unsafeAt)
-import Control.Monad            (when)
+import Control.Monad            (when, void)
 import Control.Exception (catch, handle, SomeException)
 import System.IO                (stderr, hFlush)
-import System.Posix.Signals     (raiseSignal, sigTSTP)
+import System.Posix.Signals     (raiseSignal, sigTSTP, installHandler, Handler(..))
 import System.Posix.Env         (getEnv, putEnv)
 
 import qualified Data.ByteString.Char8 as P
@@ -68,6 +64,8 @@ import qualified Data.ByteString       as B
 
 import Foreign.C.Types      (CInt(..))
 import Foreign.C.String     (CString)
+
+-- import qualified Data.ByteString.UTF8 as UTF8
 
 ------------------------------------------------------------------------
 
@@ -84,7 +82,10 @@ start = do
                    -> silentlyModifyST $ \st -> st { xterm = True }
             _ -> return ()
 
-    Curses.initCurses -- resetui -- may not even work per comment in Curses
+    Curses.initCurses
+    case Curses.cursesSigWinch of
+        Just wch -> void $ installHandler wch (Catch resetui) Nothing
+        _        -> return () -- handled elsewhere
 
     colorify <- Curses.hasColors
     light    <- isLightBg
@@ -130,23 +131,17 @@ screenSize = Curses.scrSize
 
 --
 -- | Read a key. UIs need to define a method for getting events.
--- We only need to refresh if we don't have the SIGWINCH signal handler
--- working for us.
+-- We only need to refresh if we don't have no SIGWINCH support.
 --
 getKey :: IO Char
 getKey = do
     k <- Curses.getCh
-#ifdef KEY_RESIZE
     if k == Curses.KeyResize 
         then do
-# ifndef SIGWINCH
-              redraw >> resizeui >> return ()   -- XXX ^L doesn't work
-# endif
+              when (Curses.cursesSigWinch == Nothing) $
+                  void $ redraw >> resizeui -- do we need redraw here?
               getKey
         else return $ unkey k
-#else
-    return $ unkey k
-#endif
  
 -- | Resize the window
 -- From "Writing Programs with NCURSES", by Eric S. Raymond and Zeyd M. Ben-Halim
@@ -155,6 +150,14 @@ resizeui :: IO (Int,Int)
 resizeui = do
     Curses.endWin
     Curses.resetParams
+    do
+        -- not sure I need all these...
+        Curses.nl True
+        Curses.leaveOk True
+        Curses.noDelay Curses.stdScr False
+        Curses.cBreak True
+        -- Curses.meta stdScr True -- not in module
+        -- not sure about intrFlush, raw - set in hscurses
     Curses.refresh
     Curses.scrSize
 
@@ -649,10 +652,13 @@ drawLine _ (FancyS ls) = loop ls
 drawPackedString :: P.ByteString -> Style -> IO ()
 drawPackedString ps sty =
     withStyle sty $ B.useAsCString (P.map asAscii ps) $ \cstr ->
-        Curses.throwIfErr_ (show msg) $
-            waddnstr Curses.stdScr cstr (fromIntegral . P.length $ ps)
+        Curses.throwIfErr_ msg $
+            waddnstr Curses.stdScr
+            -- Curses.wAddStr Curses.stdScr
+                -- UTF8.toString ps
+                cstr (fromIntegral . P.length $ ps)
     where
-        msg = P.pack "drawPackedString"
+        msg = "drawPackedString"
         asAscii x | x >= ' ' && x < '\127' = x
                   | otherwise              = '*'
 
