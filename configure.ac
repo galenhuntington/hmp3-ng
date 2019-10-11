@@ -12,7 +12,5 @@ AC_DEFINE_UNQUOTED(MPG321, "$MPG321", [Which mp3 decoder to use])
 
 # Some libs we need
 AC_CHECK_LIB(curses,  addnstr)
-AC_CHECK_FUNCS(use_default_colors)
-AC_CHECK_HEADERS([regex.h sys/types.h])
 
 AC_OUTPUT

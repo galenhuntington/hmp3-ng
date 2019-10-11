@@ -99,13 +99,8 @@ white       = RGB 165 165 165
 brightwhite = RGB 255 255 255
 
 defaultfg, defaultbg, reversefg, reversebg :: Color
-#if defined(HAVE_USE_DEFAULT_COLORS)
 defaultfg   = Default
 defaultbg   = Default
-#else
-defaultfg   = white
-defaultbg   = black
-#endif
 reversefg   = Reverse
 reversebg   = Reverse
 
