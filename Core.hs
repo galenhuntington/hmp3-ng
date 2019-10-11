@@ -42,10 +42,11 @@ import Lexer                (parser)
 import State
 import Style
 import Utils
-import FastIO               (send,fdToCFile,forceNextPacket)
+import FastIO               (send, FiltHandle(..))
 import Tree hiding (File,Dir)
 import qualified Tree (File,Dir)
 import qualified UI
+import Data.IORef
 
 import Text.Regex.PCRE.Light
 import {-# SOURCE #-} Keymap (keymap)
@@ -169,7 +170,7 @@ mpgLoop = forever $ do
 
             hw          <- fdToHandle (fromIntegral w)  -- so we can use Haskell IO
             ew          <- fdToHandle (fromIntegral e)  -- so we can use Haskell IO
-            filep       <- fdToCFile r                   -- so we can use C IO
+            filep       <- FiltHandle <$> fdToHandle (fromIntegral r) <*> newIORef 0
             mhw         <- newMVar hw
             mew         <- newMVar ew
             mfilep      <- newMVar filep

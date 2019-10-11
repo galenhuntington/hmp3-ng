@@ -9,8 +9,3 @@
 /* curses */
 extern void nomacro_getyx(WINDOW *win, int *y, int *x);
 extern int get_color_pair (int pair);
-
-/* packed string IO */
-FILE *openfd(int fd);
-int getline_(char *buf, FILE *hdl);
-void forcenext(void);

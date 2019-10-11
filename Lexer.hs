@@ -23,14 +23,11 @@
 module Lexer ( parser ) where
 
 import Syntax   (Msg(..),Status(..),Frame(..),Info(..),Id3(..),File(..),Tag(..))
-import FastIO   (getFilteredPacket, dropSpaceEnd)
+import FastIO   (FiltHandle(..), checkF, getPacket, dropSpaceEnd)
 import Data.Char
 
 import Data.Maybe   (fromJust)
 import qualified Data.ByteString.Char8 as P
-
-import Foreign.C.Types  (CFile)
-import Foreign.Ptr      (Ptr)
 
 ------------------------------------------------------------------------
 
@@ -143,9 +140,9 @@ doI s = let f = dropSpaceEnd . P.dropWhile isSpace . P.tail $ s
 -- | This function does the most allocations in the long run.
 -- How can we discard most "\@F" input?
 --
-parser :: Ptr CFile -> IO (Either String Msg)
+parser :: FiltHandle -> IO (Either String Msg)
 parser h = do
-    x  <- getFilteredPacket h
+    x <- getPacket h
 
     -- normalise the packet
     let (s,m) = let a    = P.dropWhile (== ' ') x       -- drop any leading whitespace
@@ -155,12 +152,14 @@ parser h = do
                            else b
                 in (P.dropWhile (== '@') b', d)
 
-    return $ case P.head s of
-        'R' -> Right $ T Tag
-        'I' -> Right $ doI m
-        'S' -> Right $ doS m
-        'F' -> Right $ doF m
-        'P' -> Right $ doP m
-        'E' -> Left $ "mpg321 error: " ++ P.unpack x
-        _   -> Left $ "Strange mpg321 packet: " ++ (show (P.unpack x))
+    case P.head s of
+        'R' -> return $ Right $ T Tag
+        'I' -> return $ Right $ doI m
+        'S' -> return $ Right $ doS m
+        'F' -> do
+            b <- checkF h
+            if b then return (Right $ doF m) else parser h
+        'P' -> return $ Right $ doP m
+        'E' -> return $ Left $ "mpg321 error: " ++ P.unpack x
+        _   -> return $ Left $ "Strange mpg321 packet: " ++ (show (P.unpack x))
 

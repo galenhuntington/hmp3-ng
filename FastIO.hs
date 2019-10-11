@@ -31,8 +31,7 @@ import qualified Data.ByteString.Internal as B
 import Data.Word                (Word8)
 import qualified Data.ByteString.UTF8 as UTF8
 import Foreign.C.Error
-import Foreign.C.String         (CString)
-import Foreign.C.Types          (CFile, CInt(..), CLong(..), CSize(..))
+import Foreign.C.Types          (CInt(..), CSize(..))
 import Foreign.Marshal          (allocaBytes)
 import Foreign.Ptr              (Ptr, castPtr, plusPtr)
 import Foreign.Storable         (peekElemOff)
@@ -42,12 +41,18 @@ import qualified System.Directory as Dir
 import System.IO.Error          (modifyIOError, ioeSetFileName)
 import System.IO.Unsafe         (unsafePerformIO)
 import System.IO                (Handle,hFlush)
+import Data.IORef
 import System.Posix.Internals
-import System.Posix.Types       (Fd(..))
 
 import Control.Exception        (catch, SomeException)
 
 ------------------------------------------------------------------------
+
+--  Copied from C comment:
+-- * Note that mpg321 (only) provides --skip-printing-frames=N
+-- * I guess we could have used that.
+dropRate :: Int
+dropRate = 6   -- used to be 10, but computers are faster
 
 -- | Packed string version of basename
 basenameP :: P.ByteString -> P.ByteString
@@ -108,21 +113,20 @@ isDirectory stat = do
 
 -- ---------------------------------------------------------------------
 
--- | Read a line from a file stream connected to an external prcoess,
--- Returning a ByteString. Note that the underlying C code is dropping
--- redundant \@F frames for us.
-getFilteredPacket :: Ptr CFile -> IO P.ByteString
-getFilteredPacket fp = B.createAndTrim size $ \p -> do
-    i <- c_getline p fp
-    if i == -1
-        then throwErrno "FastIO.packedHGetLine"
-        else return i
-    where
-        size = 1024 + 1 -- seems unlikely
+data FiltHandle = FiltHandle { filtHandle :: !Handle, frameCount :: !(IORef Int) }
 
--- convert a Haskell-side Fd to a FILE*.
-fdToCFile :: Fd -> IO (Ptr CFile)
-fdToCFile = c_openfd
+-- | Read a line from a file stream connected to an external prcoess,
+-- Returning a ByteString.
+getPacket :: FiltHandle -> IO P.ByteString
+getPacket (FiltHandle fp _) = B.hGetLine fp
+
+-- | Check if it's one of every dropRate packets.
+-- We don't need to process all since there are so many.
+checkF :: FiltHandle -> IO Bool
+checkF (FiltHandle _ ir) = do
+  modifyIORef' ir (\x -> (x+1) `mod` dropRate)
+  i <- readIORef ir
+  return $ (i==1)
 
 -- ---------------------------------------------------------------------
 
@@ -175,24 +179,6 @@ printfPS fmt arg1 arg2 =
       lim = 10 -- NB
 
 -- ---------------------------------------------------------------------
-
-foreign import ccall safe "utils.h forcenext"
-    forceNextPacket :: IO ()
-
-foreign import ccall safe "utils.h getline_" 
-    c_getline :: Ptr Word8 -> Ptr CFile -> IO Int
-
-foreign import ccall safe "utils.h openfd"
-    c_openfd  :: Fd -> IO (Ptr CFile)
-
-foreign import ccall unsafe "static string.h strlen" 
-    c_strlen  :: CString -> CInt
-
-foreign import ccall unsafe "static string.h memcpy" 
-    c_memcpy  :: Ptr Word8 -> Ptr Word8 -> Int -> IO ()
-
-foreign import ccall unsafe "static stdlib.h strtol" c_strtol
-    :: Ptr Word8 -> Ptr (Ptr Word8) -> Int -> IO CLong
 
 foreign import ccall unsafe "static stdio.h snprintf" 
     c_printf2d :: Ptr Word8 -> CSize -> Ptr Word8 -> CInt -> CInt -> IO CInt

@@ -22,6 +22,7 @@
 --
 module State where
 
+import FastIO (FiltHandle(..))
 import Syntax                   (Status(Stopped), Mode(..), Frame, Info,Id3)
 import Tree                     (FileArray, DirArray)
 import Style                    (StringA(Fast), defaultSty, UIStyle)
@@ -34,12 +35,11 @@ import System.IO.Unsafe         (unsafePerformIO)
 import System.Posix.Types       (ProcessID)
 import System.Time              (ClockTime(..))
 import System.IO                (Handle)
-import Foreign.C.Types          (CFile)
-import Foreign.Ptr              (Ptr)
 import System.Random.Mersenne
 
 import Control.Concurrent       (ThreadId)
 import Control.Concurrent.MVar
+import Data.IORef
 
 -- import Control.Monad.State
 
@@ -62,7 +62,7 @@ data HState = HState {
        ,mp3pid          :: !(Maybe ProcessID)    -- pid of decoder
        ,writeh          :: !(MVar Handle)        --  handle to mp3 (should be MVars?)
        ,errh            :: !(MVar Handle)        --  error handle to mp3
-       ,readf           :: !(MVar (Ptr CFile))   -- r/w pipe to mp3
+       ,readf           :: !(MVar FiltHandle)    -- r/w pipe to mp3
        ,threads         :: ![ThreadId]           -- all our threads
        ,id3             :: !(Maybe Id3)          -- maybe mp3 id3 info
        ,info            :: !(Maybe Info)         -- mp3 info
@@ -162,4 +162,9 @@ modifySTM_ f = modifyMVar state f >>= \a -> touchST >> return a
 -- | Trigger a refresh. This is the only way to update the screen
 touchST :: IO ()
 touchST = withMVar state $ \st -> tryPutMVar (modified st) () >> return ()
+
+forceNextPacket :: IO ()
+forceNextPacket = do
+  fh <- readMVar =<< getsST readf
+  writeIORef (frameCount fh) 0
 
