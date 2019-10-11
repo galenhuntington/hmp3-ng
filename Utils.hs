@@ -127,15 +127,8 @@ popen cmd args = do
                         exec cmd args (pr,cw,cwe)
                         error "exec cmd failed!" -- typing only
 
-#if __GLASGOW_HASKELL__ >= 601
         pid <- forkProcess child -- fork child
         parent                   -- and run parent code
-#else
-        p   <- forkProcess
-        pid <- case p of
-                Just pid -> parent >> return pid
-                Nothing  -> child
-#endif
 
    --   hcr <- fdToHandle cr
    --   hpw <- fdToHandle pw
