@@ -1,8 +1,8 @@
+#include "config.h"
+
 #if HAVE_SIGNAL_H
 {-#include <signal.h> #-}
 #endif
-
-#include "config.h"
 
 -- 
 -- Copyright (C) 2004-5 Don Stewart - http://www.cse.unsw.edu.au/~dons
@@ -51,8 +51,8 @@ import Tree                     (File(fdir, fbase), Dir(dname))
 import State
 import Syntax
 import Config
-import qualified Curses
-import {-# SOURCE #-} Keymap    (extraTable, keyTable)
+import qualified UI.HSCurses.Curses as Curses
+import {-# SOURCE #-} Keymap    (extraTable, keyTable, unkey, charToKey)
 
 import Data.List                (intersperse,isPrefixOf)
 import Data.Array               ((!), bounds, Array, listArray)
@@ -65,6 +65,9 @@ import System.Posix.Env         (getEnv, putEnv)
 
 import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString       as B
+
+import Foreign.C.Types      (CInt(..))
+import Foreign.C.String     (CString)
 
 ------------------------------------------------------------------------
 
@@ -81,7 +84,7 @@ start = do
                    -> silentlyModifyST $ \st -> st { xterm = True }
             _ -> return ()
 
-    Curses.initCurses resetui
+    Curses.initCurses -- resetui -- may not even work per comment in Curses
 
     colorify <- Curses.hasColors
     light    <- isLightBg
@@ -103,7 +106,7 @@ resetui = resizeui >> nocursor >> refresh
 -- | And force invisible
 nocursor :: IO ()
 nocursor = do
-    Control.Exception.catch (Curses.cursSet (fromIntegral (0::Int)) >> return ()) 
+    Control.Exception.catch (Curses.cursSet Curses.CursorInvisible >> return ()) 
                             (\ (_ :: SomeException) -> return ())
 
 --
@@ -134,15 +137,15 @@ getKey :: IO Char
 getKey = do
     k <- Curses.getCh
 #ifdef KEY_RESIZE
-    if k == Curses.keyResize 
+    if k == Curses.KeyResize 
         then do
 # ifndef SIGWINCH
               redraw >> resizeui >> return ()   -- XXX ^L doesn't work
 # endif
               getKey
-        else return k
+        else return $ unkey k
 #else
-    return k
+    return $ unkey k
 #endif
  
 -- | Resize the window
@@ -278,19 +281,20 @@ instance Element HelpScreen where
                             (concat . intersperse " " $ (map pprIt cs)) ++ repeat ' '
 
                     pprIt c = case c of
-                        k | k == Curses.keyUp    -> "Up"
-                          | k == Curses.keyDown  -> "Down"
-                          | k == Curses.keyPPage -> "PgUp"
-                          | k == Curses.keyNPage -> "PgDn"
-                          | k == Curses.keyLeft  -> "Left"
-                          | k == Curses.keyRight -> "Right"
-                          | k == '\n'            -> "Enter"
-                          | k == '\f'            -> "^L"
-                          | k == Curses.keyEnd   -> "End"
-                          | k == Curses.keyHome  -> "Home"
-                          | k == Curses.keyBackspace -> "Backspace"
-                          | k == '\\'            -> "'\\'"
-                        _ -> show c
+                          '\n'            -> "Enter"
+                          '\f'            -> "^L"
+                          '\\'            -> "'\\'"
+                          _ -> case charToKey c of
+                            Curses.KeyUp    -> "Up"
+                            Curses.KeyDown  -> "Down"
+                            Curses.KeyPPage -> "PgUp"
+                            Curses.KeyNPage -> "PgDn"
+                            Curses.KeyLeft  -> "Left"
+                            Curses.KeyRight -> "Right"
+                            Curses.KeyEnd   -> "End"
+                            Curses.KeyHome  -> "Home"
+                            Curses.KeyBackspace -> "Backspace"
+                            _ -> show c
 
 ------------------------------------------------------------------------
 
@@ -645,8 +649,8 @@ drawLine _ (FancyS ls) = loop ls
 drawPackedString :: P.ByteString -> Style -> IO ()
 drawPackedString ps sty =
     withStyle sty $ B.useAsCString (P.map asAscii ps) $ \cstr ->
-        Curses.throwIfErr_ msg $
-            Curses.waddnstr Curses.stdScr cstr (fromIntegral . P.length $ ps)
+        Curses.throwIfErr_ (show msg) $
+            waddnstr Curses.stdScr cstr (fromIntegral . P.length $ ps)
     where
         msg = P.pack "drawPackedString"
         asAscii x | x >= ' ' && x < '\127' = x
@@ -715,4 +719,8 @@ setXterm s sz f = setXtermTitle $
                             then [] 
                             else [P.pack ": ", id3title ti]
       else let (PMode pm) = draw sz (0,0) s f :: PMode in [pm]
+
+--  Not exported by hscurses
+foreign import ccall safe
+    waddnstr :: Curses.Window -> CString -> CInt -> IO CInt
 

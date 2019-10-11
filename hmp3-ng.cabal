@@ -15,7 +15,7 @@ description:
 cabal-version:       >= 1.2
 build-type:          Configure
 extra-source-files:  Keymap.hs-boot README.md TODO configure configure.ac
-                     cbits/config.h.in ./cbits/utils.h ./cbits/utils.c
+                     cbits/config.h.in
 
 executable hmp3
     build-depends:     unix >= 2.7,
@@ -30,15 +30,15 @@ executable hmp3
                        old-time,
                        directory,
                        process,
-                       utf8-string
+                       utf8-string,
+                       hscurses
 
     ghc-options:         -Wall -funbox-strict-fields -threaded -Wno-unused-do-bind
     main-is:             Main.hs
-    other-modules:       Curses Config Core FastIO Keymap
+    other-modules:       Config Core FastIO Keymap
                          Lexer Lexers State Style Syntax Tree UI Utils
                          Paths_hmp3_ng
 
     extensions:          CPP, ForeignFunctionInterface, ScopedTypeVariables
     extra-libraries:     curses
     include-dirs:        cbits
-    c-sources:           cbits/utils.c

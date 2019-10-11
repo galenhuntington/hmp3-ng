@@ -26,7 +26,7 @@ module Style where
 
 #include "config.h"
 
-import qualified Curses
+import qualified UI.HSCurses.Curses as Curses
 import Data.ByteString (ByteString)
 
 import Data.Char                (toLower)

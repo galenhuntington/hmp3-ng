@@ -38,12 +38,11 @@ import Core
 import State        (getsST, touchST, HState(helpVisible))
 import Style        (defaultSty, StringA(Fast))
 import qualified UI (resetui)
-import Curses       (keyEnd,keyPPage,keyNPage,keyBackspace,keyHome
-                    ,keyRight,keyLeft,keyUp,keyDown)
+import UI.HSCurses.Curses (Key(..), decodeKey)
 import Lexers       ((>|<),(>||<),action,meta,execLexer
                     ,alt,with,char,Regexp,Lexer)
 
-import Data.List    ((\\))
+import Data.List    ((\\), find)
 
 import qualified Data.ByteString.Char8 as P (ByteString, pack)
 import qualified Data.Map as M (fromList, lookup, Map)
@@ -124,9 +123,18 @@ search_eval = enter
 
 ------------------------------------------------------------------------
 
+-- "Key"s seem to be inscrutable and incomparable.
+-- Solution is to translate to chars.  Really hacky!
+--   TODO at least use lookup table (standalone deriving Ord)
+unkey :: Key -> Char
+unkey k = let Just c' = find (\c -> charToKey c == k) ['\0' .. '\500'] in c'
+
+charToKey :: Char -> Key
+charToKey = decodeKey . toEnum . fromEnum
+
 enter', any', digit', delete' :: [Char]
 enter'   = ['\n', '\r']
-delete'  = ['\BS', '\127', keyBackspace ]
+delete'  = ['\BS', '\127', unkey KeyBackspace]
 any'     = ['\0' .. '\255']
 digit'   = ['0' .. '9']
 
@@ -143,25 +151,25 @@ keyTable :: [(P.ByteString, [Char], IO ())]
 keyTable =
     [
      (p "Move up",
-        ['k',keyUp],    up)
+        ['k',unkey KeyUp],    up)
     ,(p "Move down",
-        ['j',keyDown],  down)
+        ['j',unkey KeyDown],  down)
     ,(p "Page down",
-        [keyNPage], downPage)
+        [unkey KeyNPage], downPage)
     ,(p "Page up",
-        [keyPPage], upPage)
+        [unkey KeyPPage], upPage)
     ,(p "Jump to start of list",
-        [keyHome,'1'],  jump 0)
+        [unkey KeyHome,'1'],  jump 0)
     ,(p "Jump to end of list",
-        [keyEnd,'G'],   jump maxBound)
+        [unkey KeyEnd,'G'],   jump maxBound)
     ,(p "Seek left within song",
-        [keyLeft],  seekLeft)
+        [unkey KeyLeft],  seekLeft)
     ,(p "Seek right within song",
-        [keyRight], seekRight)
+        [unkey KeyRight], seekRight)
     ,(p "Toggle pause",
         [' '],          pause)
     ,(p "Play song under cursor",
-        ['\n'],     play)
+        ['\n','\r'],     play)
     ,(p "Play previous track",
         ['K'],    playPrev)
     ,(p "Play next track",
@@ -189,7 +197,7 @@ keyTable =
     ,(p "Load config file",
         ['l'],   loadConfig)
     ,(p "Restart song",
-        [keyBackspace],   seekStart)
+        [unkey KeyBackspace],   seekStart)
     ]
   where
     -- Keep as Addr#. If we try the pack/packAddress rule, ghc seems to get
