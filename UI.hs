@@ -1,5 +1,3 @@
-#include "config.h"
-
 -- 
 -- Copyright (C) 2004-5 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- Copyright (c) 2019 Galen Huntington
@@ -726,7 +724,7 @@ setXterm s sz f = setXtermTitle $
                             else [P.pack ": ", id3title ti]
       else let (PMode pm) = draw sz (0,0) s f :: PMode in [pm]
 
---  Not exported by hscurses
+--  Not exported by hscurses.
 foreign import ccall safe
     waddnstr :: Curses.Window -> CString -> CInt -> IO CInt
 

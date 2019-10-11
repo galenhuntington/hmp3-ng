@@ -73,7 +73,10 @@ import Control.Exception
 
 import GHC.IO.Handle.FD         (fdToHandle)
 
-#include "config.h"
+--  This can be overridden with -D.
+#ifndef MPG321
+#define MPG321 "mpg123"
+#endif
 
 ------------------------------------------------------------------------
 

@@ -169,7 +169,7 @@ keyTable =
     ,(p "Toggle pause",
         [' '],          pause)
     ,(p "Play song under cursor",
-        ['\n','\r'],     play)
+        ['\n'],     play)
     ,(p "Play previous track",
         ['K'],    playPrev)
     ,(p "Play next track",
