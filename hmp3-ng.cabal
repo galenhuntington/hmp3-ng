@@ -14,7 +14,7 @@ description:
     be configured at runtime by editing the "~/.hmp3" file.
 cabal-version:       >= 1.2
 build-type:          Simple
-extra-source-files:  Keymap.hs-boot README.md TODO
+extra-source-files:  Keymap.hs-boot README.md
 
 executable hmp3
     build-depends:     unix >= 2.7,
