@@ -32,8 +32,11 @@ import Control.Monad.Except
 
 ------------------------------------------------------------------------
 
+pSafeHead :: P.ByteString -> Char
+pSafeHead s = if P.null s then ' ' else P.head s
+
 doP :: P.ByteString -> Msg
-doP s = S $! case P.head . P.tail $ s of
+doP s = S $! case pSafeHead s of
                 '0' -> Stopped
                 '1' -> Paused
                 '2' -> Playing
@@ -50,7 +53,7 @@ doF s = R $ Frame {
            }
         where
 
-          fs  = P.split ' ' . P.tail $ s
+          fs  = P.split ' ' $ s
           f n = case P.split '.' (fs !! n) of { [x,y] ->
                 case readPS x              of { rx    ->
                 case readPS y              of { ry    -> (rx,ry) }}
@@ -61,7 +64,7 @@ readPS = fst . fromJust . P.readInt
 
 -- Outputs information about the mp3 file after loading.
 doS :: P.ByteString -> Msg
-doS s = let fs = P.split ' ' . P.tail $ s
+doS s = let fs = P.split ' ' $ s
         in I $ Info {
             {-
                   version       = fs !! 0
@@ -90,7 +93,7 @@ doS s = let fs = P.split ' ' . P.tail $ s
 -- Track info if ID fields are in the file, otherwise file name.
 -- 30 chars per field?
 doI :: P.ByteString -> Msg
-doI s = let f = dropSpaceEnd . P.dropWhile isSpace . P.tail $ s 
+doI s = let f = dropSpaceEnd . P.dropWhile isSpace $ s
         in case P.take 4 f of
             cs | cs == P.pack "ID3:" -> F . File . Right . toId id3 . splitUp . P.drop 4 $ f
                | otherwise           -> F . File . Left $ f
@@ -146,11 +149,11 @@ parser h = runExceptT loop where
         -- worth notifying about? most are just newlines in the ID data
 
     when (P.length x < 3) $ void badPacket
-    let (pre, m) = P.splitAt 2 x
-        at : code : _ = P.unpack pre
-    when (at /= '@' || P.head m /= ' ') $ void badPacket
+    let (pre, m) = P.splitAt 3 x
+        at : code : sp : _ = P.unpack pre
+    when (at /= '@' || sp /= ' ') $ void badPacket
 
-    -- TODO: make doX functions total, don't include space in input
+    -- TODO: make doX functions total
     case code of
         'R' -> pure $ T Tag
         'I' -> pure $ doI m
