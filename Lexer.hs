@@ -28,6 +28,7 @@ import Data.Char
 
 import Data.Maybe   (fromJust)
 import qualified Data.ByteString.Char8 as P
+import Control.Monad.Except
 
 ------------------------------------------------------------------------
 
@@ -136,30 +137,28 @@ doI s = let f = dropSpaceEnd . P.dropWhile isSpace . P.tail $ s
 
 ------------------------------------------------------------------------
 
---
--- | This function does the most allocations in the long run.
--- How can we discard most "\@F" input?
---
 parser :: FiltHandle -> IO (Either String Msg)
-parser h = do
-    x <- getPacket h
+parser h = runExceptT loop where
+  loop = do
+    x <- lift $ getPacket h
+    let -- badPacket :: ExceptT String IO a   -- MonoLocalBinds...
+        badPacket = throwError $ "Bad packet: " ++ show (P.unpack x)
+        -- worth notifying about? most are just newlines in the ID data
 
-    -- normalise the packet
-    let (s,m) = let a    = P.dropWhile (== ' ') x       -- drop any leading whitespace
-                    (b,d)= P.break (== ' ') a           -- split into header and body
-                    b'   = if '@' `P.elem` b
-                           then P.dropWhile (/= '@') b -- make sure '@' is first char
-                           else b
-                in (P.dropWhile (== '@') b', d)
+    when (P.length x < 3) $ void badPacket
+    let (pre, m) = P.splitAt 2 x
+        at : code : _ = P.unpack pre
+    when (at /= '@' || P.head m /= ' ') $ void badPacket
 
-    case P.head s of
-        'R' -> return $ Right $ T Tag
-        'I' -> return $ Right $ doI m
-        'S' -> return $ Right $ doS m
+    -- TODO: make doX functions total, don't include space in input
+    case code of
+        'R' -> pure $ T Tag
+        'I' -> pure $ doI m
+        'S' -> pure $ doS m
         'F' -> do
-            b <- checkF h
-            if b then return (Right $ doF m) else parser h
-        'P' -> return $ Right $ doP m
-        'E' -> return $ Left $ "mpg321 error: " ++ P.unpack x
-        _   -> return $ Left $ "Strange mpg321 packet: " ++ (show (P.unpack x))
+            b <- lift $ checkF h
+            if b then pure $ doF m else loop
+        'P' -> pure $ doP m
+        'E' -> throwError $ "mpg321 error: " ++ P.unpack m
+        _   -> badPacket
 
