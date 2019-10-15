@@ -1,11 +1,10 @@
 
 ##  hmp3-ng
 
-The `hmp3` music player, written in Haskell, was introduced in 2005,
-and has a curses-based interface which can be used in an ordinary
-text terminal.  But it has become abandonware: the last update was in
-June 2008, and it no longer builds with today's Haskell and standard
-libraries.
+The `hmp3` music player, written in Haskell, dates to 2005, and has a
+curses-based interface which can be used in an ordinary text terminal.
+But it has become abandonware: the last update was in June 2008,
+and it no longer builds with today's Haskell and standard libraries.
 
 This repository is a work in progress to resurrect this software.
 
@@ -35,90 +34,43 @@ planned changes.
 I have also made a few changes and additions to the key bindings per
 my preference.
 
-The original README, which will have to be updated and integrated:
+I am still working out the flaws.  Let me know if there are problems.
+
+
+##  Installation
+
+Either `cabal install` or `stack install` will build a binary.
+You will need to have `mpg123` installed, which is free software and
+widely available in package managers.  Although `mpg321` could also
+be used, support is currently poor.
+
+The build depends on the package `hscurses`, which in turn requires
+curses dev files.  In Ubuntu/Debian, for example, these can be gotten
+by installing `libncurses5-dev`.
+
+
+##  Use
+
+The `hmp3` executable is called with arguments containing a list of mp3
+files or directories of mp3 files.  With no arguments, it will use the
+playlist from the last time it was run, which is stored in `~/.hmp3db`.
 
 ```
-            hmp3 : an ncurses mp3 player written in Haskell
-          ---------------------------------------------------
+$ hmp3 ~/Music ~/Downloads/La-La.mp3
+$ hmp3
+```
 
-Dependencies:
-    mpg321    http://mpg321.sourceforge.net/
+Once running, `hmp3` is controlled by fairly intuitive key commands.
+`h` shows a help menu, and `q` quits.
 
-Building:
-    $ chmod +x configure Setup.hs
-    $ ./Setup.hs configure --prefix=/home/dons
-    $ ./Setup.hs build
-    $ ./Setup.hs install
+A color scheme can be specified by writing out a `Config { .. }`
+object in `~/.hmp3`.  See `Style.hs` for the definition.  Typing `l`
+reloads this file while running.
 
-This assumes you have Cabal installed. Cabal is installed by default
-with newer GHCs. If your Cabal version is too old (v1.0 that comes with
-GHC 6.4.1 is too old), or if you see:
-      dist/build/hmp3-tmp/cbits/utils.o: No such file or directory
-errors, then you need to download a newer Cabal version first.
 
-Use:
-    To populate a playlist, and start:
+##  Original authorship list
 
-    $ hmp3 ~/mp3/dir/
-     or
-    $ hmp3 a.mp3 b.mp3
-
-    From then on this playlist is saved in ~/.hmp3db, and is reloaded
-    automatically, if you restart hmp3 with no arguments.
-
-    $ hmp3
-
-    Type 'h' to display the help page. The other commands are explained
-    on the help screen, which can be accessed by typing 'h'. Quit with
-    'q'.
-
-Configuration:
-
-    Colours may be configured at runtime by editing the "~/.hmp3" file.
-    An example would be:
-
-        Config { 
-                 hmp3_window      = ("brightwhite", "black")
-               , hmp3_helpscreen  = ("black",       "cyan")
-               , hmp3_titlebar    = ("green",       "blue")
-               , hmp3_selected    = ("brightwhite", "black")
-               , hmp3_cursors     = ("black",       "cyan")
-               , hmp3_combined    = ("black",       "cyan")
-               , hmp3_warnings    = ("brightwhite", "red")
-               , hmp3_blockcursor = ("black",       "darkred")
-               , hmp3_progress    = ("cyan",        "white")
-             }
-
-    After editing this file, hit 'l' to have the changes used by hmp3.
-
-    The keymaps are configurable by adding your own bindings to
-    Config.hs (as are the colours). Edit this file before compilation.
-
-    Alternatively, you can switch between dark and light settings without
-    recompiling. If you have a light xterm, set HMP_HAS_LIGHT_BG=true in
-    your shell, and hmp3 will use the light color settings by default.
-
-Limitations:
-    It only plays mp3 files (and variants supported by mpg{321,123}.
-    So no ogg files for now. This is on the todo list though.
-
-    It is possible to use mpg123, however it appears to be more error
-    prone, and less stable than mpg321.
-
-Platforms and portability:
-    hmp3 has been confirmed to work on:
-        OpenBSD/x86
-        Linux/x86
-        FreeBSD/x86
-        Linux/ppc
-        MacOSX/ppc
-        Irix/mips64
-
-    * You need -threaded.
-
-    * On platforms without a native code generator, you should remove the
-    reference to -fasm in the hmp3.cabal file
-
+```
 License:
     GPL
 
@@ -130,5 +82,5 @@ Contributors:
     Stefan Wehr
     Tomasz Zielonka
     David Himmelstrup
-
 ```
+
