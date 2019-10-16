@@ -29,6 +29,8 @@ planned changes.
 
 *  I have added support for building with Stack.
 
+*  All C code is removed.  There is still some use of the FFI.
+
 *  Work on other features and changes, and documentation, is ongoing.
 
 I have also made a few changes and additions to the key bindings per
@@ -64,8 +66,8 @@ Once running, `hmp3` is controlled by fairly intuitive key commands.
 `h` shows a help menu, and `q` quits.
 
 A color scheme can be specified by writing out a `Config { .. }`
-object in `~/.hmp3`.  See `Style.hs` for the definition.  Typing `l`
-reloads this file while running.
+value in `~/.hmp3`.  See `Style.hs` for the definition.  The `l`
+command reloads this configuration.
 
 
 ##  Original authorship list
