@@ -1,3 +1,5 @@
+cabal-version:       >= 1.6
+
 name:                hmp3-ng
 version:             2.4.2
 homepage:            https://github.com/galenhuntington/hmp3-ng
@@ -12,9 +14,12 @@ description:
     passing directory names on the commandline, and saved to the
     ~/.hmp3db database. Type 'h' to display the help page.  Colours may
     be configured at runtime by editing the "~/.hmp3" file.
-cabal-version:       >= 1.2
 build-type:          Simple
 extra-source-files:  Keymap.hs-boot README.md
+
+source-repository head
+  type: git
+  location: https://github.com/galenhuntington/hmp3-ng
 
 executable hmp3
     build-depends:     unix >= 2.7,
