@@ -62,7 +62,7 @@ import System.Exit              (ExitCode(ExitSuccess),exitWith)
 import System.IO                (hPutStrLn, hGetLine, stderr, hFlush)
 import System.IO.Unsafe         (unsafeInterleaveIO)
 import System.Process           (waitForProcess)
-import System.Time              (getClockTime)
+import System.Clock             (getTime, Clock(..))
 import System.Random.Mersenne
 
 import System.Posix.Process     (exitImmediately)
@@ -97,7 +97,7 @@ start ms = Control.Exception.handle (\ (e :: SomeException) -> shutdown (Just (s
                                  ,ser_indx st
                                  ,ser_mode st)
 
-    now   <- getClockTime
+    now <- getTime Monotonic
 
     -- fork some threads
     t1 <- forkIO mpgInput
@@ -201,15 +201,14 @@ refreshLoop = getsST modified >>= \mvar -> forever $ takeMVar mvar >> UI.refresh
 
 ------------------------------------------------------------------------
 
--- | Once a minute read the clock time
---   TODO use a monotonic clock
+-- | The clock ticks once per minute, but check more often in case of drift.
 uptimeLoop :: IO ()
 uptimeLoop = forever $ do
     threadDelay delay
-    now <- getClockTime
+    now <- getTime Monotonic
     modifyST $ \st -> st { uptime = drawUptime (boottime st) now }
   where
-    delay = 60 * 1000 * 1000 -- 1 minute
+    delay = 10 * 1000 * 1000 -- refresh every 10 seconds
 
 ------------------------------------------------------------------------
 

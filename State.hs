@@ -34,7 +34,7 @@ import Text.Regex.PCRE.Light    (Regex)
 import Data.Array               (listArray)
 import System.IO.Unsafe         (unsafePerformIO)
 import System.Posix.Types       (ProcessID)
-import System.Time              (ClockTime(..))
+import System.Clock             (TimeSpec(..))
 import System.IO                (Handle)
 import System.Random.Mersenne
 
@@ -73,7 +73,7 @@ data HState = HState {
        ,miniFocused     :: !Bool                 -- is the mini buffer focused?
        ,mode            :: !Mode                 -- random mode
        ,uptime          :: !P.ByteString
-       ,boottime        :: !ClockTime
+       ,boottime        :: !TimeSpec
        ,regex           :: !(Maybe (Regex,Bool)) -- most recent search pattern and direction
        ,xterm           :: !Bool
        ,doNotResuscitate:: !Bool                -- should we just let mpg321 die?
@@ -117,7 +117,7 @@ emptySt = HState {
        ,doNotResuscitate = False    -- mgp321 should be be restarted
 
        ,config       = Config.defaultStyle
-       ,boottime     = TOD 0 0
+       ,boottime     = TimeSpec 0 0
        ,status       = Stopped
        ,mode         = Normal
        ,minibuffer   = Fast P.empty defaultSty

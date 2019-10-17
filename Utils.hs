@@ -38,7 +38,7 @@ import qualified Data.ByteString.Char8 as P (pack)
 import qualified Data.ByteString       as P (ByteString)
 
 import Data.Char                (toLower)
-import System.Time              (diffClockTimes, TimeDiff(tdSec), ClockTime)
+import System.Clock             (TimeSpec(..), diffTimeSpec)
 import System.Environment       (getEnv)
 import System.Posix.Types       (Fd(..),ProcessID)
 import System.Process.Internals (mkProcessHandle,ProcessHandle)
@@ -67,10 +67,10 @@ a  <+> b = a ++ " " ++ b
 
 ------------------------------------------------------------------------
 
-drawUptime :: ClockTime -> ClockTime -> P.ByteString
+drawUptime :: TimeSpec -> TimeSpec -> P.ByteString
 drawUptime before now =
-    let r      = diffClockTimes now before
-        s      = tdSec  r
+    let r      = diffTimeSpec now before
+        s      = fromIntegral $ sec r
         (h,sr) = quotRem s (60 * 60)
         m      = quot sr 60
     in printfPS fmt h m
