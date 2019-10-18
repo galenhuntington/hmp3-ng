@@ -68,11 +68,15 @@ a  <+> b = a ++ " " ++ b
 ------------------------------------------------------------------------
 
 drawUptime :: TimeSpec -> TimeSpec -> P.ByteString
-drawUptime before now =
-    let s      = sec $ diffTimeSpec now before
+drawUptime before now
+    | hs == 0 = P.pack $ printf "%dm" m
+    | d == 0  = P.pack $ printf "%dh%02dm" h m
+    | True    = P.pack $ printf "%dd%02dh%02dm" d h m
+    where
+        s      = sec $ diffTimeSpec now before
         ms     = quot s 60
-        (h,m)  = quotRem ms 60
-    in P.pack $ printf "%dh%02dm" h m
+        (hs,m) = quotRem ms 60
+        (d,h)  = quotRem hs 24
 
 ------------------------------------------------------------------------
 -- | Repeat an action
