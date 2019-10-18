@@ -29,16 +29,11 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Internal as B
 
 import qualified Data.ByteString.UTF8 as UTF8
-import Foreign.C.Error
-import Foreign.Marshal          (allocaBytes)
-import Foreign.Ptr              (Ptr)
 
 import qualified System.Directory as Dir
-import System.Posix.Files.ByteString (fileAccess)
-import System.IO.Error          (modifyIOError, ioeSetFileName)
+import System.Posix.Files.ByteString
 import System.IO                (Handle,hFlush)
 import Data.IORef
-import System.Posix.Internals
 
 import Control.Exception        (catch, SomeException)
 
@@ -71,41 +66,22 @@ packedGetDirectoryContents :: P.ByteString -> IO [P.ByteString]
 packedGetDirectoryContents = do
   fmap (map UTF8.fromString) . Dir.listDirectory . UTF8.toString
 
--- packed version:
 doesFileExist :: P.ByteString -> IO Bool
-doesFileExist name = Control.Exception.catch
-   (packedWithFileStatus "Utils.doesFileExist" name $ \st -> do
-        b <- isDirectory st; return (not b))
+doesFileExist fp = catch
+   (not <$> isDirectory <$> getFileStatus fp)
    (\ (_ :: SomeException) -> return False)
 
--- packed version:
 doesDirectoryExist :: P.ByteString -> IO Bool
-doesDirectoryExist name = Control.Exception.catch
-   (packedWithFileStatus "Utils.doesDirectoryExist" name $ \st -> isDirectory st)
+doesDirectoryExist fp = catch
+   (isDirectory <$> getFileStatus fp)
    (\ (_ :: SomeException) -> return False)
-
-packedWithFileStatus :: String -> P.ByteString -> (Ptr CStat -> IO a) -> IO a
-packedWithFileStatus loc name f = do
-  modifyIOError (`ioeSetFileName` []) $
-    allocaBytes sizeof_stat $ \p -> do
-      B.useAsCString name $ \s -> do    -- i.e. every string is duplicated
-        throwErrnoIfMinus1Retry_ loc (c_stat s p)
-        f p
 
 packedFileNameEndClean :: P.ByteString -> P.ByteString
 packedFileNameEndClean name =
-  if i > 0 && (ec == '\\' || ec == '/') then
-     packedFileNameEndClean (P.take i name)
-   else
-     name
-  where
-      i  = (P.length name) - 1
-      ec = name `P.index` i
-
-isDirectory :: Ptr CStat -> IO Bool
-isDirectory stat = do
-  mode <- st_mode stat
-  return (s_isdir mode)
+  case P.unsnoc name of
+    Just (name', ec) | ec == '\\' || ec == '/'
+         -> packedFileNameEndClean name'
+    _    -> name
 
 -- ---------------------------------------------------------------------
 
