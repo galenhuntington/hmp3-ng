@@ -48,7 +48,7 @@ import Config
 import qualified UI.HSCurses.Curses as Curses
 import {-# SOURCE #-} Keymap    (extraTable, keyTable, unkey, charToKey)
 
-import Data.List                (intersperse,isPrefixOf)
+import Data.List                (isPrefixOf)
 import Data.Array               ((!), bounds, Array, listArray)
 import Data.Array.Base          (unsafeAt)
 import Control.Monad            (when, void)
@@ -270,16 +270,15 @@ instance Element HelpScreen where
 
             f :: [Char] -> P.ByteString -> P.ByteString
             f cs ps = 
-                let p = P.pack str `P.append` ps
+                let p = str `P.append` ps
                     s = P.pack (take (tot - P.length p) (repeat ' '))
                 in p `P.append` s
                 where
                     tot = round $! fromIntegral w *   (0.8::Float)
                     len = round $! fromIntegral tot * (0.2::Float)
 
-                    -- faststringify TODO
-                    str = take len $ ' ' :
-                            (concat . intersperse " " $ (map pprIt cs)) ++ repeat ' '
+                    str = P.take len $ P.intercalate " "
+                        ([""] ++ map pprIt cs ++ [P.replicate len ' '])
 
                     pprIt c = case c of
                           '\n'            -> "Enter"
@@ -295,7 +294,7 @@ instance Element HelpScreen where
                             Curses.KeyEnd   -> "End"
                             Curses.KeyHome  -> "Home"
                             Curses.KeyBackspace -> "Backspace"
-                            _ -> show c
+                            _ -> P.pack $ show c
 
 ------------------------------------------------------------------------
 
