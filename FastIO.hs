@@ -34,6 +34,7 @@ import Foreign.Marshal          (allocaBytes)
 import Foreign.Ptr              (Ptr)
 
 import qualified System.Directory as Dir
+import System.Posix.Files.ByteString (fileAccess)
 import System.IO.Error          (modifyIOError, ioeSetFileName)
 import System.IO                (Handle,hFlush)
 import Data.IORef
@@ -125,8 +126,8 @@ checkF (FiltHandle _ ir) = do
 
 -- ---------------------------------------------------------------------
 
-getPermissions :: P.ByteString -> IO Dir.Permissions
-getPermissions = Dir.getPermissions . UTF8.toString
+isReadable :: P.ByteString -> IO Bool
+isReadable fp = fileAccess fp True False False
 
 -- ---------------------------------------------------------------------
 -- | Send a msg over the channel to the decoder

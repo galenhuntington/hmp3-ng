@@ -39,7 +39,6 @@ import Data.Char        (toLower)
 import Data.List        (sortBy,sort,foldl',groupBy)
 
 import System.IO        (hPutStrLn,stderr)
-import System.Directory (Permissions(readable))
 import Control.Exception(handle, SomeException)
 import Control.Monad    (liftM)
 
@@ -165,7 +164,7 @@ partition [] = return ([],[])
 partition (a:xs) = do
     (fs,ds) <- partition xs
     x <- doesFileExist a
-    if x then do y <- getPermissions a >>= return . readable
+    if x then do y <- isReadable a
                  return $! if y then (a:fs, ds) else (fs, ds)
          else return (fs, a:ds)
 
