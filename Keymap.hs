@@ -44,7 +44,7 @@ import Lexers       ((>|<),(>||<),action,meta,execLexer
 
 import Data.List    ((\\), find)
 
-import qualified Data.ByteString.Char8 as P (ByteString, pack)
+import qualified Data.ByteString.Char8 as P (ByteString, pack, singleton)
 import qualified Data.Map as M (fromList, lookup, Map)
 
 data Search = SearchFile | SearchDir
@@ -82,12 +82,12 @@ search = searchDir >||< searchFile
 
 searchDir :: LexerS
 searchDir = (char '\\' >|< char '|') `meta` \[c] _ ->
-                (with (toggleFocus >> putmsg (Fast (P.pack [c]) defaultSty) >> touchST)
+                (with (toggleFocus >> putmsg (Fast (P.singleton c) defaultSty) >> touchST)
                 ,(SearchDir,if c == '\\' then Forwards else Backwards,[c]) ,Just dosearch)
 
 searchFile :: LexerS
 searchFile = (char '/' >|< char '?') `meta` \[c] _ ->
-                (with (toggleFocus >> putmsg (Fast (P.pack [c]) defaultSty) >> touchST)
+                (with (toggleFocus >> putmsg (Fast (P.singleton c) defaultSty) >> touchST)
                 ,(SearchFile,if c == '/' then Forwards else Backwards,[c]) ,Just dosearch)
 
 dosearch :: LexerS
@@ -150,72 +150,61 @@ enter   = alt enter'
 keyTable :: [(P.ByteString, [Char], IO ())]
 keyTable =
     [
-     (p "Move up",
+     ("Move up",
         ['k',unkey KeyUp],    up)
-    ,(p "Move down",
+    ,("Move down",
         ['j',unkey KeyDown],  down)
-    ,(p "Page down",
+    ,("Page down",
         [unkey KeyNPage], downPage)
-    ,(p "Page up",
+    ,("Page up",
         [unkey KeyPPage], upPage)
-    ,(p "Jump to start of list",
+    ,("Jump to start of list",
         [unkey KeyHome,'1'],  jump 0)
-    ,(p "Jump to end of list",
+    ,("Jump to end of list",
         [unkey KeyEnd,'G'],   jump maxBound)
-    ,(p "Seek left within song",
+    ,("Seek left within song",
         [unkey KeyLeft],  seekLeft)
-    ,(p "Seek right within song",
+    ,("Seek right within song",
         [unkey KeyRight], seekRight)
-    ,(p "Toggle pause",
+    ,("Toggle pause",
         [' '],          pause)
-    ,(p "Play song under cursor",
+    ,("Play song under cursor",
         ['\n'],     play)
-    ,(p "Play previous track",
+    ,("Play previous track",
         ['K'],    playPrev)
-    ,(p "Play next track",
+    ,("Play next track",
         ['J'],  playNext)
-    ,(p "Toggle the help screen",
+    ,("Toggle the help screen",
         ['h'],   toggleHelp)
-    ,(p "Jump to currently playing song",
+    ,("Jump to currently playing song",
         ['t'],   jumpToPlaying)
-    ,(p "Quit (or close help screen)",
+    ,("Quit (or close help screen)",
         ['q'],   do b <- helpIsVisible ; if b then toggleHelp else quit Nothing)
-    ,(p "Select and play next track",
+    ,("Select and play next track",
         ['d'],   playNext >> jumpToPlaying)
-    ,(p "Cycle through normal, random and loop modes",
+    ,("Cycle through normal, random and loop modes",
         ['m'],   nextMode)
-    ,(p "Refresh the display",
+    ,("Refresh the display",
         ['\^L'], UI.resetui)
-    ,(p "Repeat last regex search",
+    ,("Repeat last regex search",
         ['n'],   jumpToMatchFile Nothing True)
-    ,(p "Repeat last regex search backwards",
+    ,("Repeat last regex search backwards",
         ['N'],   jumpToMatchFile Nothing False)
-    ,(p "Play",
+    ,("Play",
         ['p'],   playCur)
-    ,(p "Mark as deletable",
+    ,("Mark as deletable",
         ['d'],   blacklist)
-    ,(p "Load config file",
+    ,("Load config file",
         ['l'],   loadConfig)
-    ,(p "Restart song",
+    ,("Restart song",
         [unkey KeyBackspace],   seekStart)
     ]
-  where
-    -- Keep as Addr#. If we try the pack/packAddress rule, ghc seems to get
-    -- confused and want to *unpack* the strings :/
-    p = P.pack
-    {-# INLINE p #-}
 
 extraTable :: [(P.ByteString, [Char])]
-extraTable = [(p "Search for file matching regex", ['/'])
-             ,(p "Search backwards for file", ['?'])
-             ,(p "Search for directory matching regex", ['\\'])
-             ,(p "Search backwards for directory", ['|']) ]
-  where
-    -- Keep as Addr#. If we try the pack/packAddress rule, ghc seems to get
-    -- confused and want to *unpack* the strings :/
-    p = P.pack
-    {-# INLINE p #-}
-
+extraTable = [("Search for file matching regex", ['/'])
+             ,("Search backwards for file", ['?'])
+             ,("Search for directory matching regex", ['\\'])
+             ,("Search backwards for directory", ['|']) ]
 
 helpIsVisible :: IO Bool
 helpIsVisible = getsST helpVisible

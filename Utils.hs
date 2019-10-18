@@ -34,7 +34,6 @@
 module Utils where
 
 import FastIO                   (printfPS)
-import qualified Data.ByteString.Char8 as P (pack)
 import qualified Data.ByteString       as P (ByteString)
 
 import Data.Char                (toLower)
@@ -75,8 +74,7 @@ drawUptime before now =
         m      = quot sr 60
     in printfPS fmt h m
   where
-    fmt = P.pack "%3dh%02dm" -- sometimes ghc doesn't want to fire a RULE here, why?
-                                    -- its crucial for snprintf that this is unpacked
+    fmt = "%3dh%02dm"
 
 ------------------------------------------------------------------------
 -- | Repeat an action

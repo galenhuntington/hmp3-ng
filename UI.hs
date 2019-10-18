@@ -112,7 +112,7 @@ nocursor = do
 -- | Clean up and go home. Refresh is needed on linux. grr.
 --
 end :: Bool -> IO ()
-end isXterm = do when isXterm $ setXtermTitle [P.pack "xterm"]
+end isXterm = do when isXterm $ setXtermTitle ["xterm"]
                  Curses.endWin
 
 --
@@ -254,7 +254,7 @@ instance Element PInfo where
         Just i   -> userinfo i
 
 emptyVal :: P.ByteString
-emptyVal = P.pack "(empty)"
+emptyVal = "(empty)"
 
 spc2 :: P.ByteString
 spc2 = spaces 2
@@ -277,7 +277,7 @@ instance Element HelpScreen where
                     tot = round $! fromIntegral w *   (0.8::Float)
                     len = round $! fromIntegral tot * (0.2::Float)
 
-                    -- faststringify
+                    -- faststringify TODO
                     str = take len $ ' ' :
                             (concat . intersperse " " $ (map pprIt cs)) ++ repeat ' '
 
@@ -310,8 +310,8 @@ instance Element PTimes where
       where
         elapsed   = printfPS fmt1 lm lm'
         remaining = printfPS fmt2 rm rm'
-        fmt1      = P.pack  "%01d:%02d" 
-        fmt2      = P.pack "-%01d:%02d" 
+        fmt1      = "%01d:%02d"
+        fmt2      = "-%01d:%02d"
         (lm,lm')  = quotRem (fst . currentTime $ fr) 60
         (rm,rm')  = quotRem (fst . timeLeft    $ fr) 60
         gap       = spaces distance
@@ -361,9 +361,9 @@ instance Element PMode where
                         Paused  -> b
                         Playing -> c
 
-        where a = P.pack "stop"
-              b = P.pack "pause"
-              c = P.pack "play"
+        where a = "stop"
+              b = "pause"
+              c = "play"
 
 -- | Loop, normal or random
 instance Element PMode2 where
@@ -372,9 +372,9 @@ instance Element PMode2 where
                         Loop    -> b
                         Normal  -> c
 
-        where a = P.pack "random"
-              b = P.pack "loop"
-              c = P.empty
+        where a = "random"
+              b = "loop"
+              c = ""
 
 ------------------------------------------------------------------------
 
@@ -388,22 +388,22 @@ instance Element PlayModes where
 instance Element PlayInfo where
     draw _ _ st _ = PlayInfo $ P.concat
          [percent
-         ,P.pack " ("
+         , " ("
          ,P.pack (show (1 + ( snd . bounds . folders $ st)))
-         ,P.pack " dir"
+         , " dir"
          ,if (snd . bounds $ folders st) == 1 then P.empty else plural
-         ,P.pack ", "
+         , ", "
          ,P.pack (show . size $ st)
-         ,P.pack " file"
+         , " file"
          ,if size st == 1 then P.empty else plural
-         ,P.pack ")"]
+         , ")"]
       where
-        plural = P.pack "s"   -- expose to inlining
-        pct    = P.pack "%"
+        plural = "s"   -- expose to inlining
+        pct    = "%"
         curr   = cursor  st
 
-        percent | percent' == 0  && curr == 0 = P.pack "top"
-                | percent' == 100             = P.pack "all"
+        percent | percent' == 0  && curr == 0 = "top"
+                | percent' == 100             = "all"
                 | otherwise = if P.length s == 2 then ' ' `P.cons` s else s
             where 
                 s = P.pack (show percent') `P.append` pct
@@ -509,7 +509,7 @@ instance Element PlayList where
                 post = (b, sty)
 
                 d   = basenameP $ case size st of
-                                    0 -> P.pack "(empty)"
+                                    0 -> "(empty)"
                                     _ -> dname $ folders st ! i
 
                 spc = spaces (indent - P.length d)
@@ -560,7 +560,7 @@ spaces n
     s100 = P.replicate 100 ' '  -- seems reasonable
 
 ellipsis :: P.ByteString
-ellipsis = P.pack "... "
+ellipsis = "... "
 {-# INLINE ellipsis #-}
 
 ------------------------------------------------------------------------
@@ -704,8 +704,8 @@ setXtermTitle strs = do
     mapM_ (P.hPut stderr) (before : strs ++ [after])
     hFlush stderr 
   where
-    before = P.pack "\ESC]0;"
-    after  = P.pack "\007"
+    before = "\ESC]0;"
+    after  = "\007"
 
 ------------------------------------------------------------------------
 
@@ -716,12 +716,12 @@ setXterm s sz f = setXtermTitle $
     if status s == Playing
       then case id3 s of
             Nothing -> case size s of
-                            0 -> [P.pack "hmp3"]
+                            0 -> ["hmp3"]
                             _ -> [(fbase $ music s ! current s)]
             Just ti -> id3artist ti :
                        if P.null (id3title ti) 
                             then [] 
-                            else [P.pack ": ", id3title ti]
+                            else [": ", id3title ti]
       else let (PMode pm) = draw sz (0,0) s f :: PMode in [pm]
 
 --  Not exported by hscurses.

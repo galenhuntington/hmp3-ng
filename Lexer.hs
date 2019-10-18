@@ -81,13 +81,13 @@ doS s = let fs = P.split ' ' $ s
                 , extension     = read $ P.unpack $ fs !! 11
             -}
                 userinfo      = P.concat
-                       [P.pack "mpeg "
+                       ["mpeg "
                        ,fs !! 0
-                       ,P.pack " "
+                       ," "
                        ,fs !! 10
-                       ,P.pack "kbit/s "
+                       ,"kbit/s "
                        ,(P.pack . show) ((readPS (fs !! 2)) `div` 1000 :: Int)
-                       ,P.pack "kHz"]
+                       ,"kHz"]
                 }
 
 -- Track info if ID fields are in the file, otherwise file name.
@@ -95,8 +95,8 @@ doS s = let fs = P.split ' ' $ s
 doI :: P.ByteString -> Msg
 doI s = let f = dropSpaceEnd . P.dropWhile isSpace $ s
         in case P.take 4 f of
-            cs | cs == P.pack "ID3:" -> F . File . Right . toId id3 . splitUp . P.drop 4 $ f
-               | otherwise           -> F . File . Left $ f
+            cs | cs == "ID3:" -> F . File . Right . toId id3 . splitUp . P.drop 4 $ f
+               | otherwise    -> F . File . Left $ f
     where
         -- a default
         id3 :: Id3
@@ -134,7 +134,7 @@ doI s = let f = dropSpaceEnd . P.dropWhile isSpace $ s
 
         maybeJoin t f = if P.null f then t `P.append` P.empty else t `gap` f
 
-        gap x y = P.concat [ x, (P.pack " : "), y ]
+        gap x y = P.concat [ x, " : ", y ]
 
         normalise = P.dropWhile isSpace . dropSpaceEnd
 

@@ -38,7 +38,7 @@ import qualified Data.ByteString.Char8 as P (concat,pack,ByteString)
 data Load = Load {-# UNPACK #-} !P.ByteString
 
 instance Pretty Load where
-    ppr (Load f) = P.concat [P.pack "LOAD ", f]
+    ppr (Load f) = P.concat ["LOAD ", f]
 
 -- If '+' or '-' is specified, jumps <frames> frames forward, or backwards,
 -- respectively, in the the mp3 file.  If neither is specifies, jumps to
@@ -46,19 +46,19 @@ instance Pretty Load where
 data Jump = Jump {-# UNPACK #-} !Int
 
 instance Pretty Jump where
-    ppr (Jump i) = P.concat [P.pack "JUMP ", P.pack . show $ i]
+    ppr (Jump i) = P.concat ["JUMP ", P.pack . show $ i]
 
 -- Pauses the playback of the mp3 file; if already paused, restarts playback.
 data Pause = Pause
 
 instance Pretty Pause where
-    ppr Pause = P.pack "PAUSE"
+    ppr Pause = "PAUSE"
 
 -- Quits mpg321.
 data Quit = Quit
 
 instance Pretty Quit where
-    ppr Quit = P.pack "QUIT"
+    ppr Quit = "QUIT"
 
 ------------------------------------------------------------------------
 --

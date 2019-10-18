@@ -63,7 +63,7 @@ basenameP fps = case P.elemIndexEnd '/' fps of
 
 dirnameP :: P.ByteString -> P.ByteString
 dirnameP fps = case P.elemIndexEnd '/' fps of
-    Nothing -> P.pack "."
+    Nothing -> "."
     Just i  -> P.take i fps
 {-# INLINE dirnameP #-}
 
@@ -136,9 +136,7 @@ getPermissions = Dir.getPermissions . UTF8.toString
 -- ---------------------------------------------------------------------
 -- | Send a msg over the channel to the decoder
 send :: Pretty a => Handle -> a -> IO ()
-send h m = P.hPut h (ppr m) >> P.hPut h nl >> hFlush h
-    where
-      nl = P.pack "\n"
+send h m = P.hPut h (ppr m) >> P.hPut h "\n" >> hFlush h
 
 ------------------------------------------------------------------------ 
 

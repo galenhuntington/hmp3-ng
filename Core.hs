@@ -542,7 +542,7 @@ genericJumpToMatch re sw k sel = do
                 Nothing -> (st',False)
                 Just i  -> (st' { cursor = sel i st }, True)
 
-    when (not found) $ putmsg (Fast (P.pack "No match found.") defaultSty) >> touchST
+    when (not found) $ putmsg (Fast "No match found." defaultSty) >> touchST
 
 ------------------------------------------------------------------------
 

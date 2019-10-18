@@ -138,9 +138,9 @@ expandDir f = do
           validFiles p = notEdge p
           onlyMp3s   p = mp3 == (P.map toLower . P.drop (P.length p -3) $ p)
 
-          mp3        = P.pack "mp3"
-          dot        = P.pack "."
-          dotdot     = P.pack ".."
+          mp3        = "mp3"
+          dot        = "."
+          dotdot     = ".."
 
 --
 -- | Given an the next index into the files array, a directory name, and
