@@ -28,17 +28,13 @@ import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Internal as B
 
-import Data.Word                (Word8)
 import qualified Data.ByteString.UTF8 as UTF8
 import Foreign.C.Error
 import Foreign.Marshal          (allocaBytes)
-import Foreign.Ptr              (Ptr, plusPtr)
-import Foreign.Storable         (peekElemOff)
-import Foreign.ForeignPtr
+import Foreign.Ptr              (Ptr)
 
 import qualified System.Directory as Dir
 import System.IO.Error          (modifyIOError, ioeSetFileName)
-import System.IO.Unsafe         (unsafePerformIO)
 import System.IO                (Handle,hFlush)
 import Data.IORef
 import System.Posix.Internals
@@ -140,23 +136,12 @@ send h m = P.hPut h (ppr m) >> P.hPut h "\n" >> hFlush h
 ------------------------------------------------------------------------ 
 
 -- | 'dropSpaceEnd' efficiently returns the 'ByteString' argument with
--- white space removed from the end. I.e.
+-- white space removed from the end. I.e.,
 -- 
 -- > reverse . (dropWhile isSpace) . reverse == dropSpaceEnd
---
--- but it is more efficient than using multiple reverses.
---
 dropSpaceEnd :: P.ByteString -> P.ByteString
 {-# INLINE dropSpaceEnd #-}
-dropSpaceEnd (B.PS x s l) = unsafePerformIO $ withForeignPtr x $ \p -> do
-    i <- lastnonspace (p `plusPtr` s) (l-1)
-    return $! if i == (-1) then B.empty else B.PS x s (i+1)
-    where
-        lastnonspace :: Ptr Word8 -> Int -> IO Int
-        lastnonspace ptr n
-            | ptr `seq` n `seq` False = undefined
-            | n < 0     = return n
-            | otherwise = do w <- peekElemOff ptr n
-                             if B.isSpaceWord8 w then lastnonspace ptr (n-1)
-                                                 else return n
+dropSpaceEnd bs = P.take (P.length bs - count) bs where
+    count = B.foldl' go 0 bs
+    go n c = if B.isSpaceWord8 c then n+1 else 0
 
