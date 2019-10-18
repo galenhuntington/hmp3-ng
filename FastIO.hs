@@ -28,14 +28,14 @@ import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Internal as B
 
-import qualified Data.ByteString.UTF8 as UTF8
-
-import qualified System.Directory as Dir
 import System.Posix.Files.ByteString
+import System.Posix.Directory.ByteString
+
 import System.IO                (Handle,hFlush)
 import Data.IORef
 
-import Control.Exception        (catch, SomeException)
+import Control.Exception        (catch, bracket, SomeException)
+import Control.Monad.Extra (sequenceWhile)
 
 ------------------------------------------------------------------------
 
@@ -58,13 +58,11 @@ dirnameP fps = case P.elemIndexEnd '/' fps of
     Just i  -> P.take i fps
 {-# INLINE dirnameP #-}
 
---
--- | Packed version of get directory contents
--- Have them just return CStrings, then pack lazily?
---
+-- | Packed version of listDirectory
 packedGetDirectoryContents :: P.ByteString -> IO [P.ByteString]
-packedGetDirectoryContents = do
-  fmap (map UTF8.fromString) . Dir.listDirectory . UTF8.toString
+packedGetDirectoryContents fp = bracket (openDirStream fp) closeDirStream
+    $ \ds -> fmap (filter (\p -> p/="." && p/=".."))
+        $ sequenceWhile (not . P.null) $ repeat $ readDirStream ds
 
 doesFileExist :: P.ByteString -> IO Bool
 doesFileExist fp = catch
