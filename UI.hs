@@ -40,7 +40,7 @@ module UI (
 
 import Style
 import Utils                    (isLightBg)
-import FastIO                   (basenameP, printfPS)
+import FastIO                   (basenameP)
 import Tree                     (File(fdir, fbase), Dir(dname))
 import State
 import Syntax
@@ -56,6 +56,7 @@ import Control.Exception (catch, handle, SomeException)
 import System.IO                (stderr, hFlush)
 import System.Posix.Signals     (raiseSignal, sigTSTP, installHandler, Handler(..))
 import System.Posix.Env         (getEnv, putEnv)
+import Text.Printf
 
 import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString       as B
@@ -307,10 +308,8 @@ instance Element PTimes where
                                 ,(gap,      defaultSty)
                                 ,(remaining,defaultSty)]
       where
-        elapsed   = printfPS fmt1 lm lm'
-        remaining = printfPS fmt2 rm rm'
-        fmt1      = "%01d:%02d"
-        fmt2      = "-%01d:%02d"
+        elapsed   = P.pack $ printf "%d:%02d" lm lm'
+        remaining = P.pack $ printf "-%d:%02d" rm rm'
         (lm,lm')  = quotRem (fst . currentTime $ fr) 60
         (rm,rm')  = quotRem (fst . timeLeft    $ fr) 60
         gap       = spaces distance

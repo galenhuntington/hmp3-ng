@@ -33,8 +33,8 @@
 
 module Utils where
 
-import FastIO                   (printfPS)
 import qualified Data.ByteString       as P (ByteString)
+import qualified Data.ByteString.Char8 as P (pack)
 
 import Data.Char                (toLower)
 import System.Clock             (TimeSpec(..), diffTimeSpec)
@@ -48,6 +48,7 @@ import System.Posix.IO          (createPipe,stdInput,stdError
 import Control.Exception        (handle, SomeException)
 
 import System.IO.Unsafe         (unsafePerformIO)
+import Text.Printf (printf)
 
 ------------------------------------------------------------------------
 
@@ -68,13 +69,10 @@ a  <+> b = a ++ " " ++ b
 
 drawUptime :: TimeSpec -> TimeSpec -> P.ByteString
 drawUptime before now =
-    let r      = diffTimeSpec now before
-        s      = fromIntegral $ sec r
-        (h,sr) = quotRem s (60 * 60)
-        m      = quot sr 60
-    in printfPS fmt h m
-  where
-    fmt = "%3dh%02dm"
+    let s      = sec $ diffTimeSpec now before
+        ms     = quot s 60
+        (h,m)  = quotRem ms 60
+    in P.pack $ printf "%dh%02dm" h m
 
 ------------------------------------------------------------------------
 -- | Repeat an action

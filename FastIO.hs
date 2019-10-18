@@ -31,9 +31,8 @@ import qualified Data.ByteString.Internal as B
 import Data.Word                (Word8)
 import qualified Data.ByteString.UTF8 as UTF8
 import Foreign.C.Error
-import Foreign.C.Types          (CInt(..), CSize(..))
 import Foreign.Marshal          (allocaBytes)
-import Foreign.Ptr              (Ptr, castPtr, plusPtr)
+import Foreign.Ptr              (Ptr, plusPtr)
 import Foreign.Storable         (peekElemOff)
 import Foreign.ForeignPtr
 
@@ -161,22 +160,3 @@ dropSpaceEnd (B.PS x s l) = unsafePerformIO $ withForeignPtr x $ \p -> do
                              if B.isSpaceWord8 w then lastnonspace ptr (n-1)
                                                  else return n
 
------------------------------------------------------------------------- 
-
--- 
--- A wrapper over printf for use in UI.PTimes
--- 
-printfPS :: P.ByteString -> Int -> Int -> P.ByteString
-printfPS fmt arg1 arg2 =
-    unsafePerformIO $ B.createAndTrim lim $ \ptr ->
-        B.useAsCString fmt $ \c_fmt -> do
-            sz' <- c_printf2d ptr (fromIntegral lim) (castPtr c_fmt)
-                        (fromIntegral arg1) (fromIntegral arg2)
-            return (min lim (fromIntegral sz')) -- snprintf might truncate
-    where
-      lim = 10 -- NB
-
--- ---------------------------------------------------------------------
-
-foreign import ccall unsafe "static stdio.h snprintf" 
-    c_printf2d :: Ptr Word8 -> CSize -> Ptr Word8 -> CInt -> CInt -> IO CInt
