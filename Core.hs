@@ -201,7 +201,9 @@ mpgLoop = forever $ do
 -- | When the editor state has been modified, refresh, then wait
 -- for it to be modified again.
 refreshLoop :: IO ()
-refreshLoop = getsST modified >>= \mvar -> forever $ takeMVar mvar >> UI.refresh
+refreshLoop = do
+    mvar <- getsST modified
+    forever $ takeMVar mvar >> UI.refresh
 
 ------------------------------------------------------------------------
 

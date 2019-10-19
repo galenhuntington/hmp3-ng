@@ -29,6 +29,7 @@
 --
 
 module UI (
+        runDraw,
 
         -- * Construction, destruction
         start, end, suspend, screenSize, refresh, refreshClock, resetui,
@@ -61,6 +62,14 @@ import Text.Printf
 import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString.UTF8 as UTF8
 
+
+newtype Draw = Draw (IO ())
+instance Semigroup Draw where Draw x <> Draw y = Draw $ x >> y
+instance Monoid Draw where mempty = Draw $ pure ()
+
+runDraw :: Draw -> IO ()
+runDraw (Draw d) = withDrawLock d
+
 ------------------------------------------------------------------------
 
 --
@@ -90,18 +99,18 @@ start = do
 
     initcolours sty
     Curses.keypad Curses.stdScr True    -- grab the keyboard
-    nocursor
+    runDraw nocursor
 
     return sty
 
 -- | Reset
 resetui :: IO ()
-resetui = resizeui >> nocursor >> refresh
+resetui = runDraw (resizeui <> nocursor) >> refresh
 
 -- | And force invisible
-nocursor :: IO ()
-nocursor = do
-    Control.Exception.catch (Curses.cursSet Curses.CursorInvisible >> return ()) 
+nocursor :: Draw
+nocursor = Draw $ do
+    Control.Exception.catch (void $ Curses.cursSet Curses.CursorInvisible) 
                             (\ (_ :: SomeException) -> return ())
 
 --
@@ -133,15 +142,15 @@ getKey = do
     if k == Curses.KeyResize 
         then do
               when (Curses.cursesSigWinch == Nothing) $
-                  void $ redraw >> resizeui -- do we need redraw here?
+                  runDraw $ redraw <> resizeui
               getKey
         else return $ unkey k
  
 -- | Resize the window
 -- From "Writing Programs with NCURSES", by Eric S. Raymond and Zeyd M. Ben-Halim
 --
-resizeui :: IO (Int,Int)
-resizeui = do
+resizeui :: Draw
+resizeui = Draw $ void $ do
     Curses.endWin
     Curses.resetParams
     do
@@ -156,10 +165,10 @@ resizeui = do
     Curses.scrSize
 
 refresh :: IO ()
-refresh = redraw >> Curses.refresh
+refresh = runDraw $ redraw <> Draw Curses.refresh
 
 refreshClock :: IO ()
-refreshClock = redrawJustClock >> Curses.refresh
+refreshClock = runDraw $ redrawJustClock <> Draw Curses.refresh
 
 ------------------------------------------------------------------------
 
@@ -561,8 +570,8 @@ ellipsis = "... "
 -- | Now write out just the clock line
 -- Speed things up a bit, just use read State.
 --
-redrawJustClock :: IO ()
-redrawJustClock = do 
+redrawJustClock :: Draw
+redrawJustClock = Draw $ do
    Control.Exception.handle (\ (_ :: SomeException) -> return ()) $ do
 
    st      <- getsST id
@@ -597,10 +606,10 @@ drawHelp st fr s@(h,w) =
 --
 -- | Draw the screen
 --
-redraw :: IO ()
-redraw = 
+redraw :: Draw
+redraw = Draw $ do
    -- linux ncurses, in particular, seems to complain a lot. this is an easy solution
-   Control.Exception.handle (\ (_ :: SomeException) -> return ()) $ do
+   -- Control.Exception.handle (\ (_ :: SomeException) -> return ()) $ do
 
    s <- getsST id    -- another refresh could be triggered?
    let f = clock s

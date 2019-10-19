@@ -83,6 +83,7 @@ data HState = HState {
                                                 -- the state are modified. The ui
                                                 -- refresh thread waits on this.
        ,randomGen       :: MTGen
+       ,drawLock        :: !(MVar ())           -- simple semaphore for display
     }
 
 ------------------------------------------------------------------------
@@ -123,6 +124,7 @@ emptySt = HState {
        ,minibuffer   = Fast P.empty defaultSty
        ,uptime       = P.empty
        ,randomGen    = unsafePerformIO (newMTGen Nothing)
+       ,drawLock     = unsafePerformIO (newMVar ())
     }
 
 --
@@ -168,4 +170,9 @@ forceNextPacket :: IO ()
 forceNextPacket = do
   fh <- readMVar =<< getsST readf
   writeIORef (frameCount fh) 0
+
+withDrawLock :: IO () -> IO ()
+withDrawLock io = do
+    lock <- getsST drawLock
+    withMVar lock $ const io
 
