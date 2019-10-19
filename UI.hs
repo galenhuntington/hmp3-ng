@@ -644,9 +644,7 @@ redraw = Draw $
 --
 drawLine :: Int -> StringA -> IO ()
 drawLine _ (Fast ps sty) = drawPackedString ps sty
-drawLine _ (FancyS ls) = loop ls
-    where loop []             = return ()
-          loop ((l,sty):xs)   = drawPackedString l sty >> loop xs
+drawLine _ (FancyS ls) = sequence_ $ map (uncurry drawPackedString) ls
 
 -- much less efficient than before, could drop into FFI if pure ascii
 drawPackedString :: P.ByteString -> Style -> IO ()
