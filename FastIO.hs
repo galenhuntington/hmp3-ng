@@ -39,11 +39,9 @@ import Control.Monad.Extra (sequenceWhile)
 
 ------------------------------------------------------------------------
 
---  Copied from C comment:
--- * Note that mpg321 (only) provides --skip-printing-frames=N
--- * I guess we could have used that.
+--  Use every nth frame.  1 for no dropping.
 dropRate :: Int
-dropRate = 6   -- used to be 10, but computers are faster
+dropRate = 4   -- used to be 10, but computers are faster
 
 -- | Packed string version of basename
 basenameP :: P.ByteString -> P.ByteString
@@ -96,7 +94,7 @@ checkF :: FiltHandle -> IO Bool
 checkF (FiltHandle _ ir) = do
   modifyIORef' ir (\x -> (x+1) `mod` dropRate)
   i <- readIORef ir
-  return $ (i==1)
+  return $ dropRate==1 || i==1
 
 -- ---------------------------------------------------------------------
 

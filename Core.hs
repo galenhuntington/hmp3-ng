@@ -75,9 +75,12 @@ import Control.Exception
 
 import GHC.IO.Handle.FD         (fdToHandle)
 
---  This can be overridden with -D.
-#ifndef MPG321
-#define MPG321 "mpg123"
+mp3Tool :: String
+mp3Tool =
+#ifdef MPG123
+    "mpg123"
+#else
+    "mpg321"
 #endif
 
 ------------------------------------------------------------------------
@@ -108,7 +111,7 @@ start ms = Control.Exception.handle (\ (e :: SomeException) -> shutdown (Just (s
     t4 <- forkIO uptimeLoop
     t5 <- forkIO
         -- mpg321 uses stderr for @F messages
-        $ if MPG321 == ("mpg321" :: String) then mpgInput errh else errorLoop
+        $ if mp3Tool == "mpg321" then mpgInput errh else errorLoop
 
     silentlyModifyST $ \s -> s
         { music        = fs
@@ -161,15 +164,15 @@ exitTime _ = True
 --
 mpgLoop :: IO ()
 mpgLoop = forever $ do
-    mmpg <- findExecutable (MPG321 :: String)
+    mmpg <- findExecutable mp3Tool
     case mmpg of
-      Nothing     -> quit (Just $ "Cannot find " ++ MPG321 ++ " in path")
+      Nothing     -> quit (Just $ "Cannot find " ++ mp3Tool ++ " in path")
       Just mpg321 -> do
 
         -- if we're never able to start mpg321, do something sensible
-        mv <- catch (popen (mpg321 :: String) ["-R","-"] >>= return . Just)
+        mv <- catch (popen mpg321 ["-R","-"] >>= return . Just)
                     (\ (e :: SomeException) ->
-                           do warnA ("Unable to start " ++ MPG321 ++ ": " ++ show e)
+                           do warnA ("Unable to start " ++ mp3Tool ++ ": " ++ show e)
                               return Nothing)
         case mv of
             Nothing -> threadDelay (1000 * 500) >> mpgLoop
