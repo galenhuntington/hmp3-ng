@@ -40,6 +40,7 @@ doP s = S $! case pSafeHead s of
                 '0' -> Stopped
                 '1' -> Paused
                 '2' -> Playing
+                '3' -> Stopped  -- used by mpg321
                 _ -> Playing
                 -- _ -> error "Invalid Status"
 
@@ -95,7 +96,10 @@ doS s = let fs = P.split ' ' $ s
 doI :: P.ByteString -> Msg
 doI s = let f = dropSpaceEnd . P.dropWhile isSpace $ s
         in case P.take 4 f of
-            cs | cs == "ID3:" -> F . File . Right . toId id3 . splitUp . P.drop 4 $ f
+            cs | cs == "ID3:" -> F . File $
+                    let ttl = toId id3 . splitUp . P.drop 4 $ f
+                    -- mpg321 sometimes returns null titles
+                    in if P.null (id3title ttl) then Left f else Right ttl
                | otherwise    -> F . File . Left $ f
     where
         -- a default

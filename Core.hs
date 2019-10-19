@@ -102,11 +102,13 @@ start ms = Control.Exception.handle (\ (e :: SomeException) -> shutdown (Just (s
     now <- getTime Monotonic
 
     -- fork some threads
-    t1 <- forkIO mpgInput
+    t1 <- forkIO $ mpgInput readf
     t2 <- forkIO refreshLoop
     t3 <- forkIO clockLoop
     t4 <- forkIO uptimeLoop
-    t5 <- forkIO errorLoop
+    t5 <- forkIO
+        -- mpg321 uses stderr for @F messages
+        $ if MPG321 == ("mpg321" :: String) then mpgInput errh else errorLoop
 
     silentlyModifyST $ \s -> s
         { music        = fs
@@ -174,7 +176,7 @@ mpgLoop = forever $ do
             Just (r,w,e,pid) -> do
 
             hw          <- fdToHandle (fromIntegral w)  -- so we can use Haskell IO
-            ew          <- fdToHandle (fromIntegral e)  -- so we can use Haskell IO
+            ew          <- FiltHandle <$> fdToHandle (fromIntegral e) <*> newIORef 0
             filep       <- FiltHandle <$> fdToHandle (fromIntegral r) <*> newIORef 0
             mhw         <- newMVar hw
             mew         <- newMVar ew
@@ -225,7 +227,7 @@ clockLoop = forever $ threadDelay delay >> UI.refreshClock
 -- | Handle, and display errors produced by mpg321
 errorLoop :: IO ()
 errorLoop = forever $ do
-    s <- getsST errh >>= readMVar >>= hGetLine
+    s <- getsST errh >>= readMVar >>= hGetLine . filtHandle
     if s == "No default libao driver available."
         then quit $ Just $ s ++ " Perhaps another instance of hmp3 is running?"
         else warnA s
@@ -236,9 +238,9 @@ errorLoop = forever $ do
 -- shutdown kills the other end of the pipe, hGetLine will fail, so we
 -- take that chance to exit.
 --
-mpgInput :: IO ()
-mpgInput = forever $ do
-    mvar <- getsST readf
+mpgInput :: (HState -> MVar FiltHandle) -> IO ()
+mpgInput field = forever $ do
+    mvar <- getsST field
     fp   <- readMVar mvar
     res  <- parser fp
     case res of

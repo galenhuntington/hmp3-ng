@@ -62,7 +62,7 @@ data HState = HState {
        ,clockUpdate     :: !Bool
        ,mp3pid          :: !(Maybe ProcessID)    -- pid of decoder
        ,writeh          :: !(MVar Handle)        --  handle to mp3 (should be MVars?)
-       ,errh            :: !(MVar Handle)        --  error handle to mp3
+       ,errh            :: !(MVar FiltHandle)    --  error handle to mp3
        ,readf           :: !(MVar FiltHandle)    -- r/w pipe to mp3
        ,threads         :: ![ThreadId]           -- all our threads
        ,id3             :: !(Maybe Id3)          -- maybe mp3 id3 info
