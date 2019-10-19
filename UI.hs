@@ -607,9 +607,9 @@ drawHelp st fr s@(h,w) =
 -- | Draw the screen
 --
 redraw :: Draw
-redraw = Draw $ do
+redraw = Draw $
    -- linux ncurses, in particular, seems to complain a lot. this is an easy solution
-   -- Control.Exception.handle (\ (_ :: SomeException) -> return ()) $ do
+   Control.Exception.handle (\ (_ :: SomeException) -> return ()) $ do
 
    s <- getsST id    -- another refresh could be triggered?
    let f = clock s
