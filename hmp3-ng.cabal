@@ -45,6 +45,4 @@ executable hmp3
                          Lexer Lexers State Style Syntax Tree UI Utils
                          Paths_hmp3_ng
 
-    extensions:          CPP, ForeignFunctionInterface, ScopedTypeVariables,
-                         OverloadedStrings
-    extra-libraries:     curses
+    extensions:          CPP, ScopedTypeVariables, OverloadedStrings

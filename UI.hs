@@ -59,12 +59,7 @@ import System.Posix.Env         (getEnv, putEnv)
 import Text.Printf
 
 import qualified Data.ByteString.Char8 as P
-import qualified Data.ByteString       as B
-
-import Foreign.C.Types      (CInt(..))
-import Foreign.C.String     (CString)
-
--- import qualified Data.ByteString.UTF8 as UTF8
+import qualified Data.ByteString.UTF8 as UTF8
 
 ------------------------------------------------------------------------
 
@@ -644,19 +639,14 @@ drawLine _ (FancyS ls) = loop ls
     where loop []             = return ()
           loop ((l,sty):xs)   = drawPackedString l sty >> loop xs
 
--- worker
+-- much less efficient than before, could drop into FFI if pure ascii
 drawPackedString :: P.ByteString -> Style -> IO ()
 drawPackedString ps sty =
-    withStyle sty $ B.useAsCString (P.map asAscii ps) $ \cstr ->
-        Curses.throwIfErr_ msg $
-            waddnstr Curses.stdScr
-            -- Curses.wAddStr Curses.stdScr
-                -- UTF8.toString ps
-                cstr (fromIntegral . P.length $ ps)
-    where
-        msg = "drawPackedString"
-        asAscii x | x >= ' ' && x < '\127' = x
-                  | otherwise              = '*'
+    withStyle sty $ Curses.wAddStr Curses.stdScr
+        -- a hack to somewhat not mess up spacing
+        -- TODO have to redo length logic throughout
+        $ s ++ replicate (P.length ps - length s) ' '
+    where s = UTF8.toString ps
 
 
 ------------------------------------------------------------------------
@@ -721,8 +711,4 @@ setXterm s sz f = setXtermTitle $
                             then [] 
                             else [": ", id3title ti]
       else let (PMode pm) = draw sz (0,0) s f :: PMode in [pm]
-
---  Not exported by hscurses.
-foreign import ccall safe
-    waddnstr :: Curses.Window -> CString -> CInt -> IO CInt
 
