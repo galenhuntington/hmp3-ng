@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 -- 
 -- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- Copyright (c) 2008, 2019 Galen Huntington
