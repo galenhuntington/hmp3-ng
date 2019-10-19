@@ -1,7 +1,7 @@
 cabal-version:       >= 1.6
 
 name:                hmp3-ng
-version:             2.5.1
+version:             2.5.2
 homepage:            https://github.com/galenhuntington/hmp3-ng
 license:             GPL
 license-file:        LICENSE
