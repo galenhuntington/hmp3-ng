@@ -618,7 +618,6 @@ loadConfig = do
         initcolours sty
         modifyST $ \st -> st { config = sty }
     UI.resetui
-    UI.resetui
 
 ------------------------------------------------------------------------
 -- Editing the minibuffer
