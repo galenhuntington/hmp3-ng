@@ -61,6 +61,7 @@ import System.Posix.Signals     (raiseSignal, sigTSTP, installHandler, Handler(.
 import System.Posix.Env         (getEnv, putEnv)
 import Text.Printf
 
+import System.IO.Unsafe (unsafePerformIO)
 
 import Foreign.C.String
 import Foreign.C.Types
@@ -731,9 +732,9 @@ setXterm s sz f = setXtermTitle $
                             else [": ", id3title ti]
       else let (PMode pm) = draw sz (0,0) s f :: PMode in [pm]
 
-displayWidth :: String -> IO Int
-displayWidth s =
-    withCWStringLen s \ (cs, len) ->
+displayWidth :: String -> Int
+displayWidth s = unsafePerformIO
+    $ withCWStringLen s \ (cs, len) ->
         fromIntegral <$> wcswidth cs (fromIntegral len)
 
 foreign import ccall safe
