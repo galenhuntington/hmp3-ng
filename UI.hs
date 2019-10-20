@@ -364,32 +364,24 @@ instance Element PTime where
 -- | Play mode
 instance Element PMode where
     draw _ _ st _ = PMode $! case status st of 
-                        Stopped -> a
-                        Paused  -> b
-                        Playing -> c
-
-        where a = "◼"
-              b = "⏸"
-              c = "▶"
+                        Stopped -> "◼"
+                        Paused  -> "Ⅱ"
+                        Playing -> "▶"
 
 -- | Loop, normal, or random
 instance Element PMode2 where
     draw _ _ st _ = PMode2 $ case mode st of 
-                        Random  -> a
-                        Loop    -> b
-                        Normal  -> c
-
-        where a = "rand"
-              b = "loop"
-              c = "once"
+                        Random  -> "rand"
+                        Loop    -> "loop"
+                        Normal  -> "once"
 
 ------------------------------------------------------------------------
 
 instance Element PlayModes where
     draw a b c d = PlayModes $ m ++ ' ' : m'
         where
-            PMode  m  = draw a b c d :: PMode
-            PMode2 m' = draw a b c d :: PMode2
+            PMode  m  = draw a b c d
+            PMode2 m' = draw a b c d
 
 instance Element PlayInfo where
     draw _ _ st _ = PlayInfo $ P.concat
@@ -447,7 +439,7 @@ instance Element PlayList where
                  ++ (replicate (height - length list - 2) (Fast P.empty defaultSty))
                  ++ [minibuffer st]
         where
-            (PlayTitle title)       = draw p q st z :: PlayTitle
+            PlayTitle title       = draw p q st z
 
             songs  = music st
             this   = current st
@@ -550,7 +542,7 @@ spaces n
 -- Speed things up a bit, just use read State.
 --
 redrawJustClock :: Draw
-redrawJustClock = Draw $ do
+redrawJustClock = Draw do
    Control.Exception.handle (\ (_ :: SomeException) -> return ()) $ do
 
    st      <- getsST id
