@@ -1,7 +1,7 @@
 cabal-version:       >= 1.6
 
 name:                hmp3-ng
-version:             2.7.0
+version:             2.7.1
 homepage:            https://github.com/galenhuntington/hmp3-ng
 license:             GPL
 license-file:        LICENSE
@@ -47,3 +47,4 @@ executable hmp3
 
     extensions:          ScopedTypeVariables, OverloadedStrings,
                          BlockArguments, BangPatterns
+    extra-libraries:     ncursesw
