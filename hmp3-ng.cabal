@@ -45,4 +45,4 @@ executable hmp3
                          Lexer Lexers State Style Syntax Tree UI Utils
                          Paths_hmp3_ng
 
-    extensions:          ScopedTypeVariables, OverloadedStrings
+    extensions:          ScopedTypeVariables, OverloadedStrings, BlockArguments

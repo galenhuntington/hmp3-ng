@@ -1,3 +1,5 @@
+{-# LANGUAGE ForeignFunctionInterface #-}
+
 -- 
 -- Copyright (C) 2004-5 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- Copyright (c) 2019 Galen Huntington
@@ -59,7 +61,12 @@ import System.Posix.Signals     (raiseSignal, sigTSTP, installHandler, Handler(.
 import System.Posix.Env         (getEnv, putEnv)
 import Text.Printf
 
+
+import Foreign.C.String
+import Foreign.C.Types
+
 import qualified Data.ByteString.Char8 as P
+import qualified Data.ByteString as B
 import qualified Data.ByteString.UTF8 as UTF8
 
 
@@ -643,17 +650,22 @@ redraw = Draw $
 -- | Draw a coloured (or not) string to the screen
 --
 drawLine :: Int -> StringA -> IO ()
-drawLine _ (Fast ps sty) = drawPackedString ps sty
-drawLine _ (FancyS ls) = sequence_ $ map (uncurry drawPackedString) ls
+drawLine _ (Fast ps sty) = drawString ps sty
+drawLine _ (FancyS ls) = sequence_ $ map (uncurry drawString) ls
 
--- much less efficient than before, could drop into FFI if pure ascii
-drawPackedString :: P.ByteString -> Style -> IO ()
-drawPackedString ps sty =
-    withStyle sty $ Curses.wAddStr Curses.stdScr
+drawString :: P.ByteString -> Style -> IO ()
+drawString ps sty = withStyle sty $
+    if P.all (<'\128') ps
+    then
+        void $ B.useAsCString ps \cstr ->
+            waddnstr Curses.stdScr cstr (fromIntegral len)
+    else
+        let s = UTF8.toString ps
+        in Curses.wAddStr Curses.stdScr
         -- a hack to somewhat not mess up spacing
         -- TODO have to redo length logic throughout
-        $ s ++ replicate (P.length ps - length s) ' '
-    where s = UTF8.toString ps
+            $ s ++ replicate (len - length s) ' '
+    where len = P.length ps
 
 
 ------------------------------------------------------------------------
@@ -718,4 +730,16 @@ setXterm s sz f = setXtermTitle $
                             then [] 
                             else [": ", id3title ti]
       else let (PMode pm) = draw sz (0,0) s f :: PMode in [pm]
+
+displayWidth :: String -> IO Int
+displayWidth s =
+    withCWStringLen s \ (cs, len) ->
+        fromIntegral <$> wcswidth cs (fromIntegral len)
+
+foreign import ccall safe
+    wcswidth :: CWString -> CInt -> IO CInt
+
+--  Not exported by hscurses.
+foreign import ccall safe
+    waddnstr :: Curses.Window -> CString -> CInt -> IO CInt
 

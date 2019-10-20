@@ -82,7 +82,7 @@
 --
 --  * In this implementation, the combinators `quest`, `star`, and `plus` are
 --    *right* associative - this was different in the ``Lazy Lexing is Fast''
---    paper.  This change was made on a suggestion by Martin Norb‰ck
+--    paper.  This change was made on a suggestion by Martin Norb√§ck
 --    <d95mback@dtek.chalmers.se>.
 --
 --- TODO ----------------------------------------------------------------------
