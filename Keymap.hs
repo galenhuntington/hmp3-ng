@@ -182,7 +182,7 @@ keyTable =
         ['q'],   do b <- helpIsVisible ; if b then toggleHelp else quit Nothing)
     ,("Select and play next track",
         ['d'],   playNext >> jumpToPlaying)
-    ,("Cycle through normal, random and loop modes",
+    ,("Cycle through normal, random, and loop modes",
         ['m'],   nextMode)
     ,("Refresh the display",
         ['\^L'], UI.resetui)

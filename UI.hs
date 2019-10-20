@@ -205,8 +205,8 @@ newtype PlayList = PlayList [StringA]
 
 newtype PPlaying    = PPlaying    StringA
 newtype PVersion    = PVersion    P.ByteString
-newtype PMode       = PMode       P.ByteString
-newtype PMode2      = PMode2      P.ByteString
+newtype PMode       = PMode       String
+newtype PMode2      = PMode2      String
 newtype ProgressBar = ProgressBar StringA
 newtype PTimes      = PTimes      StringA
 
@@ -216,7 +216,7 @@ newtype PTime       = PTime       P.ByteString
 
 newtype PlayTitle = PlayTitle StringA
 newtype PlayInfo  = PlayInfo  P.ByteString
-newtype PlayModes = PlayModes P.ByteString
+newtype PlayModes = PlayModes String
 newtype HelpScreen = HelpScreen [StringA]
 
 ------------------------------------------------------------------------
@@ -368,29 +368,28 @@ instance Element PMode where
                         Paused  -> b
                         Playing -> c
 
-        where a = "stop"
-              b = "pause"
-              c = "play"
+        where a = "◼"
+              b = "⏸"
+              c = "▶"
 
--- | Loop, normal or random
+-- | Loop, normal, or random
 instance Element PMode2 where
     draw _ _ st _ = PMode2 $ case mode st of 
                         Random  -> a
                         Loop    -> b
                         Normal  -> c
 
-        where a = "random"
+        where a = "rand"
               b = "loop"
-              c = ""
+              c = "once"
 
 ------------------------------------------------------------------------
 
 instance Element PlayModes where
-    draw a b c d = PlayModes $  
-        m `P.append` if m' == P.empty then P.empty else ' ' `P.cons` m'
+    draw a b c d = PlayModes $ m ++ ' ' : m'
         where
-            (PMode  m ) = draw a b c d :: PMode
-            (PMode2 m') = draw a b c d :: PMode2
+            PMode  m  = draw a b c d :: PMode
+            PMode2 m' = draw a b c d :: PMode2
 
 instance Element PlayInfo where
     draw _ _ st _ = PlayInfo $ P.concat
@@ -421,27 +420,22 @@ instance Element PlayInfo where
 
 instance Element PlayTitle where
     draw a@(_,x) b c d =
-        PlayTitle $ flip Fast hl $ P.concat 
-              [space
-              ,inf
-              ,spaces gapl
-              ,modes
-              ,spaces gapr
-              ,time
-              ,space
-              ,ver
-              ,space]
+        PlayTitle $ FancyS [
+            (B $ P.concat [space,inf,spaces gapl], hl),
+            (U modes, hl),
+            (B $ P.concat [spaces gapr,time,space,ver,space], hl)
+            ]
       where
-        (PlayInfo inf)    = draw a b c d :: PlayInfo
-        (PTime time)      = draw a b c d :: PTime
-        (PlayModes modes) = draw a b c d :: PlayModes
-        (PVersion ver)    = draw a b c d :: PVersion
+        PlayInfo inf    = draw a b c d
+        PTime time      = draw a b c d
+        PlayModes modes = draw a b c d
+        PVersion ver    = draw a b c d
 
         gap     = x - padding - P.length inf - modlen - P.length time - P.length ver
         gapl    = gap `div` 2
         gapr    = gap - gapl
         padding = 3
-        modlen  = P.length modes
+        modlen  = length modes
         space   = spaces 1
         hl      = titlebar . config $ c
 
@@ -604,7 +598,7 @@ redraw = Draw $
        y = printPlayList   (draw sz (length x,0) s f :: PlayList)
        a = x ++ y
 
-   when (xterm s) $ setXterm s sz f
+   when (xterm s) $ setXterm s
    
    gotoTop
    mapM_ (\t -> do drawLine w t
@@ -692,18 +686,17 @@ setXtermTitle strs = do
 
 -- set xterm title (should have an instance Element)
 -- Don't need to do this on each refresh...
-setXterm :: HState -> (Int,Int) -> Maybe Frame -> IO ()
-setXterm s sz f = setXtermTitle $ 
-    if status s == Playing
-      then case id3 s of
-            Nothing -> case size s of
-                            0 -> ["hmp3"]
-                            _ -> [(fbase $ music s ! current s)]
-            Just ti -> id3artist ti :
-                       if P.null (id3title ti) 
-                            then [] 
-                            else [": ", id3title ti]
-      else let (PMode pm) = draw sz (0,0) s f :: PMode in [pm]
+setXterm :: HState -> IO ()
+setXterm s = setXtermTitle $ case status s of
+    Playing -> case id3 s of
+        Nothing -> case size s of
+                        0 -> ["hmp3"]
+                        _ -> [(fbase $ music s ! current s)]
+        Just ti -> id3artist ti :
+                   if P.null (id3title ti)
+                        then []
+                        else [": ", id3title ti]
+    x  -> [P.pack $ show x]
 
 displayWidth :: String -> Int
 displayWidth = sum . map charWidth

@@ -24,7 +24,7 @@ These were fairly small, the bulk being the regeneration of the
 writing) and libraries.  Some code could not be directly ported,
 mainly low-level optimizations, and so was replaced.
 
-*  There is a Github issue tracker to cover other problems and
+*  There is a GitHub issue tracker to cover other problems and
 planned changes.
 
 *  I have added support for building with Stack.
