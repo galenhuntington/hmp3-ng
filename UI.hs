@@ -487,38 +487,36 @@ instance Element PlayList where
 
             indent = (round $ (0.334 :: Float) * fromIntegral x) :: Int
                 
-            color :: ((Maybe Int,String),Int) -> (Maybe Int, StringA)
+            color :: ((Maybe Int, String), Int)
+                        -> (Maybe Int, Style, [AmbiString])
             color ((m,s),i) 
                 | i == select && i == playing = f sty3
                 | i == select                 = f sty2
                 | i == playing                = f sty1
-                | otherwise                   = (m, FancyS [(U s, defaultSty)])
+                | otherwise                   = (m, defaultSty, [U s])
                 where
-                    f sty = (m, FancyS [
-                        (U s, sty),
-                        (B $ spaces (x - indent - 1 - displayWidth s), sty)])
+                    f sty = (m, sty, [
+                        U s,
+                        B $ spaces (x - indent - 1 - displayWidth s)])
             
             sty1 = selected . config $ st
             sty2 = cursors  . config $ st
             sty3 = combined . config $ st
 
-            -- TODO should really just pass in AmbiStrings and one style
-            drawIt :: (Maybe Int, StringA) -> StringA
-            drawIt (Nothing, FancyS v@((_, sty):_)) =
-                FancyS $ (B $ spaces (1 + indent), sty) : v
+            drawIt :: (Maybe Int, Style, [AmbiString]) -> StringA
+            drawIt (Nothing, sty, v) =
+                FancyS $ map (, sty) $ (B $ spaces (1 + indent)) : v
 
-            drawIt (Just i, FancyS v@((_, sty):_)) = FancyS
+            drawIt (Just i, sty, v) = FancyS
                 $ (U d, sty')
                 : (B $ spaces (indent + 1 - displayWidth d), sty')
-                : v
+                : map (, sty) v
               where
                 sty' = if sty == sty2 || sty == sty3 then sty2 else sty1
                 d = ellipsize (indent - 1) $ UTF8.toString $ basenameP
                         $ case size st of
                             0 -> "(empty)"
                             _ -> dname $ folders st ! i
-
-            drawIt _ = error "UI.drawIt: color gaves us a non-fitting StringA!"
 
 --
 -- | Decode the list of current tracks
