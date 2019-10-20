@@ -243,11 +243,16 @@ instance (Element a, Element b) => Element (a,b) where
 
 -- Info about the current track
 instance Element PPlaying where
-    draw w@(_,x') x st z = PPlaying . FancyS $ 
-            map (, defaultSty) $ spc2 : alignLR (x'-4) (UTF8.toString a) b
-        where
-            PId3 a  = draw w x st z
-            PInfo b = draw w x st z
+    draw w@(_,x') x st z =
+        PPlaying . FancyS $ map (, defaultSty) $ spc2 : line
+      where
+        PId3 a  = draw w x st z
+        PInfo b = draw w x st z
+        s       = UTF8.toString a
+        line | gap >= 0 = [U s, B $ spaces $ gap+1, B b]
+             | True     = [U $ ellipsize lim s, B " ", B b]
+            where lim = x' - 5 - P.length b
+                  gap = lim - displayWidth s
 
 -- | Id3 Info
 instance Element PId3 where
@@ -512,16 +517,6 @@ printPlayList (PlayList s) = s
 {-# INLINE printPlayList #-}
                 
 ------------------------------------------------------------------------
-
--- | Take two strings, and pad them in the middle
-alignLR :: Int -> String -> P.ByteString -> [AmbiString]
-alignLR w l r 
-    | padding >  0 = [U l, B gap, B r]
-    -- | otherwise    = [U P.take (w - P.length r - 4 - 1) l, ellipsis, spaces 1, r]
-    | otherwise    = [U $ ellipsize (w - P.length r - 1) l, B " ", B r]
-
-    where padding = w - displayWidth l - P.length r
-          gap     = spaces padding
 
 -- | Calculate whitespaces, very common, so precompute likely values
 spaces :: Int -> P.ByteString
