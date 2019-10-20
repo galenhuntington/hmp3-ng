@@ -66,10 +66,13 @@ data Color
 data Style = Style !Color !Color 
     deriving (Eq,Ord)
 
+-- | Can hold an optimized ByteString or a Unicode String.
+data AmbiString = B !ByteString | U !String
+
 -- | A list of such values (the representation is optimised)
 data StringA 
     = Fast   {-# UNPACK #-} !ByteString {-# UNPACK #-} !Style
-    | FancyS ![(ByteString,Style)]  -- one line made up of segments
+    | FancyS ![(AmbiString,Style)]  -- one line made up of segments
 
 ------------------------------------------------------------------------
 --

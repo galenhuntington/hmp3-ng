@@ -1,4 +1,4 @@
-{-# LANGUAGE ForeignFunctionInterface #-}
+{-# LANGUAGE ForeignFunctionInterface, TupleSections #-}
 
 -- 
 -- Copyright (C) 2004-5 Don Stewart - http://www.cse.unsw.edu.au/~dons
@@ -60,8 +60,6 @@ import System.IO                (stderr, hFlush)
 import System.Posix.Signals     (raiseSignal, sigTSTP, installHandler, Handler(..))
 import System.Posix.Env         (getEnv, putEnv)
 import Text.Printf
-
-import System.IO.Unsafe (unsafePerformIO)
 
 import Foreign.C.String
 import Foreign.C.Types
@@ -246,11 +244,10 @@ instance (Element a, Element b) => Element (a,b) where
 -- Info about the current track
 instance Element PPlaying where
     draw w@(_,x') x st z = PPlaying . FancyS $ 
-            [(spc2, defaultSty)
-            ,(alignLR (x'-4) a b, defaultSty)]
+            map (, defaultSty) $ spc2 : alignLR (x'-4) (UTF8.toString a) b
         where
-            (PId3 a)  = draw w x st z :: PId3 
-            (PInfo b) = draw w x st z :: PInfo
+            PId3 a  = draw w x st z
+            PInfo b = draw w x st z
 
 -- | Id3 Info
 instance Element PId3 where
@@ -269,8 +266,8 @@ instance Element PInfo where
 emptyVal :: P.ByteString
 emptyVal = "(empty)"
 
-spc2 :: P.ByteString
-spc2 = spaces 2
+spc2 :: AmbiString
+spc2 = B $ spaces 2
 
 ------------------------------------------------------------------------
 
@@ -316,9 +313,9 @@ instance Element PTimes where
     draw _ _ _ Nothing       = PTimes $ Fast (spaces 5) defaultSty
     draw (_,x) _ _ (Just fr) = PTimes $ FancyS $
                                 [(spc2,     defaultSty)
-                                ,(elapsed,  defaultSty)
-                                ,(gap,      defaultSty)
-                                ,(remaining,defaultSty)]
+                                ,(B elapsed,  defaultSty)
+                                ,(B gap,      defaultSty)
+                                ,(B remaining,defaultSty)]
       where
         elapsed   = P.pack $ printf "%d:%02d" lm lm'
         remaining = P.pack $ printf "-%d:%02d" rm rm'
@@ -332,15 +329,15 @@ instance Element PTimes where
 -- | A progress bar
 instance Element ProgressBar where
     draw (_,w) _ st Nothing = ProgressBar . FancyS $
-          [(spc2,defaultSty) ,(spaces (w-4), bgs)]
+          [(spc2,defaultSty) ,(B $ spaces (w-4), bgs)]
         where 
           (Style _ bg) = progress (config st)
           bgs          = Style bg bg
 
     draw (_,w) _ st (Just fr) = ProgressBar . FancyS $
           [(spc2,defaultSty)
-          ,((spaces distance),fgs)
-          ,((spaces (width - distance)),bgs)]
+          ,((B $ spaces distance),fgs)
+          ,((B $ spaces (width - distance)),bgs)]
         where 
           width    = w - 4
           total    = curr + left
@@ -477,67 +474,51 @@ instance Element PlayList where
             visible = slice off (off + buflen) songs
                 where off = screens * buflen
 
-            -- todo: put dir on its own line
-            visible' :: [(Maybe Int, P.ByteString)]
-            visible' = loop (-1) visible
-                where  loop _ []     = []
-                       loop n (v:vs) = 
-                            let r = if fdir v > n then Just (fdir v) else Nothing
-                            in (r,fbase v) : loop (fdir v) vs
-                          
-            -- problem: we color *after* merging with directories
-         -- list   = [ uncurry color n
-         --          | n <- zip (map drawIt visible') [0..] ]
+            -- TODO rewrite as fold
+            visible' :: [(Maybe Int, String)]
+            visible' = loop (-1) visible where
+                loop _ []     = []
+                loop n (v:vs) =
+                    let r = if fdir v > n then Just (fdir v) else Nothing
+                    in (r, ellipsize (x - indent - 1) $ UTF8.toString $ fbase v)
+                            : loop (fdir v) vs
 
-            list   = [ drawIt . color . mchop $ n | n <- zip visible' [0..] ]
+            list   = [ drawIt . color $ n | n <- zip visible' [0..] ]
 
-            indent = (round $ (0.35 :: Float) * fromIntegral x) :: Int
+            indent = (round $ (0.334 :: Float) * fromIntegral x) :: Int
                 
-            color :: ((Maybe Int,P.ByteString),Int) -> (Maybe Int, StringA)
+            color :: ((Maybe Int,String),Int) -> (Maybe Int, StringA)
             color ((m,s),i) 
                 | i == select && i == playing = f sty3
                 | i == select                 = f sty2
                 | i == playing                = f sty1
-                | otherwise                   = (m,Fast s defaultSty)
+                | otherwise                   = (m, FancyS [(U s, defaultSty)])
                 where
-                    f sty = (m, Fast (s `P.append` 
-                                        (spaces (x-indent-1-P.length s)))
-                                sty)
+                    f sty = (m, FancyS [
+                        (U s, sty),
+                        (B $ spaces (x - indent - 1 - displayWidth s), sty)])
             
             sty1 = selected . config $ st
             sty2 = cursors  . config $ st
             sty3 = combined . config $ st
 
-            -- must mchop before drawing.
+            -- TODO should really just pass in AmbiStrings and one style
             drawIt :: (Maybe Int, StringA) -> StringA
-            drawIt (Nothing,Fast v sty) = 
-                Fast ((spaces (1 + indent)) `P.append` v) sty
+            drawIt (Nothing, FancyS v@((_, sty):_)) =
+                FancyS $ (B $ spaces (1 + indent), sty) : v
 
-            drawIt (Just i,Fast b sty) = FancyS [pref, post]
+            drawIt (Just i, FancyS v@((_, sty):_)) = FancyS
+                $ (U d, sty')
+                : (B $ spaces (indent + 1 - displayWidth d), sty')
+                : v
               where
-                pref = (d', if sty == sty2 || sty == sty3 then sty2 else sty1)
-                post = (b, sty)
+                sty' = if sty == sty2 || sty == sty3 then sty2 else sty1
+                d = ellipsize (indent - 1) $ UTF8.toString $ basenameP
+                        $ case size st of
+                            0 -> "(empty)"
+                            _ -> dname $ folders st ! i
 
-                d   = basenameP $ case size st of
-                                    0 -> "(empty)"
-                                    _ -> dname $ folders st ! i
-
-                spc = spaces (indent - P.length d)
-
-                d' | P.length d > indent-1 
-                   = P.concat [ P.take (indent+1-4) d 
-                              , (P.init ellipsis) 
-                              , spaces 1 ]
-
-                   | otherwise = P.concat [ d, spaces 1, spc ]
-
-            drawIt _ = error "UI.drawIt: color gaves us a non-Fast StringA!"
-
-            mchop :: ((Maybe Int,P.ByteString),Int) -> ((Maybe Int,P.ByteString),Int) 
-            mchop a@((i,s),j)
-                | P.length s > (x-indent-4-1) 
-                = ((i, P.take (x-indent-4-1) s `P.append` ellipsis),j)
-                | otherwise = a
+            drawIt _ = error "UI.drawIt: color gaves us a non-fitting StringA!"
 
 --
 -- | Decode the list of current tracks
@@ -549,17 +530,19 @@ printPlayList (PlayList s) = s
 ------------------------------------------------------------------------
 
 -- | Take two strings, and pad them in the middle
-alignLR :: Int -> P.ByteString -> P.ByteString -> P.ByteString
+alignLR :: Int -> String -> P.ByteString -> [AmbiString]
 alignLR w l r 
-    | padding >  0 = P.concat [l, gap, r]
-    | otherwise    = P.concat [ P.take (w - P.length r - 4 - 1) l, ellipsis, spaces 1, r]
+    | padding >  0 = [U l, B gap, B r]
+    -- | otherwise    = [U P.take (w - P.length r - 4 - 1) l, ellipsis, spaces 1, r]
+    | otherwise    = [U $ ellipsize (w - P.length r - 1) l, B " ", B r]
 
-    where padding = w - P.length l - P.length r
+    where padding = w - displayWidth l - P.length r
           gap     = spaces padding
 
 -- | Calculate whitespaces, very common, so precompute likely values
 spaces :: Int -> P.ByteString
 spaces n
+    | n <= 0    = ""
     | n > 100   = P.replicate n ' ' -- unlikely
     | otherwise = arr ! n
   where
@@ -568,10 +551,6 @@ spaces n
 
     s100 :: P.ByteString
     s100 = P.replicate 100 ' '  -- seems reasonable
-
-ellipsis :: P.ByteString
-ellipsis = "... "
-{-# INLINE ellipsis #-}
 
 ------------------------------------------------------------------------
 --
@@ -651,22 +630,15 @@ redraw = Draw $
 -- | Draw a coloured (or not) string to the screen
 --
 drawLine :: Int -> StringA -> IO ()
-drawLine _ (Fast ps sty) = drawString ps sty
-drawLine _ (FancyS ls) = sequence_ $ map (uncurry drawString) ls
+drawLine _ (Fast ps sty) = drawAmbiString (B ps) sty
+drawLine _ (FancyS ls) = sequence_ $ map (uncurry drawAmbiString) ls
 
-drawString :: P.ByteString -> Style -> IO ()
-drawString ps sty = withStyle sty $
-    if P.all (<'\128') ps
-    then
-        void $ B.useAsCString ps \cstr ->
-            waddnstr Curses.stdScr cstr (fromIntegral len)
-    else
-        let s = UTF8.toString ps
-        in Curses.wAddStr Curses.stdScr
-        -- a hack to somewhat not mess up spacing
-        -- TODO have to redo length logic throughout
-            $ s ++ replicate (len - length s) ' '
-    where len = P.length ps
+drawAmbiString :: AmbiString -> Style -> IO ()
+drawAmbiString as sty = withStyle sty $ case as of
+    B ps -> void $ B.useAsCString ps \cstr ->
+                waddnstr Curses.stdScr cstr (fromIntegral $ P.length ps)
+    U s  -> Curses.wAddStr Curses.stdScr s
+{-# INLINE drawAmbiString #-}
 
 
 ------------------------------------------------------------------------
@@ -702,6 +674,9 @@ slice i j arr =
     in [unsafeAt arr n | n <- [max a i .. min b j] ]
 {-# INLINE slice #-}
 
+-- isAscii :: P.ByteString -> Bool
+-- isAscii = P.all (<'\128')
+
 ------------------------------------------------------------------------
 
 --
@@ -733,12 +708,25 @@ setXterm s sz f = setXtermTitle $
       else let (PMode pm) = draw sz (0,0) s f :: PMode in [pm]
 
 displayWidth :: String -> Int
-displayWidth s = unsafePerformIO
-    $ withCWStringLen s \ (cs, len) ->
-        fromIntegral <$> wcswidth cs (fromIntegral len)
+displayWidth = sum . map charWidth
+
+ellipsize :: Int -> String -> String
+ellipsize w s
+  | displayWidth s <= w = s
+  | w <= 3 = replicate w '.'
+  | True = go 0 0 s where
+    go !i !l (c:s') =
+        if l' > w-3
+            then take i s ++ replicate (w-3-l) ' ' ++ "..."
+            else go (i+1) l' s'
+      where l' = l + charWidth c
+    go _  _ _ = error "Should've been in first case!"
+
+charWidth :: Char -> Int
+charWidth = fromIntegral . wcwidth . toEnum . fromEnum
 
 foreign import ccall safe
-    wcswidth :: CWString -> CInt -> IO CInt
+    wcwidth :: CWchar -> CInt
 
 --  Not exported by hscurses.
 foreign import ccall safe
