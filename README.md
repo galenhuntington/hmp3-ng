@@ -48,8 +48,9 @@ can be used by compiling with the `-DMPG123` option, but, while your
 mileage may vary, in my experience it doesn't work as well.
 
 The build depends on the package `hscurses`, which in turn requires
-curses dev files.  In Ubuntu/Debian, for example, these can be gotten
-by installing `libncurses5-dev`.
+curses dev files.  In Ubuntu/Debian, for example, these can be
+gotten by installing `libncurses5-dev`.  You probably also need
+`libncursesw5-dev`.
 
 
 ##  Use
