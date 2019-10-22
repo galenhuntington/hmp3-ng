@@ -428,10 +428,12 @@ instance Element PlayTitle where
         PlayModes modes = draw a b c d
         PVersion ver    = draw a b c d
 
-        gap     = x - padding - P.length inf - modlen - P.length time - P.length ver
-        gapl    = gap `div` 2
-        gapr    = gap - gapl
-        padding = 3
+        lsize   = 1 + P.length inf
+        rsize   = 2 + P.length time + P.length ver
+        side    = (x - modlen) `div` 2
+        gap     = x - modlen - lsize - rsize
+        gapl    = 1 `max` ((side - lsize) `min` gap)
+        gapr    = 1 `max` (gap - gapl)
         modlen  = length modes
         space   = spaces 1
         hl      = titlebar . config $ c
