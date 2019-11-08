@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.com/galenhuntington/hmp3-ng.svg?branch=master)](https://travis-ci.com/galenhuntington/hmp3-ng)
 
 ##  hmp3-ng
 
