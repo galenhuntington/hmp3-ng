@@ -45,7 +45,7 @@ install:
 script:
   - |
     if [ -z "$STACK_YAML" ]; then
-      cabal new-test --enable-tests
+      # cabal new-test --enable-tests
     else
       stack test
     fi
