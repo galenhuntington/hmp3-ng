@@ -49,6 +49,7 @@ import Control.Exception        (handle, SomeException)
 
 import System.IO.Unsafe         (unsafePerformIO)
 import Text.Printf (printf)
+import Control.Monad.Fail as Fail
 
 ------------------------------------------------------------------------
 
@@ -159,10 +160,10 @@ isLightBg = Control.Exception.handle (\ (_ :: SomeException) -> return False) $ 
 ------------------------------------------------------------------------
 
 -- | 'readM' behaves like read, but catches failure in a monad.
-readM :: (Monad m, Read a) => String -> m a
+readM :: (MonadFail m, Read a) => String -> m a
 readM s = case [x | (x,t) <- {-# SCC "Serial.readM.reads" #-} reads s    -- bad!
                , ("","")  <- lex t] of
         [x] -> return x
-        []  -> fail "Serial.readM: no parse"
-        _   -> fail "Serial.readM: ambiguous parse"
+        []  -> Fail.fail "Serial.readM: no parse"
+        _   -> Fail.fail "Serial.readM: ambiguous parse"
 
