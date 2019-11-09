@@ -26,7 +26,7 @@ writing) and libraries.  Some code could not be directly ported,
 mainly low-level optimizations, and so was replaced.
 
 *  There is a GitHub issue tracker to cover other problems and planned
-changes, and Travis CI integration to continuously test builds.
+changes, and Travis integration to continuously test builds.
 
 *  I have added support for building with Stack.
 
