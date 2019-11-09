@@ -32,6 +32,9 @@ changes, and Travis integration to continuously test builds.
 
 *  All C code is removed.  There is still some use of the FFI.
 
+*  Cabal is configured via the more modern
+[hpack](https://github.com/sol/hpack) format.
+
 *  Work on other features and changes, and documentation, is ongoing.
 
 I have also made a few changes and additions to the key bindings per
