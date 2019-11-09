@@ -56,7 +56,7 @@ import qualified Data.ByteString.Char8 as P (ByteString,pack,empty,intercalate,s
 
 import Data.Array               ((!), bounds, Array)
 import Data.Maybe               (isJust,fromJust)
-import Control.Monad            (liftM, when, msum)
+import Control.Monad            (liftM, when, msum, forever)
 import System.Directory         (doesFileExist,findExecutable)
 import System.Environment       (getEnv)
 import System.Exit              (ExitCode(ExitSuccess),exitWith)
@@ -132,13 +132,13 @@ start ms = Control.Exception.handle (\ (e :: SomeException) -> shutdown (Just (s
 ------------------------------------------------------------------------
 
 -- | Uniform loop and thread handler (subtle, and requires exitImmediately)
-forever :: IO () -> IO ()
-forever fn = catch (repeatM_ fn) handler
+runForever :: IO () -> IO ()
+runForever fn = catch (forever fn) handler
     where
         handler :: SomeException -> IO ()
         handler e =
             when (not.exitTime $ e) $
-                (warnA . show) e >> (forever fn)        -- reopen the catch
+                (warnA . show) e >> (runForever fn)        -- reopen the catch
 
 -- | Generic handler
 -- For profiling, make sure to return True for anything:
@@ -161,7 +161,7 @@ exitTime _ = True
 -- For example, if we can't start it two times in a row, perhaps give up?
 --
 mpgLoop :: IO ()
-mpgLoop = forever $ do
+mpgLoop = runForever $ do
     mmpg <- findExecutable mp3Tool
     case mmpg of
       Nothing     -> quit (Just $ "Cannot find " ++ mp3Tool ++ " in path")
@@ -202,13 +202,13 @@ mpgLoop = forever $ do
 refreshLoop :: IO ()
 refreshLoop = do
     mvar <- getsST modified
-    forever $ takeMVar mvar >> UI.refresh
+    runForever $ takeMVar mvar >> UI.refresh
 
 ------------------------------------------------------------------------
 
 -- | The clock ticks once per minute, but check more often in case of drift.
 uptimeLoop :: IO ()
-uptimeLoop = forever $ do
+uptimeLoop = runForever $ do
     threadDelay delay
     now <- getTime Monotonic
     modifyST $ \st -> st { uptime = drawUptime (boottime st) now }
@@ -219,7 +219,7 @@ uptimeLoop = forever $ do
 
 -- | Once each half second, wake up a and redraw the clock
 clockLoop :: IO ()
-clockLoop = forever $ threadDelay delay >> UI.refreshClock
+clockLoop = runForever $ threadDelay delay >> UI.refreshClock
   where
     delay = 500 * 1000 -- 0.5 second
 
@@ -227,7 +227,7 @@ clockLoop = forever $ threadDelay delay >> UI.refreshClock
 
 -- | Handle, and display errors produced by mpg321
 errorLoop :: IO ()
-errorLoop = forever $ do
+errorLoop = runForever $ do
     s <- getsST errh >>= readMVar >>= hGetLine . filtHandle
     if s == "No default libao driver available."
         then quit $ Just $ s ++ " Perhaps another instance of hmp3 is running?"
@@ -240,7 +240,7 @@ errorLoop = forever $ do
 -- take that chance to exit.
 --
 mpgInput :: (HState -> MVar FiltHandle) -> IO ()
-mpgInput field = forever $ do
+mpgInput field = runForever $ do
     mvar <- getsST field
     fp   <- readMVar mvar
     res  <- parser fp
@@ -252,7 +252,7 @@ mpgInput field = forever $ do
 
 -- | The main thread: handle keystrokes fed to us by curses
 run :: IO ()
-run = forever $ sequence_ . keymap =<< getKeys
+run = runForever $ sequence_ . keymap =<< getKeys
   where
     getKeys = unsafeInterleaveIO $ do
             c  <- UI.getKey

@@ -63,14 +63,6 @@ drawUptime before now
         (d,h)  = quotRem hs 24
 
 ------------------------------------------------------------------------
--- | Repeat an action
--- Also known as `forever' in the Awkward squad paper
-repeatM_ :: Monad m => m a -> m ()
-repeatM_ a = a >> repeatM_ a
-{-# SPECIALIZE repeatM_ :: IO a -> IO () #-}
-{-# INLINE repeatM_ #-}
-
-------------------------------------------------------------------------
 
 --
 -- | Some evil to work out if the background is light, or dark. Assume dark.
