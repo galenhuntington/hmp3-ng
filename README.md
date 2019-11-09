@@ -25,15 +25,18 @@ These were quite minor, the bulk being the automated regeneration of a
 writing) and libraries.  Some code could not be directly ported,
 mainly low-level optimizations, and so was replaced.
 
-*  There is a GitHub issue tracker to cover other problems and planned
-changes, and Travis integration to continuously test builds.
-
 *  I have added support for building with Stack.
+
+*  There is a GitHub issue tracker, and Travis integration to
+continuously test builds.
 
 *  All C code is removed.  There is still some use of the FFI.
 
 *  Cabal is configured via the more modern
 [hpack](https://github.com/sol/hpack) format.
+
+*  I try to avoid “Not Invented Here” by using established,
+up-to-date packages from Hackage.
 
 *  Work on other features and changes, and documentation, is ongoing.
 
