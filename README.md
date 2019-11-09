@@ -25,8 +25,8 @@ These were fairly small, the bulk being the regeneration of the
 writing) and libraries.  Some code could not be directly ported,
 mainly low-level optimizations, and so was replaced.
 
-*  There is a GitHub issue tracker to cover other problems and
-planned changes.
+*  There is a GitHub issue tracker to cover other problems and planned
+changes, and Travis CI integration to continuously test builds.
 
 *  I have added support for building with Stack.
 
