@@ -83,6 +83,9 @@ packedFileNameEndClean name =
 
 data FiltHandle = FiltHandle { filtHandle :: !Handle, frameCount :: !(IORef Int) }
 
+newFiltHandle :: Handle -> IO FiltHandle
+newFiltHandle h = FiltHandle h <$> newIORef 0
+
 -- | Read a line from a file stream connected to an external prcoess,
 -- Returning a ByteString.
 getPacket :: FiltHandle -> IO P.ByteString

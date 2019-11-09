@@ -44,11 +44,10 @@ import Lexer                (parser)
 import State
 import Style
 import Utils
-import FastIO               (send, FiltHandle(..))
+import FastIO               (send, FiltHandle(..), newFiltHandle)
 import Tree hiding (File,Dir)
 import qualified Tree (File,Dir)
 import qualified UI
-import Data.IORef
 
 import Text.Regex.PCRE.Light
 import {-# SOURCE #-} Keymap (keymap)
@@ -63,7 +62,7 @@ import System.Environment       (getEnv)
 import System.Exit              (ExitCode(ExitSuccess),exitWith)
 import System.IO                (hPutStrLn, hGetLine, stderr, hFlush)
 import System.IO.Unsafe         (unsafeInterleaveIO)
-import System.Process           (waitForProcess)
+import System.Process
 import System.Clock             (getTime, Clock(..))
 import System.Random.Mersenne
 
@@ -73,7 +72,6 @@ import System.Posix.User        (getUserEntryForID, getRealUserID, homeDirectory
 import Control.Concurrent
 import Control.Exception
 
-import GHC.IO.Handle.FD         (fdToHandle)
 
 mp3Tool :: String
 mp3Tool =
@@ -170,20 +168,18 @@ mpgLoop = forever $ do
       Just mpg321 -> do
 
         -- if we're never able to start mpg321, do something sensible
-        mv <- catch (popen mpg321 ["-R","-"] >>= return . Just)
+        --   TODO no need for this Maybe unpacking, just catch and rerun loop
+        mv <- catch (pure <$> runInteractiveProcess mpg321 ["-R","-"] Nothing Nothing)
                     (\ (e :: SomeException) ->
                            do warnA ("Unable to start " ++ mp3Tool ++ ": " ++ show e)
                               return Nothing)
         case mv of
             Nothing -> threadDelay (1000 * 500) >> mpgLoop
-            Just (r,w,e,pid) -> do
+            Just (hw, r, e, pid) -> do
 
-            hw          <- fdToHandle (fromIntegral w)  -- so we can use Haskell IO
-            ew          <- FiltHandle <$> fdToHandle (fromIntegral e) <*> newIORef 0
-            filep       <- FiltHandle <$> fdToHandle (fromIntegral r) <*> newIORef 0
             mhw         <- newMVar hw
-            mew         <- newMVar ew
-            mfilep      <- newMVar filep
+            mew         <- newMVar =<< newFiltHandle e
+            mfilep      <- newMVar =<< newFiltHandle r
 
             modifyST $ \st ->
                        st { mp3pid    = Just pid
@@ -194,9 +190,9 @@ mpgLoop = forever $ do
                           , info      = Nothing
                           , id3       = Nothing }
 
-            catch (waitForProcess (pid2phdl pid)) (\ (_ :: SomeException) -> return ExitSuccess)
+            catch (waitForProcess pid) (\ (_ :: SomeException) -> return ExitSuccess)
             stop <- getsST doNotResuscitate
-            when (stop) $ exitWith ExitSuccess
+            when stop $ exitWith ExitSuccess
             warnA $ "Restarting " ++ mpg321 ++ " ..."
 
 ------------------------------------------------------------------------
@@ -276,7 +272,7 @@ shutdown ms =
                 Just pid -> do
                     h <- readMVar (writeh st)
                     send h Quit                        -- ask politely
-                    waitForProcess $ pid2phdl pid
+                    waitForProcess pid
                     return ())
 
     `finally`

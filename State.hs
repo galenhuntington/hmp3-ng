@@ -36,6 +36,7 @@ import System.IO.Unsafe         (unsafePerformIO)
 import System.Posix.Types       (ProcessID)
 import System.Clock             (TimeSpec(..))
 import System.IO                (Handle)
+import System.Process           (ProcessHandle)
 import System.Random.Mersenne
 
 import Control.Concurrent       (ThreadId)
@@ -60,7 +61,7 @@ data HState = HState {
        ,cursor          :: !Int                  -- mp3 under the cursor
        ,clock           :: !(Maybe Frame)        -- current clock value
        ,clockUpdate     :: !Bool
-       ,mp3pid          :: !(Maybe ProcessID)    -- pid of decoder
+       ,mp3pid          :: !(Maybe ProcessHandle) -- pid of decoder
        ,writeh          :: !(MVar Handle)        --  handle to mp3 (should be MVars?)
        ,errh            :: !(MVar FiltHandle)    --  error handle to mp3
        ,readf           :: !(MVar FiltHandle)    -- r/w pipe to mp3
