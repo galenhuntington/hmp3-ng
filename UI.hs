@@ -694,11 +694,10 @@ displayWidth = sum . map charWidth
 ellipsize :: Int -> String -> String
 ellipsize w s
   | displayWidth s <= w = s
-  | w <= 3 = replicate w '.'
   | True = go 0 0 s where
     go !i !l (c:s') =
-        if l' > w-3
-            then take i s ++ replicate (w-3-l) ' ' ++ "..."
+        if l' > w-1
+            then take i s ++ replicate (w-l) '…'
             else go (i+1) l' s'
       where l' = l + charWidth c
     go _  _ _ = error "Should've been in first case!"
