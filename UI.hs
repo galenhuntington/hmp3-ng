@@ -54,7 +54,7 @@ import {-# SOURCE #-} Keymap    (extraTable, keyTable, unkey, charToKey)
 import Data.List                (isPrefixOf)
 import Data.Array               ((!), bounds, Array, listArray)
 import Data.Array.Base          (unsafeAt)
-import Control.Monad            (when, void)
+import Control.Monad            (when, void, guard)
 import Control.Exception (catch, handle, SomeException)
 import System.IO                (stderr, hFlush)
 import System.Posix.Signals     (raiseSignal, sigTSTP, installHandler, Handler(..))
@@ -249,10 +249,12 @@ instance Element PPlaying where
         PId3 a  = draw w x st z
         PInfo b = draw w x st z
         s       = UTF8.toString a
-        line | gap >= 0 = [U s, B $ spaces $ gap+1, B b]
-             | True     = [U $ ellipsize lim s, B " ", B b]
-            where lim = x' - 5 - P.length b
+        line | gap >= 0 = [U s, B $ spaces gap] ++ right
+             | True     = [U $ ellipsize lim s] ++ right
+            where lim = x' - 5 - (if showId3 then P.length b else -1)
                   gap = lim - displayWidth s
+                  showId3 = x' > 59
+                  right = if showId3 then [B " ", B b] else []
 
 -- | Id3 Info
 instance Element PId3 where
@@ -316,16 +318,17 @@ instance Element HelpScreen where
 -- | The time used and time left
 instance Element PTimes where
     draw _ _ _ Nothing       = PTimes $ Fast (spaces 5) defaultSty
-    draw (_,x) _ _ (Just fr) = PTimes $ FancyS $
-                                [(spc2,     defaultSty)
-                                ,(B elapsed,  defaultSty)
-                                ,(B gap,      defaultSty)
-                                ,(B remaining,defaultSty)]
+    draw (_,x) _ _ (Just fr) =
+        PTimes $ FancyS $ map (, defaultSty)
+            if x - 4 < P.length elapsed
+            then [B " "]
+            else [spc2, B elapsed]
+                    ++ (guard (distance > 0) *> [B gap, B remaining])
       where
         elapsed   = P.pack $ printf "%d:%02d" lm lm'
         remaining = P.pack $ printf "-%d:%02d" rm rm'
-        (lm,lm')  = quotRem (fst . currentTime $ fr) 60
-        (rm,rm')  = quotRem (fst . timeLeft    $ fr) 60
+        (lm,lm')  = quotRem (fst $ currentTime fr) 60
+        (rm,rm')  = quotRem (fst $ timeLeft    fr) 60
         gap       = spaces distance
         distance  = x - 4 - P.length elapsed - P.length remaining
 
@@ -394,22 +397,22 @@ instance Element PlayInfo where
          , " ("
          ,P.pack (show (1 + ( snd . bounds . folders $ st)))
          , " dir"
-         ,if (snd . bounds $ folders st) == 1 then P.empty else plural
+         ,onPlural (snd . bounds $ folders st) "" "s"
          , ", "
          ,P.pack (show . size $ st)
          , " file"
-         ,if size st == 1 then P.empty else plural
+         ,onPlural (size st) "" "s"
          , ")"]
       where
-        plural = "s"   -- expose to inlining
-        pct    = "%"
+        onPlural 1 s _ = s
+        onPlural _ _ p = p
         curr   = cursor  st
 
         percent | percent' == 0  && curr == 0 = "top"
                 | percent' == 100             = "all"
                 | otherwise = if P.length s == 2 then ' ' `P.cons` s else s
             where 
-                s = P.pack (show percent') `P.append` pct
+                s = P.pack (show percent') `P.snoc` '%'
 
                 percent' :: Int 
                 percent' = round $ ((fromIntegral curr) / 
@@ -417,11 +420,14 @@ instance Element PlayInfo where
 
 instance Element PlayTitle where
     draw a@(_,x) b c d =
-        PlayTitle $ FancyS [
-            (B $ P.concat [space,inf,spaces gapl], hl),
-            (U modes, hl),
-            (B $ P.concat [spaces gapr,time,space,ver,space], hl)
-            ]
+        PlayTitle $ FancyS $ map (,hl)
+            if gap >= 2
+            then [B $ P.concat [space,inf,spaces gapl], U modes,
+                    B $ P.concat [spaces gapr,time,space,ver,space]]
+            else let gap' = x - modlen; gapl' = gap' `div` 2
+                 in if gap' >= 2
+                    then [B $ spaces gapl', U modes, B $ spaces $ gap' - gapl']
+                    else [B space, U $ take (x-2) modes, B space]
       where
         PlayInfo inf    = draw a b c d
         PTime time      = draw a b c d
@@ -434,7 +440,7 @@ instance Element PlayTitle where
         gap     = x - modlen - lsize - rsize
         gapl    = 1 `max` ((side - lsize) `min` gap)
         gapr    = 1 `max` (gap - gapl)
-        modlen  = length modes
+        modlen  = 6 -- length modes
         space   = spaces 1
         hl      = titlebar . config $ c
 
