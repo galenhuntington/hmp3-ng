@@ -18,7 +18,7 @@ but cannot find), and Hackage hosts tarballs for several versions.
 to port to Git.
 
 *  I added commits for the changes in the two later published versions.
-These were quite small, the bulk being the automated regeneration of a
+These were quite minor, the bulk being the automated regeneration of a
 `configure` file (now gone).
 
 *  I updated the code to compile under modern GHC (8.6.5 as of this
