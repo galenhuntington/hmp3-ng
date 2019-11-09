@@ -18,8 +18,8 @@ but cannot find), and Hackage hosts tarballs for several versions.
 to port to Git.
 
 *  I added commits for the changes in the two later published versions.
-These were fairly small, the bulk being the regeneration of the
-`configure` file using a newer version of GNU `autoconf`.
+These were quite small, the bulk being the automated regeneration of a
+`configure` file (now gone).
 
 *  I updated the code to compile under modern GHC (8.6.5 as of this
 writing) and libraries.  Some code could not be directly ported,
