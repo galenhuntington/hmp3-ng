@@ -685,7 +685,8 @@ setXterm s = setXtermTitle $ case status s of
                    if P.null (id3title ti)
                         then []
                         else [": ", id3title ti]
-    x  -> [P.pack $ show x]
+    Paused  -> ["paused"]
+    Stopped -> ["stopped"]
 
 displayWidth :: String -> Int
 displayWidth = sum . map charWidth
