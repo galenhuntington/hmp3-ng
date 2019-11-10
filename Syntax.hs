@@ -75,7 +75,8 @@ data Id3 = Id3
         { id3title  :: !P.ByteString
         , id3artist :: !P.ByteString
         , id3album  :: !P.ByteString
-        , id3str    :: !P.ByteString }   -- cache screen string to draw
+        , id3str    :: !P.ByteString
+        }
 
 --      , year   :: Maybe P.ByteString
 --      , genre  :: Maybe P.ByteString }

@@ -1,5 +1,5 @@
 name: hmp3-ng
-version: "2.8.1"
+version: "2.8.2"
 author: Don Stewart, Galen Huntington
 maintainer: Galen Huntington
 license: GPL
@@ -45,6 +45,7 @@ dependencies:
    - hscurses
    - mtl
    - monad-extras
+   - utf8-string
 
 extra-libraries: ncursesw
 

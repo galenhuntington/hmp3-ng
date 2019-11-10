@@ -28,6 +28,7 @@ import Data.Char
 
 import Data.Maybe   (fromJust)
 import qualified Data.ByteString.Char8 as P
+import qualified Data.ByteString.UTF8 as UTF8
 import Control.Monad.Except
 
 ------------------------------------------------------------------------
@@ -104,7 +105,7 @@ doI s = let f = dropSpaceEnd . P.dropWhile isSpace $ s
     where
         -- a default
         id3 :: Id3
-        id3 = Id3 P.empty P.empty P.empty P.empty
+        id3 = Id3 "" "" "" ""
 
         -- break the ID3 string up
         splitUp :: P.ByteString -> [P.ByteString]
@@ -130,17 +131,19 @@ doI s = let f = dropSpaceEnd . P.dropWhile isSpace $ s
                              , id3artist = normalise $! ls !! 1
                              , id3album  = normalise $! ls !! 2 }
 
-            in j { id3str = (id3artist j)
-                        `maybeJoin`
-                            (id3album j)
-                        `maybeJoin`
-                            (id3title j) }
+            in j { id3str =
+                    id3artist j `maybeJoin` id3album j `maybeJoin` id3title j }
 
-        maybeJoin t f = if P.null f then t `P.append` P.empty else t `gap` f
+        maybeJoin t f | P.null f = t
+                      | True     = mconcat [t, " : ", f]
 
-        gap x y = P.concat [ x, " : ", y ]
-
-        normalise = P.dropWhile isSpace . dropSpaceEnd
+        -- strip spaces, and decide if UTF-8 or ISO-8859-1
+        normalise :: P.ByteString -> P.ByteString
+        normalise raw =
+            let bs = P.dropWhile isSpace . dropSpaceEnd $ raw
+            in if any (== UTF8.replacement_char) $ UTF8.toString bs
+                then UTF8.fromString $ P.unpack bs
+                else bs
 
 ------------------------------------------------------------------------
 
