@@ -144,18 +144,16 @@ doI s = let f = dropSpaceEnd . P.dropWhile isSpace $ s
 
 ------------------------------------------------------------------------
 
-parser :: FiltHandle -> IO (Either String Msg)
-parser h = runExceptT loop where
-  loop = do
+parser :: FiltHandle -> IO (Either (Maybe String) Msg)
+parser h = runExceptT do
     x <- lift $ getPacket h
-    let -- badPacket :: ExceptT String IO a   -- MonoLocalBinds...
-        badPacket = throwError $ "Bad packet: " ++ show (P.unpack x)
-        -- worth notifying about? most are just newlines in the ID data
+    -- bad packets are generally just \n in ID3 (and not of interest anyway)
+    let skip = throwError Nothing
 
-    when (P.length x < 3) $ void badPacket
+    when (P.length x < 3) skip
     let (pre, m) = P.splitAt 3 x
         at : code : sp : _ = P.unpack pre
-    when (at /= '@' || sp /= ' ') $ void badPacket
+    when (at /= '@' || sp /= ' ') skip
 
     -- TODO: make doX functions total
     case code of
@@ -164,8 +162,8 @@ parser h = runExceptT loop where
         'S' -> pure $ doS m
         'F' -> do
             b <- lift $ checkF h
-            if b then pure $ doF m else loop
+            if b then pure $ doF m else skip
         'P' -> pure $ doP m
-        'E' -> throwError $ "mpg321 error: " ++ P.unpack m
-        _   -> badPacket
+        'E' -> throwError $ Just $ "mpg321 error: " ++ P.unpack m
+        _   -> skip
 

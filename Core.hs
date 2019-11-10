@@ -245,8 +245,9 @@ mpgInput field = runForever $ do
     fp   <- readMVar mvar
     res  <- parser fp
     case res of
-        Right m -> handleMsg m
-        Left e  -> (warnA.show) e  -- error from pipe
+        Right m       -> handleMsg m
+        Left (Just e) -> (warnA.show) e
+        _             -> pure ()
 
 ------------------------------------------------------------------------
 

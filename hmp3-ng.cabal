@@ -4,10 +4,10 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: fc31e389b5d8e20a2627f3eba5bff61f40f13472a93b08fd453937532b0339de
+-- hash: 180a01049066894df640d16adf40079d1859104bf801c94053f542db339e6916
 
 name:           hmp3-ng
-version:        2.8.0
+version:        2.8.1
 synopsis:       A 2019 fork of an ncurses mp3 player written in Haskell
 description:    An mp3 player with a curses frontend. Playlists are populated by
                 passing directory names on the commandline, and saved to the
