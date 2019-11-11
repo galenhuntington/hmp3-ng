@@ -21,9 +21,9 @@ to port to Git.
 These were quite minor, the bulk being the automated regeneration of a
 `configure` file (now gone).
 
-*  I updated the code to compile under modern GHC (8.6.5 as of this
-writing) and libraries.  Some code could not be directly ported,
-mainly low-level optimizations, and so was replaced.
+*  I updated the code to compile under modern GHC (8.6.5 and 8.8.1
+as of this writing) and libraries.  Some code could not be directly
+ported, mainly low-level optimizations, and so was replaced.
 
 *  I have added support for building with Stack.
 
