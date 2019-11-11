@@ -392,31 +392,29 @@ instance Element PlayModes where
             PMode2 m' = draw a b c d
 
 instance Element PlayInfo where
-    draw _ _ st _ = PlayInfo $ P.concat
-         [percent
-         , " ("
-         ,P.pack (show (1 + ( snd . bounds . folders $ st)))
+    draw _ _ st _ = PlayInfo $ P.concat [
+           -- TODO pregenerate as template
+           spaces (P.length numd - P.length curd)
+         , curd
+         , "/", numd
          , " dir"
-         ,onPlural (snd . bounds $ folders st) "" "s"
-         , ", "
-         ,P.pack (show . size $ st)
+         , onPlural (snd . bounds $ folders st) "" "s"
+         , " "
+         , spaces (P.length numf - P.length curf)
+         , curf
+         , "/", numf
          , " file"
-         ,onPlural (size st) "" "s"
-         , ")"]
+         , onPlural (size st) "" "s"
+         ]
       where
+        tobs = P.pack . show
         onPlural 1 s _ = s
         onPlural _ _ p = p
-        curr   = cursor  st
-
-        percent | percent' == 0  && curr == 0 = "top"
-                | percent' == 100             = "all"
-                | otherwise = if P.length s == 2 then ' ' `P.cons` s else s
-            where 
-                s = P.pack (show percent') `P.snoc` '%'
-
-                percent' :: Int 
-                percent' = round $ ((fromIntegral curr) / 
-                                   ((fromIntegral . size $ st) - 1) * 100.0 :: Float)
+        curf = tobs $ 1 + cursor st
+        numf = tobs $ size st
+        mydir = fdir $ music st ! cursor st
+        curd = tobs $ 1 + mydir
+        numd = tobs $ 1 + snd (bounds $ folders st)
 
 instance Element PlayTitle where
     draw a@(_,x) b c d =
