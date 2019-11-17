@@ -21,27 +21,30 @@ to port to Git.
 These were quite minor, the bulk being the automated regeneration of a
 `configure` file (now gone).
 
-*  I updated the code to compile under modern GHC (8.6.5 and 8.8.1
-as of this writing) and libraries.  Some code could not be directly
-ported, mainly low-level optimizations, and so was replaced.
+*  I updated the code to compile under modern GHC (8.6.5 and 8.8.1 as
+of this writing) and libraries.  This required rewriting or entirely
+replacing large sections, mainly low-level optimizations.
 
 *  I have added support for building with Stack.
-
-*  There is a GitHub issue tracker, and Travis integration to
-continuously test builds.
-
-*  All C code is removed.  There is still some use of the FFI.
 
 *  Cabal is configured via the more modern
 [hpack](https://github.com/sol/hpack) format.
 
+*  There is a GitHub issue tracker, and Travis integration to
+continuously test builds.
+
 *  I try to avoid “Not Invented Here” by using established,
-up-to-date packages from Hackage.
+up-to-date packages from Hackage.  Much old code has now been
+“outsourced” and simplified.
+
+*  All C code is removed, replaced with libraries from Hackage.
+There is still some use of the FFI.
+
+*  Several changes and additions have been made to the feature set
+and the UI.  Some of the key bindings of the original `hmp3` have
+been modified per my preference.
 
 *  Work on other features and changes, and documentation, is ongoing.
-
-I have also made a few changes and additions to the key bindings per
-my preference.
 
 I am still working out the flaws.  Let me know if there are problems.
 
