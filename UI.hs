@@ -286,10 +286,10 @@ instance Element HelpScreen where
             sty  = helpscreen . config $ st
 
             f :: [Char] -> P.ByteString -> P.ByteString
-            f cs ps = 
-                let p = str `P.append` ps
-                    s = P.pack (take (tot - P.length p) (repeat ' '))
-                in p `P.append` s
+            f cs ps =
+                let rt = tot - P.length p
+                    p = str <> ps
+                in if rt>0 then p <> spaces rt else P.take (tot - 1) p <> " "
                 where
                     tot = round $! fromIntegral w *   (0.8::Float)
                     len = round $! fromIntegral tot * (0.2::Float)
