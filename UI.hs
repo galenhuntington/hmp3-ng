@@ -287,8 +287,8 @@ instance Element HelpScreen where
 
             f :: [Char] -> P.ByteString -> P.ByteString
             f cs ps =
-                let rt = tot - P.length p
-                    p = str <> ps
+                let p = str <> ps
+                    rt = tot - P.length p
                 in if rt>0 then p <> spaces rt else P.take (tot - 1) p <> " "
                 where
                     tot = round $! fromIntegral w *   (0.8::Float)
