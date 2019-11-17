@@ -162,8 +162,8 @@ keyTable =
         [unkey KeyHome,'0'],  jump 0)
     ,("Jump to end of list",
         [unkey KeyEnd,'G'],   jump maxBound)
-    ,("Jump to 10%, 20%, etc., point",
-        ['1','2'], undefined) -- overridden below
+    ,("Jump to 10%, 20%, 30%, etc., point",
+        ['1','2','3'], undefined) -- overridden below
     ,("Seek left within song",
         [unkey KeyLeft],  seekLeft)
     ,("Seek right within song",

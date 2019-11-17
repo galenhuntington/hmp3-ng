@@ -289,10 +289,12 @@ instance Element HelpScreen where
             f cs ps =
                 let p = str <> ps
                     rt = tot - P.length p
-                in if rt>0 then p <> spaces rt else P.take (tot - 1) p <> " "
+                in if rt > 0
+                    then p <> spaces rt
+                    else P.take (tot - 1) p <> UTF8.fromString "…"
                 where
-                    tot = round $! fromIntegral w *   (0.8::Float)
-                    len = round $! fromIntegral tot * (0.2::Float)
+                    tot = max (min w 3) $! round $! fromIntegral w * (0.8::Float)
+                    len = max 2 $! round $! fromIntegral tot * (0.2::Float)
 
                     str = P.take len $ P.intercalate " "
                         ([""] ++ map pprIt cs ++ [P.replicate len ' '])
@@ -300,7 +302,8 @@ instance Element HelpScreen where
                     pprIt c = case c of
                           '\n'            -> "Enter"
                           '\f'            -> "^L"
-                          '\\'            -> "'\\'"
+                          '\\'            -> "\\"
+                          ' '             -> "Space"
                           _ -> case charToKey c of
                             Curses.KeyUp    -> "Up"
                             Curses.KeyDown  -> "Down"
@@ -311,7 +314,7 @@ instance Element HelpScreen where
                             Curses.KeyEnd   -> "End"
                             Curses.KeyHome  -> "Home"
                             Curses.KeyBackspace -> "Backspace"
-                            _ -> P.pack $ show c
+                            _ -> P.singleton c
 
 ------------------------------------------------------------------------
 
@@ -566,7 +569,7 @@ drawHelp st fr s@(h,w) =
    when (helpVisible st) $ do
        let (HelpScreen help') = draw s (0,0) st fr :: HelpScreen
            (Fast fps _)      = head help'
-           offset            = (w - (P.length fps)) `div` 2
+           offset            = max 0 $ (w - (P.length fps)) `div` 2
            height            = (h - length help') `div` 2
        when (height > 0) $ do
             Curses.wMove Curses.stdScr ((h - length help') `div` 2) offset
