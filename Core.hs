@@ -27,7 +27,8 @@ module Core (
         start,
         shutdown,
         seekLeft, seekRight, up, down, pause, nextMode, playNext, playPrev,
-        quit, putmsg, clrmsg, toggleHelp, play, playCur, jumpToPlaying, jump, {-, add-}
+        quit, putmsg, clrmsg, toggleHelp, play, playCur,
+        jumpToPlaying, jump, jumpRel,
         upPage, downPage,
         seekStart,
         blacklist,
@@ -358,6 +359,12 @@ down = modifySTM $ flip jumpTo (+1)
 -- | Move cursor to specified index
 jump :: Int -> IO ()
 jump i = modifySTM $ flip jumpTo (const i)
+
+-- | Jump to relative place, 0 to 1.
+jumpRel :: Float -> IO ()
+jumpRel r | r < 0 || r >= 1 = return ()
+          | True = modifySTM \st ->
+                pure st { cursor = floor $ fromIntegral (size st) * r }
 
 -- | Generic jump
 jumpTo :: HState -> (Int -> Int) -> IO HState

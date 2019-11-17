@@ -159,9 +159,11 @@ keyTable =
     ,("Page up",
         [unkey KeyPPage], upPage)
     ,("Jump to start of list",
-        [unkey KeyHome,'1'],  jump 0)
+        [unkey KeyHome,'0'],  jump 0)
     ,("Jump to end of list",
         [unkey KeyEnd,'G'],   jump maxBound)
+    ,("Jump to 10%, 20%, etc., point",
+        ['1','2'], undefined) -- overridden below
     ,("Seek left within song",
         [unkey KeyLeft],  seekLeft)
     ,("Seek right within song",
@@ -200,6 +202,9 @@ keyTable =
         [unkey KeyBackspace],   seekStart)
     ]
 
+innerTable :: [(Char, IO ())]
+innerTable = [(c, jumpRel i) | (i, c) <- zip [0.1, 0.2 ..] ['1'..'9']]
+
 extraTable :: [(P.ByteString, [Char])]
 extraTable = [("Search for file matching regex", ['/'])
              ,("Search backwards for file", ['?'])
@@ -210,7 +215,7 @@ helpIsVisible :: IO Bool
 helpIsVisible = getsST helpVisible
 
 keyMap :: M.Map Char (IO ())
-keyMap = M.fromList [ (c,a) | (_,cs,a) <- keyTable, c <- cs ]
+keyMap = M.fromList $ [ (c,a) | (_,cs,a) <- keyTable, c <- cs ] ++ innerTable
 
 keys :: [Char]
-keys = concat [ cs | (_,cs,_) <- keyTable ]
+keys = concat [ cs | (_,cs,_) <- keyTable ] ++ map fst innerTable
