@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP, AllowAmbiguousTypes #-}
 
 -- 
 -- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
@@ -139,19 +139,18 @@ runForever fn = catch (forever fn) handler
         handler :: SomeException -> IO ()
         handler e =
             when (not.exitTime $ e) $
-                (warnA . show) e >> (runForever fn)        -- reopen the catch
+                (warnA . show) e >> runForever fn        -- reopen the catch
 
 -- | Generic handler
+-- I don't know why these are ignored, but preserving old logic.
 -- For profiling, make sure to return True for anything:
 exitTime :: SomeException -> Bool
--- TODO  make this work with new exception hierarchy
-{-
-exitTime e | isJust . ioErrors $ e   = False -- ignore
-           | isJust . errorCalls $ e = False -- ignore
-           | isJust . userErrors $ e = False -- ignore
-           | otherwise               = True
--}
-exitTime _ = True
+exitTime e | is @IOException e = False -- ignore
+           | is @ErrorCall e   = False -- ignore
+           -- "user errors" were caught before, but are no longer a thing
+           | otherwise         = True
+    where is :: forall e. Exception e => SomeException -> Bool
+          is = isJust . fromException @e
 
 ------------------------------------------------------------------------
 

@@ -27,6 +27,7 @@ default-extensions:
    - NondecreasingIndentation
    - OverloadedStrings
    - ScopedTypeVariables
+   - TypeApplications
 
 dependencies:
    - unix >= 2.7
