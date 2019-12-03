@@ -2,8 +2,8 @@
 
 ##  hmp3-ng
 
-The `hmp3` music player, written in Haskell, dates to 2005, and has a
-curses-based interface which can be used in an ordinary text terminal.
+The `hmp3` music player, written in Haskell, dates to 2005, and
+has a curses-based interface which can be used in a text terminal.
 But it has become abandonware: the last update was in June 2008,
 and it no longer builds with today's Haskell and standard libraries.
 
@@ -25,10 +25,10 @@ These were quite minor, the bulk being the automated regeneration of a
 of this writing) and libraries.  This required rewriting or entirely
 replacing large sections, mainly low-level optimizations.
 
-*  I have added support for building with Stack.
-
 *  Cabal is configured via the more modern
 [hpack](https://github.com/sol/hpack) format.
+
+*  I have added support for building with Stack.
 
 *  There is a GitHub issue tracker, and Travis integration to
 continuously test builds.
@@ -40,7 +40,10 @@ up-to-date packages from Hackage.  Much old code has now been
 *  All C code is removed, replaced with libraries from Hackage.
 There is still some use of the FFI.
 
-*  Several changes and additions have been made to the feature set
+*  Unicode support is added for titles and filenames, and also Unicode
+characters are utilized to sharpen the interface.
+
+*  Several additions and changes have been made to the feature set
 and the UI.  Some of the key bindings of the original `hmp3` have
 been modified per my preference.
 
