@@ -65,7 +65,7 @@ import System.IO                (hPutStrLn, hGetLine, stderr, hFlush)
 import System.IO.Unsafe         (unsafeInterleaveIO)
 import System.Process
 import System.Clock             (getTime, Clock(..))
-import System.Random
+import System.Random            (randomIO)
 
 import System.Posix.Process     (exitImmediately)
 import System.Posix.User        (getUserEntryForID, getRealUserID, homeDirectory)

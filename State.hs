@@ -36,7 +36,6 @@ import System.IO.Unsafe         (unsafePerformIO)
 import System.Clock             (TimeSpec(..))
 import System.IO                (Handle)
 import System.Process           (ProcessHandle)
-import System.Random
 
 import Control.Concurrent       (ThreadId)
 import Control.Concurrent.MVar
