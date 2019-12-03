@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 945a55f32185fa686a38d5bee7853ce414375559b448d23c510cd727745f506e
+-- hash: bca32a5be01130a66aca6929e105c1f280bb3cefafdeeaaa186f158a285033fa
 
 name:           hmp3-ng
 version:        2.9.1
@@ -38,6 +38,7 @@ executable hmp3
       Keymap
       Lexer
       Lexers
+      Paths_hmp3_ng
       State
       Style
       Syntax
@@ -60,11 +61,11 @@ executable hmp3
     , containers
     , directory
     , hscurses
-    , mersenne-random >=1.0.0.1
     , monad-extras
     , mtl
     , pcre-light >=0.3
     , process
+    , random
     , unix >=2.7
     , utf8-string
     , zlib >=0.4

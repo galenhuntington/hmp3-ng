@@ -34,7 +34,7 @@ dependencies:
    - zlib >= 0.4
    - binary >= 0.4
    - pcre-light >= 0.3
-   - mersenne-random >= 1.0.0.1
+   - random
    - base >= 4 && < 5
    - bytestring >= 0.10
    - containers

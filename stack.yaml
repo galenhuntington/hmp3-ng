@@ -3,5 +3,4 @@ system-ghc: true
 compiler-check: newer-minor
 
 extra-deps:
-   - mersenne-random-1.0.0.1@sha256:c2c7c88765030e4a6003e921e7676858a048f75bc2f38d58ddafd3b102be6d82,3637
    - hscurses-1.4.2.0@sha256:185f294036aaced6a4cf72c994339286e8e7886f5a327c3ccac898066985c528,2118

@@ -36,7 +36,7 @@ import System.IO.Unsafe         (unsafePerformIO)
 import System.Clock             (TimeSpec(..))
 import System.IO                (Handle)
 import System.Process           (ProcessHandle)
-import System.Random.Mersenne
+import System.Random
 
 import Control.Concurrent       (ThreadId)
 import Control.Concurrent.MVar
@@ -82,7 +82,6 @@ data HState = HState {
        ,modified        :: !(MVar ())           -- Set when redrawable components of 
                                                 -- the state are modified. The ui
                                                 -- refresh thread waits on this.
-       ,randomGen       :: MTGen
        ,drawLock        :: !(MVar ())           -- simple semaphore for display
     }
 
@@ -123,7 +122,6 @@ emptySt = HState {
        ,mode         = Normal
        ,minibuffer   = Fast P.empty defaultSty
        ,uptime       = P.empty
-       ,randomGen    = unsafePerformIO (newMTGen Nothing)
        ,drawLock     = unsafePerformIO (newMVar ())
     }
 

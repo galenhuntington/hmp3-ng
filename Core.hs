@@ -65,7 +65,7 @@ import System.IO                (hPutStrLn, hGetLine, stderr, hFlush)
 import System.IO.Unsafe         (unsafeInterleaveIO)
 import System.Process
 import System.Clock             (getTime, Clock(..))
-import System.Random.Mersenne
+import System.Random
 
 import System.Posix.Process     (exitImmediately)
 import System.Posix.User        (getUserEntryForID, getRealUserID, homeDirectory)
@@ -380,8 +380,7 @@ play :: IO ()
 play = modifySTM $ \st ->
     if current st == cursor st
     then do
-        let g = randomGen st
-        n' <- random g :: IO Int
+        n' <- randomIO
         let n = abs n' `mod` (size st -1)
         playAtN st (const n)
     else
@@ -401,9 +400,8 @@ blacklist = do
 -- | Play a random song
 playRandom :: IO ()
 playRandom = modifySTM $ \st -> do
-    let g = randomGen st
-    n' <- random g :: IO Int
-    let n = abs n' `mod` (size st -1)
+    n' <- randomIO
+    let n = abs n' `mod` (size st - 1)
     playAtN st (const n)
 
 -- | Play the song before the current song, if we're not at the beginning
