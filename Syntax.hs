@@ -137,9 +137,10 @@ data Frame = Frame {
 data Status = Stopped
             | Paused
             | Playing
-        deriving (Eq, Show)
+    deriving stock (Eq, Show)
 
-data Mode = Normal | Loop | Random deriving (Eq,Bounded,Enum) -- for pred,succ
+data Mode = Normal | Loop | Random
+    deriving stock (Eq,Bounded,Enum)
 
 ------------------------------------------------------------------------
 

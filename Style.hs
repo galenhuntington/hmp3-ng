@@ -60,11 +60,11 @@ data Color
     = RGB {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8
     | Default
     | Reverse
-    deriving (Eq,Ord)
+    deriving stock (Eq,Ord)
 
 -- | Foreground and background color pairs
 data Style = Style !Color !Color 
-    deriving (Eq,Ord)
+    deriving stock (Eq,Ord)
 
 -- | Can hold an optimized ByteString or a Unicode String.
 data AmbiString = B !ByteString | U !String
@@ -327,7 +327,7 @@ data Config = Config {
        , hmp3_warnings    :: (String,String)
        , hmp3_blockcursor :: (String,String)
        , hmp3_progress    :: (String,String)
-     } deriving (Show,Read)
+     } deriving stock (Show,Read)
 
 --
 -- | Read the ~/.hmp3 file, and construct a UIStyle from it, to insert
