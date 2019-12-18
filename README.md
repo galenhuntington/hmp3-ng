@@ -11,8 +11,8 @@ This repository is a work in progress to resurrect this software.
 
 The original Darcs repo has vanished from the Internet.  However, I
 have a copy I checked out in 2008 (to hack on!) with all the patches
-through version 1.5.1 (the latest is 1.5.2.1, which I had at one point
-but cannot find), and Hackage hosts tarballs for several versions.
+through version 1.5.1 (the latest is 1.5.2.1), and Hackage has tarballs
+for the later versions.
 
 *  I used [darcs-to-git](https://github.com/purcell/darcs-to-git)
 to port to Git.
@@ -21,7 +21,7 @@ to port to Git.
 These were quite minor, the bulk being the automated regeneration of a
 `configure` file (now gone).
 
-*  I updated the code to compile under modern GHC (8.6.5, 8.8.1,
+*  I updated the code to compile under recent GHC (8.6.5, 8.8.1,
 and 8.10.1-alpha1 as of this writing) and libraries.  This required
 rewriting or entirely replacing large sections, mainly low-level
 optimizations.
@@ -41,12 +41,12 @@ up-to-date packages from Hackage.  Much old code has now been
 *  All C code is removed, replaced with libraries from Hackage.
 There is still some use of the FFI.
 
-*  Unicode support is added for titles and filenames, and also Unicode
-characters are utilized to sharpen the interface.
+*  Unicode is supported in titles and filenames, and Unicode characters
+are utilized to sharpen the interface.
 
 *  Several additions and changes have been made to the feature set
-and the UI.  Some of the key bindings of the original `hmp3` have
-been modified per my preference.
+and the UI.  A few of the key bindings have been modified per my
+preference.
 
 *  Work on other features and changes, and documentation, is ongoing.
 
