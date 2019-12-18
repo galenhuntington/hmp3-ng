@@ -331,7 +331,7 @@ instance Element PTimes where
         elapsed   = P.pack $ printf "%d:%02d" lm lm'
         remaining = P.pack $ printf "-%d:%02d" rm rm'
         (lm,lm')  = quotRem (fst $ currentTime fr) 60
-        (rm,rm')  = quotRem (fst $ timeLeft    fr) 60
+        (rm,rm')  = quotRem (max 0 $ fst $ timeLeft fr) 60
         gap       = spaces distance
         distance  = x - 4 - P.length elapsed - P.length remaining
 
@@ -354,7 +354,7 @@ instance Element ProgressBar where
           total    = curr + left
           distance = round ((curr / total) * fromIntegral width)
           curr     = toFloat (currentTime fr)
-          left     = toFloat (timeLeft fr)
+          left     = max 0 $ toFloat (timeLeft fr)
           (Style fg bg) = progress (config st)
           bgs           = Style bg bg
           fgs           = Style fg fg
