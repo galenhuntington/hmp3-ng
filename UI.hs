@@ -320,20 +320,22 @@ instance Element HelpScreen where
 
 -- | The time used and time left
 instance Element PTimes where
-    draw _ _ _ Nothing       = PTimes $ Fast (spaces 5) defaultSty
-    draw (_,x) _ _ (Just fr) =
+    draw _     _ _ Nothing           = PTimes $ Fast (spaces 5) defaultSty
+    draw (_,x) _ _ (Just Frame {..}) =
         PTimes $ FancyS $ map (, defaultSty)
             if x - 4 < P.length elapsed
             then [B " "]
             else [spc2, B elapsed]
                     ++ (guard (distance > 0) *> [B gap, B remaining])
       where
-        elapsed   = P.pack $ printf "%d:%02d" lm lm'
-        remaining = P.pack $ printf "-%d:%02d" rm rm'
-        (lm,lm')  = quotRem (fst $ currentTime fr) 60
-        (rm,rm')  = quotRem (max 0 $ fst $ timeLeft fr) 60
+        elapsed   = P.pack $ printf "%d:%02d" l_m l_s
+        remaining = P.pack $ printf "-%d:%02d" r_m r_s
+        (l_m,l_s) = toMS currentTime
+        (r_m,r_s) = toMS timeLeft
         gap       = spaces distance
         distance  = x - 4 - P.length elapsed - P.length remaining
+        toMS :: RealFrac a => a -> (Int, Int)
+        toMS = flip quotRem 60 . floor
 
 ------------------------------------------------------------------------
 
@@ -345,7 +347,7 @@ instance Element ProgressBar where
           (Style _ bg) = progress (config st)
           bgs          = Style bg bg
 
-    draw (_,w) _ st (Just fr) = ProgressBar . FancyS $
+    draw (_,w) _ st (Just Frame {..}) = ProgressBar . FancyS $
           [(spc2,defaultSty)
           ,((B $ spaces distance),fgs)
           ,((B $ spaces (width - distance)),bgs)]
@@ -353,14 +355,11 @@ instance Element ProgressBar where
           width    = w - 4
           total    = curr + left
           distance = round ((curr / total) * fromIntegral width)
-          curr     = toFloat (currentTime fr)
-          left     = max 0 $ toFloat (timeLeft fr)
+          curr     = realToFrac currentTime :: Float
+          left     = realToFrac timeLeft
           (Style fg bg) = progress (config st)
           bgs           = Style bg bg
           fgs           = Style fg fg
-
-          toFloat (x,y) | x `seq` y `seq` False = undefined
-          toFloat (x,y) = (fromIntegral x :: Float) + (fromIntegral y / 100)
 
 ------------------------------------------------------------------------
 

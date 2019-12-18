@@ -36,6 +36,9 @@ import Control.Monad.Except
 pSafeHead :: P.ByteString -> Char
 pSafeHead s = if P.null s then ' ' else P.head s
 
+readPS :: P.ByteString -> Int
+readPS = fst . fromJust . P.readInt
+
 doP :: P.ByteString -> Msg
 doP s = S $! case pSafeHead s of
                 '0' -> Stopped
@@ -48,21 +51,13 @@ doP s = S $! case pSafeHead s of
 -- Frame decoding status updates (once per frame).
 doF :: P.ByteString -> Msg
 doF s = R $ Frame {
-                currentFrame = readPS (fs !! 0)
-              , framesLeft   = readPS (fs !! 1)
-              , currentTime  = f 2
-              , timeLeft     = f 3
+                currentFrame = readPS f0
+              , framesLeft   = readPS f1
+              , currentTime  = read . P.unpack $ f2
+              , timeLeft     = max 0 . read . P.unpack $ f3
            }
         where
-
-          fs  = P.split ' ' $ s
-          f n = case P.split '.' (fs !! n) of { [x,y] ->
-                case readPS x              of { rx    ->
-                case readPS y              of { ry    -> (rx,ry) }}
-                                              ; _ -> error "doF.f" }
-
-readPS :: P.ByteString -> Int
-readPS = fst . fromJust . P.readInt
+          f0 : f1 : f2 : f3 : _ = P.split ' ' s
 
 -- Outputs information about the mp3 file after loading.
 doS :: P.ByteString -> Msg

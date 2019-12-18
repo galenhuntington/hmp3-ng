@@ -29,6 +29,7 @@ default-extensions:
    - ScopedTypeVariables
    - TypeApplications
    - DerivingStrategies
+   - RecordWildCards
 
 dependencies:
    - unix >= 2.7

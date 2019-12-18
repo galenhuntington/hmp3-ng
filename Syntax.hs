@@ -28,6 +28,7 @@
 module Syntax where
 
 import qualified Data.ByteString.Char8 as P (concat,pack,ByteString)
+import Data.Fixed (Fixed, E2)
 
 ------------------------------------------------------------------------
 --
@@ -123,10 +124,10 @@ data Info = Info {
 -- there's no need to evaluate all the others. 
 -- 
 data Frame = Frame {
-                currentFrame   :: Int,
-                framesLeft     :: Int,
-                currentTime    :: (Int,Int),
-                timeLeft       :: (Int,Int)
+                currentFrame   :: !Int,
+                framesLeft     :: !Int,
+                currentTime    :: !(Fixed E2),
+                timeLeft       :: !(Fixed E2)
              }
 
 -- @P {0, 1, 2}
