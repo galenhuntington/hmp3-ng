@@ -7,7 +7,7 @@ category: Sound
 synopsis: "A 2019 fork of an ncurses mp3 player written in Haskell"
 description: |
    An mp3 player with a curses frontend. Playlists are populated by
-   passing directory names on the commandline, and saved to the
+   passing file and directory names on the command line, and saved to the
    ~/.hmp3db database. Type 'h' to display the help page.  Colours may
    be configured at runtime by editing the "~/.hmp3" file.
 github: galenhuntington/hmp3-ng
