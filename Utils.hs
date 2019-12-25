@@ -68,7 +68,7 @@ drawUptime before now
 -- | Some evil to work out if the background is light, or dark. Assume dark.
 --
 isLightBg :: IO Bool
-isLightBg = Control.Exception.handle (\ (_ :: SomeException) -> return False) $ do
+isLightBg = handle @SomeException (\_ -> pure False) do
     e <- getEnv "HMP_HAS_LIGHT_BG"
     return $ map toLower e == "true"
 

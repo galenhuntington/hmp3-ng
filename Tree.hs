@@ -124,9 +124,10 @@ make (i,n,acc1,acc2) (d,fs) =
 expandDir :: FilePathP -> IO (Maybe (FilePathP, [FilePathP]),  [FilePathP])
 expandDir f | seq f False = undefined -- stricitfy
 expandDir f = do
-    ls_raw <- Control.Exception.handle (\ (e :: SomeException) -> hPutStrLn stderr (show e) >> return []) $
-                packedGetDirectoryContents f
-    let ls = map (\s -> P.intercalate (P.singleton '/') [f,s]) . sort . filter validFiles $! ls_raw
+    ls_raw <- handle @SomeException (\e -> hPutStrLn stderr (show e) >> pure [])
+                $ packedGetDirectoryContents f
+    let ls = map (\s -> P.intercalate (P.singleton '/') [f,s])
+                . sort . filter validFiles $! ls_raw
     ls `seq` return ()
     (fs',ds) <- partition ls
     let fs = filter onlyMp3s fs'
@@ -151,7 +152,8 @@ listToDir n d fs =
         let dir = Dir { dname = packedFileNameEndClean d
                       , dsize = len
                       , dlo   = n
-                      , dhi   = n + len - 1 } in (dir, n')
+                      , dhi   = n + len - 1
+                      } in (dir, n')
     where
         len = length fs
         n'  = n + len

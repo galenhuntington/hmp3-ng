@@ -57,7 +57,7 @@ import qualified Data.ByteString.Char8 as P (ByteString,pack,empty,intercalate,s
 
 import Data.Array               ((!), bounds, Array)
 import Data.Maybe               (isJust,fromJust)
-import Control.Monad            (liftM, when, msum, forever)
+import Control.Monad            (liftM, when, msum, forever, void)
 import System.Directory         (doesFileExist,findExecutable)
 import System.Environment       (getEnv)
 import System.Exit              (ExitCode(ExitSuccess),exitWith)
@@ -85,7 +85,7 @@ mp3Tool =
 ------------------------------------------------------------------------
 
 start :: Either SerialT [P.ByteString] -> IO ()
-start ms = Control.Exception.handle (\ (e :: SomeException) -> shutdown (Just (show e))) $ do
+start ms = handle @SomeException (shutdown . Just . show) do
 
     t0 <- forkIO mpgLoop    -- start this off early, to give mpg321 a time to settle
 
@@ -161,7 +161,7 @@ exitTime e | is @IOException e = False -- ignore
 -- For example, if we can't start it two times in a row, perhaps give up?
 --
 mpgLoop :: IO ()
-mpgLoop = runForever $ do
+mpgLoop = runForever do
     mmpg <- findExecutable mp3Tool
     case mmpg of
       Nothing     -> quit (Just $ "Cannot find " ++ mp3Tool ++ " in path")
@@ -172,7 +172,7 @@ mpgLoop = runForever $ do
         mv <- catch (pure <$> runInteractiveProcess mpg321 ["-R","-"] Nothing Nothing)
                     (\ (e :: SomeException) ->
                            do warnA ("Unable to start " ++ mp3Tool ++ ": " ++ show e)
-                              return Nothing)
+                              pure Nothing)
         case mv of
             Nothing -> threadDelay (1000 * 500) >> mpgLoop
             Just (hw, r, e, pid) -> do
@@ -190,7 +190,7 @@ mpgLoop = runForever $ do
                           , info      = Nothing
                           , id3       = Nothing }
 
-            catch (waitForProcess pid) (\ (_ :: SomeException) -> return ExitSuccess)
+            catch @SomeException (void $ waitForProcess pid) (\_ -> pure ())
             stop <- getsST doNotResuscitate
             when stop $ exitWith ExitSuccess
             warnA $ "Restarting " ++ mpg321 ++ " ..."
@@ -266,7 +266,7 @@ run = runForever $ sequence_ . keymap =<< getKeys
 shutdown :: Maybe String -> IO ()
 shutdown ms =
     (do silentlyModifyST $ \st -> st { doNotResuscitate = True }
-        catch writeSt (\ (_ :: SomeException) -> return ())
+        handle @SomeException (\_ -> pure ()) writeSt
         withST $ \st -> do
             case mp3pid st of
                 Nothing  -> return ()
@@ -601,9 +601,9 @@ readSt = do
 
 -- | Find a user's home in a canonical sort of way
 getHome :: IO String
-getHome = Control.Exception.catch
+getHome = catch @SomeException
     (getRealUserID >>= getUserEntryForID >>= (return . homeDirectory))
-    (\ (_ :: SomeException) -> getEnv "HOME")
+    (const $ getEnv "HOME")
 
 ------------------------------------------------------------------------
 -- Read styles from ~/.hmp3
@@ -615,8 +615,9 @@ loadConfig = do
     b <- doesFileExist f
     if b then do
         str  <- readFile f
-        msty <- catch (readM str >>= return . Just)
-                      (\ (_ :: SomeException) -> warnA "Parse error in ~/.hmp3" >> return Nothing)
+        msty <- catch (readM str >>= return . Just) -- TODO use maybe?
+                      (\ (_ :: SomeException) ->
+                        warnA "Parse error in ~/.hmp3" >> pure Nothing)
         case msty of
             Nothing  -> return ()
             Just rsty -> do

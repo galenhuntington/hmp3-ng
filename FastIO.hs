@@ -63,14 +63,14 @@ packedGetDirectoryContents fp = bracket (openDirStream fp) closeDirStream
         $ sequenceWhile (not . P.null) $ repeat $ readDirStream ds
 
 doesFileExist :: P.ByteString -> IO Bool
-doesFileExist fp = catch
+doesFileExist fp = catch @SomeException
    (not <$> isDirectory <$> getFileStatus fp)
-   (\ (_ :: SomeException) -> return False)
+   (\_ -> pure False)
 
 doesDirectoryExist :: P.ByteString -> IO Bool
-doesDirectoryExist fp = catch
+doesDirectoryExist fp = catch @SomeException
    (isDirectory <$> getFileStatus fp)
-   (\ (_ :: SomeException) -> return False)
+   (\_ -> pure False)
 
 packedFileNameEndClean :: P.ByteString -> P.ByteString
 packedFileNameEndClean name =

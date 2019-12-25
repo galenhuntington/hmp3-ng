@@ -55,7 +55,7 @@ import Data.List                (isPrefixOf)
 import Data.Array               ((!), bounds, Array, listArray)
 import Data.Array.Base          (unsafeAt)
 import Control.Monad            (when, void, guard)
-import Control.Exception (catch, handle, SomeException)
+import Control.Exception        (handle, SomeException)
 import System.IO                (stderr, hFlush)
 import System.Posix.Signals     (raiseSignal, sigTSTP, installHandler, Handler(..))
 import System.Posix.Env         (getEnv, putEnv)
@@ -83,7 +83,7 @@ runDraw (Draw d) = withDrawLock d
 --
 start :: IO UIStyle
 start = do
-    Control.Exception.handle (\ (_ :: SomeException) -> return ()) $ do -- tweak for OpenBSD console
+    handle @SomeException (\_ -> pure ()) do
         thisterm <- getEnv "TERM"
         case thisterm of 
             Just "vt220" -> putEnv "TERM=xterm-color"
@@ -115,9 +115,9 @@ resetui = runDraw (resizeui <> nocursor) >> refresh
 
 -- | And force invisible
 nocursor :: Draw
-nocursor = Draw $ do
-    Control.Exception.catch (void $ Curses.cursSet Curses.CursorInvisible) 
-                            (\ (_ :: SomeException) -> return ())
+nocursor = Draw do
+    handle @SomeException (\_ -> pure ()) $
+        void $ Curses.cursSet Curses.CursorInvisible
 
 --
 -- | Clean up and go home. Refresh is needed on linux. grr.
@@ -546,7 +546,7 @@ spaces n
 --
 redrawJustClock :: Draw
 redrawJustClock = Draw do
-   Control.Exception.handle (\ (_ :: SomeException) -> return ()) $ do
+   handle @SomeException (\_ -> pure ()) do
 
    st      <- getsST id
    let fr = clock st
@@ -583,7 +583,7 @@ drawHelp st fr s@(h,w) =
 redraw :: Draw
 redraw = Draw $
    -- linux ncurses, in particular, seems to complain a lot. this is an easy solution
-   Control.Exception.handle (\ (_ :: SomeException) -> return ()) $ do
+   handle @SomeException (\_ -> pure ()) do
 
    s <- getsST id    -- another refresh could be triggered?
    let f = clock s
@@ -645,7 +645,7 @@ lineDown h y = Curses.wMove Curses.stdScr (min h (y+1)) 0
 -- | Fill to end of line spaces
 --
 fillLine :: IO ()
-fillLine = Control.Exception.catch (Curses.clrToEol) (\ (_ :: SomeException) -> return ()) -- harmless?
+fillLine = handle @SomeException (\_ -> pure ()) Curses.clrToEol -- harmless?
 
 --
 -- | move cursor to origin of stdScr.

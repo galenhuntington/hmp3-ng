@@ -184,7 +184,7 @@ initUiColors stys = do
     fn :: Style -> Int -> IO (Style, (Curses.Attr,Curses.Pair))
     fn sty p = do
         let (CColor (a,fgc),CColor (b,bgc)) = style2curses sty
-        handle (\ (_ :: SomeException) -> return ()) $
+        handle @SomeException (\_ -> pure ()) $
             Curses.initPair (Curses.Pair p) fgc bgc
         return (sty, (a `Curses.attrPlus` b, Curses.Pair p))
 
