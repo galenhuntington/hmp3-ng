@@ -178,8 +178,9 @@ refreshClock = runDraw $ redrawJustClock <> Draw Curses.refresh
 
 ------------------------------------------------------------------------
 
-type Pos    = (Int{-H-}, Int{-W-})
-type Size   = (Int{-H-}, Int{-W-})
+-- (prefix some with underscore to avoid unused warnings)
+data Pos  = Pos  { posY, _posX :: !Int }
+data Size = Size { _sizeH, sizeW :: !Int }
 
 data DrawData = DD {
     drawSize  :: Size,
@@ -248,7 +249,7 @@ instance Element PPlaying where
     draw dd =
         PPlaying . FancyS $ map (, defaultSty) $ spc2 : line
       where
-        (_, x') = drawSize dd
+        x'      = sizeW $ drawSize dd
         PId3 a  = draw dd
         PInfo b = draw dd
         s       = UTF8.toString a
@@ -282,7 +283,7 @@ spc2 = B $ spaces 2
 ------------------------------------------------------------------------
 
 instance Element HelpScreen where
-    draw DD{drawSize=(_,w), drawState=st} = HelpScreen $ 
+    draw DD{drawSize=Size{sizeW=w}, drawState=st} = HelpScreen $
         [ Fast (f cs h) sty | (h,cs,_) <- keyTable ] ++
         [ Fast (f cs h) sty | (h,cs) <- extraTable ]
         where
@@ -323,7 +324,7 @@ instance Element HelpScreen where
 
 -- | The time used and time left
 instance Element PTimes where
-    draw DD { drawFrame=Just Frame {..}, drawSize=(_,x) } =
+    draw DD { drawFrame=Just Frame {..}, drawSize=Size{sizeW=x} } =
         PTimes $ FancyS $ map (, defaultSty)
             if x - 4 < P.length elapsed
             then [B " "]
@@ -344,7 +345,7 @@ instance Element PTimes where
 
 -- | A progress bar
 instance Element ProgressBar where
-    draw dd@DD{drawSize=(_,w), drawState=st} = case drawFrame dd of
+    draw dd@DD{drawSize=Size{sizeW=w}, drawState=st} = case drawFrame dd of
       Nothing -> ProgressBar . FancyS $
               [(spc2,defaultSty) ,(B $ spaces (w-4), bgs)]
         where 
@@ -438,7 +439,7 @@ instance Element PlayTitle where
         PlayModes modes = draw dd
         PVersion ver    = draw dd
 
-        (_, x)  = drawSize dd
+        x       = sizeW $ drawSize dd
         lsize   = 1 + P.length inf
         rsize   = 2 + P.length time + P.length ver
         side    = (x - modlen) `div` 2
@@ -451,7 +452,7 @@ instance Element PlayTitle where
 
 -- | Playlist
 instance Element PlayList where
-    draw dd@DD{ drawSize=(y,x), drawPos=(o,_), drawState=st } =
+    draw dd@DD{ drawSize=Size y x, drawPos=Pos{posY=o}, drawState=st } =
         PlayList $!
             title
             : list
@@ -556,7 +557,8 @@ redrawJustClock = Draw do
 
    st      <- getsST id
    let fr = clock st
-   s@(_,w) <- screenSize
+   (h, w) <- screenSize
+   let s = Size h w
    let (ProgressBar bar) = draw $ DD s undefined st fr :: ProgressBar
        (PTimes times)    = {-# SCC "redrawJustClock.times" #-}
                            draw $ DD s undefined st fr :: PTimes
@@ -570,10 +572,10 @@ redrawJustClock = Draw do
 --
 -- work for drawing help. draw the help screen if it is up
 --
-drawHelp :: HState -> Maybe Frame -> (Int,Int) -> IO ()
-drawHelp st fr s@(h,w) =
+drawHelp :: HState -> Maybe Frame -> Size -> IO ()
+drawHelp st fr s@(Size h w) =
    when (helpVisible st) $ do
-       let (HelpScreen help') = draw $ DD s (0,0) st fr :: HelpScreen
+       let (HelpScreen help') = draw $ DD s (Pos 0 0) st fr :: HelpScreen
            (Fast fps _)      = head help'
            offset            = max 0 $ (w - (P.length fps)) `div` 2
            height            = (h - length help') `div` 2
@@ -594,10 +596,11 @@ redraw = Draw $
 
    s <- getsST id    -- another refresh could be triggered?
    let f = clock s
-   sz@(h,w) <- screenSize
+   (h, w) <- screenSize
+   let sz = Size h w
 
-   let x = printPlayScreen (draw $ DD sz (0,0) s f :: PlayScreen)
-       y = printPlayList   (draw $ DD sz (length x,0) s f :: PlayList)
+   let x = printPlayScreen (draw $ DD sz (Pos 0 0) s f :: PlayScreen)
+       y = printPlayList   (draw $ DD sz (Pos (length x) 0) s f :: PlayList)
        a = x ++ y
 
    when (xterm s) $ setXterm s
