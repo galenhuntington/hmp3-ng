@@ -249,15 +249,15 @@ instance Element PPlaying where
     draw dd =
         PPlaying . FancyS $ map (, defaultSty) $ spc2 : line
       where
-        x'      = sizeW $ drawSize dd
+        x       = sizeW $ drawSize dd
         PId3 a  = draw dd
         PInfo b = draw dd
         s       = UTF8.toString a
         line | gap >= 0 = [U s, B $ spaces gap] ++ right
              | True     = [U $ ellipsize lim s] ++ right
-            where lim = x' - 5 - (if showId3 then P.length b else -1)
+            where lim = x - 5 - (if showId3 then P.length b else -1)
                   gap = lim - displayWidth s
-                  showId3 = x' > 59
+                  showId3 = x > 59
                   right = if showId3 then [B " ", B b] else []
 
 -- | Id3 Info
@@ -599,17 +599,17 @@ redraw = Draw $
    (h, w) <- screenSize
    let sz = Size h w
 
-   let x = printPlayScreen (draw $ DD sz (Pos 0 0) s f :: PlayScreen)
-       y = printPlayList   (draw $ DD sz (Pos (length x) 0) s f :: PlayList)
-       a = x ++ y
+   let a = let x = printPlayScreen (draw $ DD sz (Pos 0 0) s f :: PlayScreen)
+               y = printPlayList (draw $ DD sz (Pos (length x) 0) s f :: PlayList)
+           in x ++ y
 
    when (xterm s) $ setXterm s
    
    gotoTop
    mapM_ (\t -> do drawLine w t
-                   (y',x') <- Curses.getYX Curses.stdScr
+                   (y, x) <- Curses.getYX Curses.stdScr
                    fillLine
-                   maybeLineDown t h y' x' )
+                   maybeLineDown t h y x )
          (take (h-1) (init a))
    drawHelp s f sz
 
