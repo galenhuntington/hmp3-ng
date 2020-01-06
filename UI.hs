@@ -181,12 +181,18 @@ refreshClock = runDraw $ redrawJustClock <> Draw Curses.refresh
 type Pos    = (Int{-H-}, Int{-W-})
 type Size   = (Int{-H-}, Int{-W-})
 
+data DrawData = DD {
+    drawSize  :: Size,
+    drawPos   :: Pos,
+    drawState :: HState,
+    drawFrame :: Maybe Frame
+    }
+
 --
 -- | A class for renderable objects, given the application state, and
 -- for printing the object as a list of strings
 --
-class Element a where
-    draw  :: Size -> Pos -> HState -> Maybe Frame -> a
+class Element a where draw :: DrawData -> a
 
 --
 -- | The elements of the play mode widget
@@ -222,11 +228,7 @@ newtype HelpScreen = HelpScreen [StringA]
 ------------------------------------------------------------------------
 
 instance Element PlayScreen where
-    draw w x y z = PlayScreen a b c
-        where
-            a = draw w x y z :: PPlaying
-            b = draw w x y z :: ProgressBar
-            c = draw w x y z :: PTimes
+    draw dd = PlayScreen (draw dd) (draw dd) (draw dd)
 
 -- | Decode the play screen
 printPlayScreen :: PlayScreen -> [StringA]
@@ -237,17 +239,18 @@ printPlayScreen (PlayScreen (PPlaying a)
 ------------------------------------------------------------------------
 
 instance (Element a, Element b) => Element (a,b) where
-    draw a b c d = (draw a b c d, draw a b c d)
+    draw dd = (draw dd, draw dd)
 
 ------------------------------------------------------------------------
 
 -- Info about the current track
 instance Element PPlaying where
-    draw w@(_,x') x st z =
+    draw dd =
         PPlaying . FancyS $ map (, defaultSty) $ spc2 : line
       where
-        PId3 a  = draw w x st z
-        PInfo b = draw w x st z
+        (_, x') = drawSize dd
+        PId3 a  = draw dd
+        PInfo b = draw dd
         s       = UTF8.toString a
         line | gap >= 0 = [U s, B $ spaces gap] ++ right
              | True     = [U $ ellipsize lim s] ++ right
@@ -258,7 +261,7 @@ instance Element PPlaying where
 
 -- | Id3 Info
 instance Element PId3 where
-    draw _ _ st _ = case id3 st of
+    draw DD{drawState=st} = case id3 st of
         Just i  -> PId3 $ id3str i
         Nothing -> PId3 $ case size st of
                                 0 -> emptyVal
@@ -266,7 +269,7 @@ instance Element PId3 where
 
 -- | mp3 information
 instance Element PInfo where
-    draw _ _ st _ = PInfo $ case info st of
+    draw DD{drawState=st} = PInfo $ case info st of
         Nothing  -> emptyVal
         Just i   -> userinfo i
 
@@ -279,7 +282,7 @@ spc2 = B $ spaces 2
 ------------------------------------------------------------------------
 
 instance Element HelpScreen where
-    draw (_,w) _ st _ = HelpScreen $ 
+    draw DD{drawSize=(_,w), drawState=st} = HelpScreen $ 
         [ Fast (f cs h) sty | (h,cs,_) <- keyTable ] ++
         [ Fast (f cs h) sty | (h,cs) <- extraTable ]
         where
@@ -320,8 +323,7 @@ instance Element HelpScreen where
 
 -- | The time used and time left
 instance Element PTimes where
-    draw _     _ _ Nothing           = PTimes $ Fast (spaces 5) defaultSty
-    draw (_,x) _ _ (Just Frame {..}) =
+    draw DD { drawFrame=Just Frame {..}, drawSize=(_,x) } =
         PTimes $ FancyS $ map (, defaultSty)
             if x - 4 < P.length elapsed
             then [B " "]
@@ -336,18 +338,19 @@ instance Element PTimes where
         distance  = x - 4 - P.length elapsed - P.length remaining
         toMS :: RealFrac a => a -> (Int, Int)
         toMS = flip quotRem 60 . floor
+    draw _ = PTimes $ Fast (spaces 5) defaultSty
 
 ------------------------------------------------------------------------
 
 -- | A progress bar
 instance Element ProgressBar where
-    draw (_,w) _ st Nothing = ProgressBar . FancyS $
-          [(spc2,defaultSty) ,(B $ spaces (w-4), bgs)]
+    draw dd@DD{drawSize=(_,w), drawState=st} = case drawFrame dd of
+      Nothing -> ProgressBar . FancyS $
+              [(spc2,defaultSty) ,(B $ spaces (w-4), bgs)]
         where 
           (Style _ bg) = progress (config st)
           bgs          = Style bg bg
-
-    draw (_,w) _ st (Just Frame {..}) = ProgressBar . FancyS $
+      Just Frame {..} -> ProgressBar . FancyS $
           [(spc2,defaultSty)
           ,((B $ spaces distance),fgs)
           ,((B $ spaces (width - distance)),bgs)]
@@ -365,22 +368,22 @@ instance Element ProgressBar where
 
 -- | Version info
 instance Element PVersion where
-    draw _ _ _ _ = PVersion $ P.pack versinfo
+    draw _ = PVersion $ P.pack versinfo
 
 -- | Uptime
 instance Element PTime where
-    draw _ _ st _ = PTime . uptime $ st
+    draw dd = PTime . uptime $ drawState dd
 
 -- | Play mode
 instance Element PMode where
-    draw _ _ st _ = PMode $! case status st of 
+    draw dd = PMode $! case status $ drawState dd of 
                         Stopped -> "◼"
                         Paused  -> "Ⅱ"
                         Playing -> "▶"
 
 -- | Loop, normal, or random
 instance Element PMode2 where
-    draw _ _ st _ = PMode2 $ case mode st of 
+    draw dd = PMode2 $ case mode $ drawState dd of 
                         Random  -> "rand"
                         Loop    -> "loop"
                         Normal  -> "once"
@@ -388,13 +391,13 @@ instance Element PMode2 where
 ------------------------------------------------------------------------
 
 instance Element PlayModes where
-    draw a b c d = PlayModes $ m ++ ' ' : m'
+    draw dd = PlayModes $ m ++ ' ' : m'
         where
-            PMode  m  = draw a b c d
-            PMode2 m' = draw a b c d
+            PMode  m  = draw dd
+            PMode2 m' = draw dd
 
 instance Element PlayInfo where
-    draw _ _ st _ = PlayInfo $ P.concat [
+    draw dd = PlayInfo $ P.concat [
            -- TODO pregenerate as template
            spaces (P.length numd - P.length curd)
          , curd
@@ -409,6 +412,7 @@ instance Element PlayInfo where
          , onPlural (size st) "" "s"
          ]
       where
+        st = drawState dd
         tobs = P.pack . show
         onPlural 1 s _ = s
         onPlural _ _ p = p
@@ -419,7 +423,7 @@ instance Element PlayInfo where
         numd = tobs $ 1 + snd (bounds $ folders st)
 
 instance Element PlayTitle where
-    draw a@(_,x) b c d =
+    draw dd =
         PlayTitle $ FancyS $ map (,hl)
             if gap >= 2
             then [B $ P.concat [space,inf,spaces gapl], U modes,
@@ -429,11 +433,12 @@ instance Element PlayTitle where
                     then [B $ spaces gapl', U modes, B $ spaces $ gap' - gapl']
                     else [B space, U $ take (x-2) modes, B space]
       where
-        PlayInfo inf    = draw a b c d
-        PTime time      = draw a b c d
-        PlayModes modes = draw a b c d
-        PVersion ver    = draw a b c d
+        PlayInfo inf    = draw dd
+        PTime time      = draw dd
+        PlayModes modes = draw dd
+        PVersion ver    = draw dd
 
+        (_, x)  = drawSize dd
         lsize   = 1 + P.length inf
         rsize   = 2 + P.length time + P.length ver
         side    = (x - modlen) `div` 2
@@ -442,17 +447,18 @@ instance Element PlayTitle where
         gapr    = 1 `max` (gap - gapl)
         modlen  = 6 -- length modes
         space   = spaces 1
-        hl      = titlebar . config $ c
+        hl      = titlebar . config $ drawState dd
 
 -- | Playlist
 instance Element PlayList where
-    draw p@(y,x) q@(o,_) st z =
-        PlayList $! title 
-                 : list 
-                 ++ (replicate (height - length list - 2) (Fast P.empty defaultSty))
-                 ++ [minibuffer st]
+    draw dd@DD{ drawSize=(y,x), drawPos=(o,_), drawState=st } =
+        PlayList $!
+            title
+            : list
+            ++ (replicate (height - length list - 2) (Fast P.empty defaultSty))
+            ++ [minibuffer st]
         where
-            PlayTitle title       = draw p q st z
+            PlayTitle title = draw dd
 
             songs  = music st
             this   = current st
@@ -460,7 +466,7 @@ instance Element PlayList where
             height = y - o
 
             -- number of screens down, and then offset
-            buflen    = height - 2
+            buflen   = height - 2
             (screens,select) = quotRem curr buflen -- keep cursor in screen
 
             playing  = let top = screens * buflen
@@ -551,8 +557,9 @@ redrawJustClock = Draw do
    st      <- getsST id
    let fr = clock st
    s@(_,w) <- screenSize
-   let (ProgressBar bar) = draw s undefined st fr :: ProgressBar
-       (PTimes times)    = {-# SCC "redrawJustClock.times" #-} draw s undefined st fr :: PTimes
+   let (ProgressBar bar) = draw $ DD s undefined st fr :: ProgressBar
+       (PTimes times)    = {-# SCC "redrawJustClock.times" #-}
+                           draw $ DD s undefined st fr :: PTimes
    Curses.wMove Curses.stdScr 1 0   -- hardcoded!
    drawLine w bar
    Curses.wMove Curses.stdScr 2 0   -- hardcoded!
@@ -566,7 +573,7 @@ redrawJustClock = Draw do
 drawHelp :: HState -> Maybe Frame -> (Int,Int) -> IO ()
 drawHelp st fr s@(h,w) =
    when (helpVisible st) $ do
-       let (HelpScreen help') = draw s (0,0) st fr :: HelpScreen
+       let (HelpScreen help') = draw $ DD s (0,0) st fr :: HelpScreen
            (Fast fps _)      = head help'
            offset            = max 0 $ (w - (P.length fps)) `div` 2
            height            = (h - length help') `div` 2
@@ -589,8 +596,8 @@ redraw = Draw $
    let f = clock s
    sz@(h,w) <- screenSize
 
-   let x = printPlayScreen (draw sz (0,0) s f :: PlayScreen)
-       y = printPlayList   (draw sz (length x,0) s f :: PlayList)
+   let x = printPlayScreen (draw $ DD sz (0,0) s f :: PlayScreen)
+       y = printPlayList   (draw $ DD sz (length x,0) s f :: PlayList)
        a = x ++ y
 
    when (xterm s) $ setXterm s
