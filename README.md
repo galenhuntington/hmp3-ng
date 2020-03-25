@@ -21,10 +21,9 @@ to port to Git.
 These were quite minor, the bulk being the automated regeneration of a
 `configure` file (now gone).
 
-*  I updated the code to compile under recent GHC (8.6.5, 8.8.1,
-and 8.10.1-alpha1 as of this writing) and libraries.  This required
-rewriting or entirely replacing large sections, mainly low-level
-optimizations.
+*  I updated the code to compile under recent GHC (8.6.5, 8.8.1, and
+8.10.1 as of this writing) and libraries.  This required rewriting
+or entirely replacing large sections, mainly low-level optimizations.
 
 *  Cabal is configured via the more modern
 [hpack](https://github.com/sol/hpack) format.
