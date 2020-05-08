@@ -29,6 +29,9 @@ import qualified Data.ByteString.Char8 as P (pack)
 
 import System.Clock             (TimeSpec(..), diffTimeSpec)
 
+import Control.Monad.Fail as Fail  -- workaround needed for GHC 8.6
+
+
 ------------------------------------------------------------------------
 
 --
@@ -74,6 +77,6 @@ readM :: (MonadFail m, Read a) => String -> m a
 readM s = case [x | (x,t) <- {-# SCC "Serial.readM.reads" #-} reads s    -- bad!
                , ("","")  <- lex t] of
         [x] -> return x
-        []  -> fail "Serial.readM: no parse"
-        _   -> fail "Serial.readM: ambiguous parse"
+        []  -> Fail.fail "Serial.readM: no parse"
+        _   -> Fail.fail "Serial.readM: ambiguous parse"
 

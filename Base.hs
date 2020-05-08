@@ -1,15 +1,13 @@
 module Base (module Prelude, module X) where
 
-import Prelude hiding (fail)
+import Prelude
 
 --  As of now, just including as needed.
 --  I'm using the list in base-prelude as an upper bound on what qualifies.
---  The fail gymnastics is for GHC 8.6 compat.
 
 import Control.Concurrent as X
 import Control.Exception as X
-import Control.Monad as X hiding (fail, MonadFail)
-import Control.Monad.Fail as X (fail, MonadFail)
+import Control.Monad as X
 import Data.Char as X
 import Data.Foldable as X
 import Data.Functor as X
