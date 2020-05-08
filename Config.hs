@@ -77,6 +77,3 @@ versinfo  = package ++ " v" ++ showVersion version
 
 help :: String
 help = "- curses-based MP3 player"
-
-darcsinfo :: String
-darcsinfo = "darcs get http://code.haskell.org/~dons/code/hmp3"
