@@ -109,14 +109,14 @@ emptySt = HState {
        ,helpVisible      = False
        ,miniFocused      = False
        ,xterm            = False
-       ,doNotResuscitate = False    -- mgp321 should be be restarted
+       ,doNotResuscitate = False    -- mpg321 should be restarted
 
        ,config       = Config.defaultStyle
-       ,boottime     = TimeSpec 0 0
+       ,boottime     = 0
        ,status       = Stopped
        ,mode         = Normal
        ,minibuffer   = Fast P.empty defaultSty
-       ,uptime       = P.empty
+       ,uptime       = mempty
        ,drawLock     = unsafePerformIO (newMVar ())
     }
 

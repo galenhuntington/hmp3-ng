@@ -44,7 +44,6 @@ import Syntax
 import Lexer                (parser)
 import State
 import Style
-import Utils
 import FastIO               (send, FiltHandle(..), newFiltHandle)
 import Tree hiding (File,Dir)
 import qualified Tree (File,Dir)
@@ -60,9 +59,10 @@ import System.Directory         (doesFileExist,findExecutable)
 import System.IO                (hPutStrLn, hGetLine, stderr, hFlush)
 import System.IO.Unsafe         (unsafeInterleaveIO)
 import System.Process           (runInteractiveProcess, waitForProcess)
-import System.Clock             (getTime, Clock(..))
+import System.Clock             (getTime, TimeSpec(..), Clock(..))
 import System.Random            (randomIO)
 import System.FilePath          ((</>))
+import System.Clock             (diffTimeSpec)
 
 import System.Posix.Process     (exitImmediately)
 import System.Posix.User        (getUserEntryForID, getRealUserID, homeDirectory)
@@ -113,7 +113,7 @@ start ms = handle @SomeException (shutdown . Just . show) do
         , cursor       = i
         , current      = i
         , mode         = m
-        , uptime       = drawUptime now now
+        , uptime       = showUptime now now
         , boottime     = now
         , config       = c
         , threads      = [t0,t1,t2,t3,t4,t5] }
@@ -205,9 +205,22 @@ uptimeLoop :: IO ()
 uptimeLoop = runForever $ do
     threadDelay delay
     now <- getTime Monotonic
-    modifyST $ \st -> st { uptime = drawUptime (boottime st) now }
+    modifyST $ \st -> st { uptime = showUptime (boottime st) now }
   where
-    delay = 10 * 1000 * 1000 -- refresh every 10 seconds
+    delay = 5 * 1000 * 1000 -- refresh every 5 seconds
+
+------------------------------------------------------------------------
+
+showUptime :: TimeSpec -> TimeSpec -> P.ByteString
+showUptime before now
+    | hs == 0 = P.pack $ printf "%dm" m
+    | d == 0  = P.pack $ printf "%dh%02dm" h m
+    | True    = P.pack $ printf "%dd%02dh%02dm" d h m
+    where
+        s      = sec $ diffTimeSpec before now
+        ms     = quot s 60
+        (hs,m) = quotRem ms 60
+        (d,h)  = quotRem hs 24
 
 ------------------------------------------------------------------------
 

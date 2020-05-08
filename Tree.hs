@@ -86,7 +86,7 @@ buildTree fs = do
 
 -- | Create nodes based on dirname for orphan files on cmdline
 doOrphans :: [FilePathP] -> [(FilePathP, [FilePathP])]
-doOrphans = map (\f -> (dirnameP f, [basenameP f]))
+doOrphans = map \f -> (dirnameP f, [basenameP f])
 
 -- | Merge entries with the same root node into a single node
 merge :: [(FilePathP, [FilePathP])] -> [(FilePathP, [FilePathP])]
@@ -121,7 +121,7 @@ expandDir f | seq f False = undefined -- stricitfy
 expandDir f = do
     ls_raw <- handle @SomeException (\e -> hPrint stderr e $> [])
                 $ packedGetDirectoryContents f
-    let ls = map (\s -> P.intercalate (P.singleton '/') [f,s])
+    let ls = (map \s -> P.intercalate (P.singleton '/') [f,s])
                 . sort . filter validFiles $! ls_raw
     (fs',ds) <- partition $! ls
     let fs = filter onlyMp3s fs'
