@@ -1,6 +1,6 @@
 -- 
 -- Copyright (c) 2004-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2019 Galen Huntington
+-- Copyright (c) 2019, 2020 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -157,7 +157,7 @@ modifySTM_ f = modifyMVar state f >>= \a -> touchST >> return a
 
 -- | Trigger a refresh. This is the only way to update the screen
 touchST :: IO ()
-touchST = withMVar state $ \st -> tryPutMVar (modified st) () >> return ()
+touchST = withMVar state \st -> void $ tryPutMVar (modified st) ()
 
 forceNextPacket :: IO ()
 forceNextPacket = do

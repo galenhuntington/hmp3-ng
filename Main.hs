@@ -1,7 +1,7 @@
 -- 
 -- Copyright (c) Don Stewart 2004-2008.
 -- Copyright (c) Tuomo Valkonen 2004.
--- Copyright (c) 2019 Galen Huntington
+-- Copyright (c) 2019, 2020 Galen Huntington
 --
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -30,7 +30,7 @@ import Config   (darcsinfo, help, versinfo)
 
 import qualified Data.ByteString.Char8 as P (pack,ByteString)
 
-import System.IO            (hPutStrLn, stderr)
+import System.IO            (hPrint, stderr)
 import System.Posix.Signals (installHandler, sigTERM, sigPIPE, sigINT, sigHUP
                             ,sigALRM, sigABRT, Handler(Ignore, Default, Catch))
 
@@ -46,22 +46,22 @@ import System.Posix.Signals (installHandler, sigTERM, sigPIPE, sigINT, sigHUP
 -- setStoppedChildFlag True
 --
 initSignals :: IO ()
-initSignals = do 
+initSignals = do
 
     -- ignore
-    flip mapM_ [sigPIPE, sigALRM] 
-               (\sig -> installHandler sig Ignore Nothing)
+    for_ [sigPIPE, sigALRM] \sig ->
+        installHandler sig Ignore Nothing
 
-    -- and exit if we get the following:
-    flip mapM_ [sigINT, sigHUP, sigABRT, sigTERM] $ \sig -> do
-            installHandler sig (Catch (do
-                catch (shutdown Nothing) (\ (f :: SomeException) -> hPutStrLn stderr (show f))
-                exitWith (ExitFailure 1) )) Nothing
+    -- and exit if we get the following
+    for_ [sigINT, sigHUP, sigABRT, sigTERM] \sig ->
+        installHandler sig (Catch (do
+            catch (shutdown Nothing) (\ (f :: SomeException) -> hPrint stderr f)
+            exitWith (ExitFailure 1) )) Nothing
 
 releaseSignals :: IO ()
 releaseSignals =
-    flip mapM_ [sigINT, sigPIPE, sigHUP, sigABRT, sigTERM] 
-               (\sig -> installHandler sig Default Nothing)
+    for_ [sigINT, sigPIPE, sigHUP, sigABRT, sigTERM]
+        \sig -> installHandler sig Default Nothing
 
 ------------------------------------------------------------------------
 -- | Argument parsing.
@@ -77,13 +77,13 @@ do_args :: [P.ByteString] -> IO (Either SerialT [P.ByteString])
 do_args []  = do    -- attempt to read db
     x <- readSt
     case x of
-        Nothing -> do mapM_ putStrLn usage; exitWith ExitSuccess
+        Nothing -> do traverse_ putStrLn usage; exitSuccess
         Just st -> return $ Left st
 
 do_args [s] | s == "-V" || s == "--version"
-            = do putStrLn (versinfo <+> help); putStrLn darcsinfo; exitWith ExitSuccess
+            = do putStrLn (versinfo <+> help); putStrLn darcsinfo; exitSuccess
             | s == "-h" || s == "--help"
-            = do putStrLn (versinfo <+> help); mapM_ putStrLn usage; exitWith ExitSuccess
+            = do putStrLn (versinfo <+> help); traverse_ putStrLn usage; exitSuccess
 
 do_args xs = return $ Right xs
 
@@ -97,7 +97,7 @@ do_args xs = return $ Right xs
 --
 main :: IO ()
 main = do
-    args  <- return . map P.pack =<< getArgs
+    args  <- map P.pack <$> getArgs
     files <- do_args args
     initSignals
     start files -- never returns

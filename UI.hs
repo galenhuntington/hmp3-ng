@@ -2,7 +2,7 @@
 
 -- 
 -- Copyright (C) 2004-5 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2019 Galen Huntington
+-- Copyright (c) 2019, 2020 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -144,7 +144,7 @@ getKey = do
     k <- Curses.getCh
     if k == Curses.KeyResize 
         then do
-              when (Curses.cursesSigWinch == Nothing) $
+              when (isNothing Curses.cursesSigWinch) do
                   runDraw $ redraw <> resizeui
               getKey
         else return $ unkey k
@@ -263,11 +263,11 @@ instance Element PId3 where
         Just i  -> PId3 $ id3str i
         Nothing -> PId3 $ case size st of
                                 0 -> emptyVal
-                                _ -> fbase $ (music st) ! (current st)
+                                _ -> fbase $ music st ! current st
 
 -- | mp3 information
 instance Element PInfo where
-    draw DD{drawState=st} = PInfo $ case info st of
+    draw DD{drawState=st} = PInfo case info st of
         Nothing  -> emptyVal
         Just i   -> userinfo i
 
@@ -349,9 +349,9 @@ instance Element ProgressBar where
           (Style _ bg) = progress (config st)
           bgs          = Style bg bg
       Just Frame {..} -> ProgressBar . FancyS $
-          [(spc2,defaultSty)
-          ,((B $ spaces distance),fgs)
-          ,((B $ spaces (width - distance)),bgs)]
+          [(spc2, defaultSty)
+          ,(B $ spaces distance, fgs)
+          ,(B $ spaces (width - distance), bgs)]
         where 
           width    = w - 4
           total    = curr + left
@@ -453,7 +453,7 @@ instance Element PlayList where
         PlayList $!
             title
             : list
-            ++ (replicate (height - length list - 2) (Fast P.empty defaultSty))
+            ++ replicate (height - length list - 2) (Fast P.empty defaultSty)
             ++ [minibuffer st]
         where
             PlayTitle title = draw dd
@@ -508,7 +508,7 @@ instance Element PlayList where
 
             drawIt :: (Maybe Int, Style, [AmbiString]) -> StringA
             drawIt (Nothing, sty, v) =
-                FancyS $ map (, sty) $ (B $ spaces (1 + indent)) : v
+                FancyS $ map (, sty) $ B (spaces (1 + indent)) : v
 
             drawIt (Just i, sty, v) = FancyS
                 $ (U d, sty')
@@ -574,7 +574,7 @@ drawHelp st fr s@(Size h w) =
    when (helpVisible st) $ do
        let (HelpScreen help') = draw $ DD s (Pos 0 0) st fr :: HelpScreen
            (Fast fps _)      = head help'
-           offset            = max 0 $ (w - (P.length fps)) `div` 2
+           offset            = max 0 $ (w - P.length fps) `div` 2
            height            = (h - length help') `div` 2
        when (height > 0) $ do
             Curses.wMove Curses.stdScr ((h - length help') `div` 2) offset
@@ -615,7 +615,7 @@ redraw = Draw $
    fillLine 
    Curses.wMove Curses.stdScr (h-1) 0
    drawLine (w-1) (last a)
-   when (miniFocused s) $ do -- a fake cursor
+   when (miniFocused s) do -- a fake cursor
         drawLine 1 (Fast (spaces 1) (blockcursor . config $ s ))
         -- todo rendering bug here when deleting backwards in minibuffer
 
@@ -625,7 +625,7 @@ redraw = Draw $
 --
 drawLine :: Int -> StringA -> IO ()
 drawLine _ (Fast ps sty) = drawAmbiString (B ps) sty
-drawLine _ (FancyS ls) = sequence_ $ map (uncurry drawAmbiString) ls
+drawLine _ (FancyS ls) = traverse_ (uncurry drawAmbiString) ls
 
 drawAmbiString :: AmbiString -> Style -> IO ()
 drawAmbiString as sty = withStyle sty $ case as of
@@ -693,7 +693,7 @@ setXterm s = setXtermTitle $ case status s of
     Playing -> case id3 s of
         Nothing -> case size s of
                         0 -> ["hmp3"]
-                        _ -> [(fbase $ music s ! current s)]
+                        _ -> [fbase $ music s ! current s]
         Just ti -> id3artist ti :
                    if P.null (id3title ti)
                         then []

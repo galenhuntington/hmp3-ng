@@ -1,7 +1,7 @@
 {-# OPTIONS -fno-warn-orphans #-}
 -- 
 -- Copyright (c) 2005-8 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2019 Galen Huntington
+-- Copyright (c) 2019, 2020 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -35,7 +35,7 @@ import Codec.Compression.GZip
 
 import Data.Binary
 import Data.Array
-import System.IO        (hPutStrLn,stderr)
+import System.IO        (hPrint, stderr)
 
 
 type FilePathP = P.ByteString
@@ -73,7 +73,7 @@ buildTree fs = do
             ms     <- loop $! ds ++ xs  -- add to work list
             return $! m : ms
 
-    ms' <- liftM catMaybes $! loop dirs
+    ms' <- catMaybes <$!> loop dirs
 
     let extras = merge . doOrphans $ os
         ms = ms' ++ extras
@@ -82,12 +82,11 @@ buildTree fs = do
         dirsArray = listArray (0,length dirls - 1) (reverse dirls)
         fileArray = listArray (0, n-1) (reverse filels)
 
-    dirsArray `seq` fileArray `seq` return $ (dirsArray, fileArray)
+    dirsArray `seq` fileArray `seq` pure (dirsArray, fileArray)
 
 -- | Create nodes based on dirname for orphan files on cmdline
 doOrphans :: [FilePathP] -> [(FilePathP, [FilePathP])]
-doOrphans []     = []
-doOrphans (f:xs) = (dirnameP f, [basenameP f]) : doOrphans xs
+doOrphans = map (\f -> (dirnameP f, [basenameP f]))
 
 -- | Merge entries with the same root node into a single node
 merge :: [(FilePathP, [FilePathP])] -> [(FilePathP, [FilePathP])]
@@ -95,7 +94,7 @@ merge [] = []
 merge xs =
     let xs' = sortBy  (\a b -> fst a `compare` fst b) xs
         xs''= groupBy (\a b -> fst a == fst b) xs'
-    in catMaybes $ map flatten xs''
+    in mapMaybe flatten xs''
   where
     flatten :: [(FilePathP,[FilePathP])] -> Maybe (FilePathP, [FilePathP])
     flatten []     = Nothing    -- can't happen
@@ -106,7 +105,7 @@ make :: (Int,Int,[Dir],[File]) -> (FilePathP,[FilePathP]) -> (Int,Int,[Dir],[Fil
 make (i,n,acc1,acc2) (d,fs) =
     case listToDir n d fs of
         (dir,n') -> case map makeFile fs of
-            fs' -> (i+1, n', dir:acc1, (reverse fs') ++ acc2)
+            fs' -> (i+1, n', dir:acc1, reverse fs' ++ acc2)
     where
         makeFile f = File (basenameP f) i
 
@@ -120,7 +119,7 @@ make (i,n,acc1,acc2) (d,fs) =
 expandDir :: FilePathP -> IO (Maybe (FilePathP, [FilePathP]),  [FilePathP])
 expandDir f | seq f False = undefined -- stricitfy
 expandDir f = do
-    ls_raw <- handle @SomeException (\e -> hPutStrLn stderr (show e) >> pure [])
+    ls_raw <- handle @SomeException (\e -> hPrint stderr e $> [])
                 $ packedGetDirectoryContents f
     let ls = map (\s -> P.intercalate (P.singleton '/') [f,s])
                 . sort . filter validFiles $! ls_raw
@@ -200,7 +199,7 @@ instance Binary Dir where
 
 instance Binary Mode where
     put = put . fromEnum
-    get = liftM toEnum get
+    get = toEnum <$> get
 
 -- How we write everything out
 instance Binary SerialT where

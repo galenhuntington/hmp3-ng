@@ -1,6 +1,6 @@
 -- 
 -- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2008, 2019 Galen Huntington
+-- Copyright (c) 2008, 2019, 2020 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -61,7 +61,7 @@ doF s = R $ Frame {
 
 -- Outputs information about the mp3 file after loading.
 doS :: P.ByteString -> Msg
-doS s = let fs = P.split ' ' $ s
+doS s = let fs = P.split ' ' s
         in I $ Info {
             {-
                   version       = fs !! 0
@@ -83,7 +83,7 @@ doS s = let fs = P.split ' ' $ s
                        ," "
                        ,fs !! 10
                        ,"kbit/s "
-                       ,(P.pack . show) ((readPS (fs !! 2)) `div` 1000 :: Int)
+                       ,(P.pack . show) (readPS (fs !! 2) `div` 1000 :: Int)
                        ,"kHz"]
                 }
 
@@ -136,7 +136,7 @@ doI s = let f = dropSpaceEnd . P.dropWhile isSpace $ s
         normalise :: P.ByteString -> P.ByteString
         normalise raw =
             let bs = P.dropWhile isSpace . dropSpaceEnd $ raw
-            in if any (== UTF8.replacement_char) $ UTF8.toString bs
+            in if UTF8.replacement_char `elem` UTF8.toString bs
                 then UTF8.fromString $ P.unpack bs
                 else bs
 

@@ -1,6 +1,6 @@
 -- 
 -- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2019 Galen Huntington
+-- Copyright (c) 2019, 2020 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -36,7 +36,7 @@ import Data.Fixed (Fixed, E2)
 
 -- Loads and starts playing <file>
 --
-data Load = Load {-# UNPACK #-} !P.ByteString
+newtype Load = Load P.ByteString
 
 instance Pretty Load where
     ppr (Load f) = mconcat ["LOAD ", f]
@@ -44,7 +44,7 @@ instance Pretty Load where
 -- If '+' or '-' is specified, jumps <frames> frames forward, or backwards,
 -- respectively, in the the mp3 file.  If neither is specifies, jumps to
 -- absolute frame <frames> in the mp3 file.
-data Jump = Jump {-# UNPACK #-} !Int
+newtype Jump = Jump Int
 
 instance Pretty Jump where
     ppr (Jump i) = mconcat ["JUMP ", P.pack . show $ i]
@@ -69,7 +69,7 @@ instance Pretty Quit where
 data Tag = Tag
 
 -- Track info if ID fields are in the file, otherwise file name.
-data File = File !(Either P.ByteString Id3)
+newtype File = File (Either P.ByteString Id3)
 
 -- ID3 info 
 data Id3 = Id3
@@ -99,8 +99,8 @@ data Id3 = Id3
 -- <j>: Emphasis. Integer.
 -- <k>: Bitrate, in kbps. (i.e., 128.) Integer.
 -- <l>: Extension. Integer.
-data Info = Info {
-                userinfo      :: !P.ByteString  -- user friendly string
+newtype Info = Info {
+                userinfo      :: P.ByteString  -- user friendly string
            --   version       :: !P.ByteString,
            --   layer         :: !Int,     -- 1,2 or 3
            --   sampleRate    :: !Int,

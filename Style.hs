@@ -1,6 +1,6 @@
 -- 
 -- Copyright (c) 2004-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2019 Galen Huntington
+-- Copyright (c) 2019, 2020 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -131,7 +131,7 @@ stringToColor s = case map toLower s of
 --
 -- | Set some colours, perform an action, and then reset the colours
 --
-withStyle :: Style -> (IO ()) -> IO ()
+withStyle :: Style -> IO () -> IO ()
 withStyle sty fn = uiAttr sty >>= setAttribute >> fn >> reset
 {-# INLINE withStyle #-}
 
@@ -201,9 +201,8 @@ uiAttr sty = do
 -- | Given a curses color pair, find the Curses.Pair (i.e. the pair
 -- curses thinks these colors map to) from the state
 lookupPair :: PairMap -> Style -> (Curses.Attr, Curses.Pair)
-lookupPair m s = case M.lookup s m of
-                    Nothing   -> (Curses.attr0, Curses.Pair 0) -- default settings
-                    Just v    -> v
+lookupPair m s =
+    fromMaybe (Curses.attr0, Curses.Pair 0) (M.lookup s m)
 {-# INLINE lookupPair #-}
 
 -- | Keep a map of nice style defs to underlying curses pairs, created at init time
@@ -345,6 +344,4 @@ buildStyle bs = UIStyle {
 
     where 
         f (x,y) = Style (g x) (g y)
-        g x     = case stringToColor x of
-                    Nothing -> Default
-                    Just y  -> y
+        g x     = fromMaybe Default $ stringToColor x

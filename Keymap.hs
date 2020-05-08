@@ -1,6 +1,6 @@
 -- 
 -- Copyright (c) 2004-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2008, 2019 Galen Huntington
+-- Copyright (c) 2008, 2019, 2020 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -71,7 +71,7 @@ all :: LexerS
 all = commands >||< search
 
 commands :: LexerS
-commands = (alt keys) `action` \[c] -> Just $ case M.lookup c keyMap of
+commands = alt keys `action` \[c] -> Just $ case M.lookup c keyMap of
         Nothing -> return ()    -- ignore
         Just a  -> a
 
@@ -113,7 +113,7 @@ search_esc = char '\ESC'
 
 search_eval :: LexerS
 search_eval = enter
-    `meta` \_ (t,d,(_:pat)) -> case pat of
+    `meta` \_ (t, d, _:pat) -> case pat of
         [] -> wrap (clrmsg >> touchST)
         _  -> case t of
                 SearchFile -> wrap (jumpToMatchFile (Just pat) (toBool d))

@@ -2,7 +2,7 @@
 
 -- 
 -- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2008, 2019 Galen Huntington
+-- Copyright (c) 2008, 2019, 2020 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -87,12 +87,12 @@ start ms = handle @SomeException (shutdown . Just . show) do
     (ds,fs,i,m)   -- construct the state
         <- case ms of
            Right roots -> do (a,b) <- buildTree roots
-                             return (a,b,0,Normal)
+                             pure (a,b,0,Normal)
 
-           Left st     -> return (ser_darr st
-                                 ,ser_farr st
-                                 ,ser_indx st
-                                 ,ser_mode st)
+           Left st     -> pure (ser_darr st
+                               ,ser_farr st
+                               ,ser_indx st
+                               ,ser_mode st)
 
     now <- getTime Monotonic
 
@@ -131,7 +131,7 @@ runForever fn = catch (forever fn) handler
     where
         handler :: SomeException -> IO ()
         handler e =
-            when (not.exitTime $ e) $
+            unless (exitTime e) $
                 (warnA . show) e >> runForever fn        -- reopen the catch
 
 -- | Generic handler
@@ -185,7 +185,7 @@ mpgLoop = runForever do
 
             catch @SomeException (void $ waitForProcess pid) (\_ -> pure ())
             stop <- getsST doNotResuscitate
-            when stop $ exitWith ExitSuccess
+            when stop exitSuccess
             warnA $ "Restarting " ++ mpg321 ++ " ..."
 
 ------------------------------------------------------------------------
@@ -251,33 +251,30 @@ run = runForever $ sequence_ . keymap =<< getKeys
     getKeys = unsafeInterleaveIO $ do
             c  <- UI.getKey
             cs <- getKeys
-            return (c:cs) -- A lazy list of curses keys
+            pure (c:cs) -- A lazy list of curses keys
 
 ------------------------------------------------------------------------
 
 -- | Close most things. Important to do all the jobs:
 shutdown :: Maybe String -> IO ()
 shutdown ms =
-    (do silentlyModifyST $ \st -> st { doNotResuscitate = True }
+    do  silentlyModifyST $ \st -> st { doNotResuscitate = True }
         handle @SomeException (\_ -> pure ()) writeSt
         withST $ \st -> do
             case mp3pid st of
-                Nothing  -> return ()
+                Nothing  -> pure ()
                 Just pid -> do
                     h <- readMVar (writeh st)
                     send h Quit                        -- ask politely
                     waitForProcess pid
-                    return ())
+                    pure ()
 
     `finally`
 
-    (do isXterm <- getsST xterm
+    do  isXterm <- getsST xterm
         UI.end isXterm
         when (isJust ms) $ hPutStrLn stderr (fromJust ms) >> hFlush stderr
-        exitImmediately ExitSuccess)
-                -- race. a thread might touch the screen
-                -- gets in the way of profiling
---      return ())
+        exitImmediately ExitSuccess
 
 ------------------------------------------------------------------------
 -- 
@@ -285,21 +282,17 @@ shutdown ms =
 -- right pigeon hole.
 --
 handleMsg :: Msg -> IO ()
-handleMsg (T _)                = return ()
+handleMsg (T _)                = pure ()
 handleMsg (I i)                = modifyST $ \s -> s { info = Just i }
 handleMsg (F (File (Left  _))) = modifyST $ \s -> s { id3 = Nothing }
 handleMsg (F (File (Right i))) = modifyST $ \s -> s { id3 = Just i  }
 
 handleMsg (S t) = do
     modifyST $ \s -> s { status  = t }
-    when (t == Stopped) $ do   -- transition to next song
-        playNext
--- vincenz: Redundant, this is checked in playNext
---        r <- getsST mode
---        if r == Random then playRandom else playNext
+    when (t == Stopped) playNext   -- transition to next song
 
 handleMsg (R f) = do
-    silentlyModifyST $ \st -> st { clock = Just f }
+    silentlyModifyST \st -> st { clock = Just f }
     getsST clockUpdate >>= flip when UI.refreshClock
 
 ------------------------------------------------------------------------
@@ -309,11 +302,11 @@ handleMsg (R f) = do
 
 -- | Seek backward in song
 seekLeft :: IO ()
-seekLeft = seek $ \g -> max 0 (currentFrame g - 400)
+seekLeft = seek \g -> max 0 (currentFrame g - 400)
 
 -- | Seek forward in song
 seekRight :: IO ()
-seekRight = seek $ \g -> currentFrame g + (min 400 (framesLeft g))
+seekRight = seek \g -> currentFrame g + min 400 (framesLeft g)
 
 seekStart :: IO ()
 seekStart = seek $ const 0
@@ -324,7 +317,7 @@ seek :: (Frame -> Int) -> IO ()
 seek fn = do
     f <- getsST clock
     case f of
-        Nothing -> return ()
+        Nothing -> pure ()
         Just g  -> do
             withST $ \st -> do
                 h <- readMVar (writeh st)
@@ -354,7 +347,7 @@ jump i = modifySTM $ flip jumpTo (const i)
 
 -- | Jump to relative place, 0 to 1.
 jumpRel :: Float -> IO ()
-jumpRel r | r < 0 || r >= 1 = return ()
+jumpRel r | r < 0 || r >= 1 = pure ()
           | True = modifySTM \st ->
                 pure st { cursor = floor $ fromIntegral (size st) * r }
 
@@ -363,8 +356,10 @@ jumpTo :: HState -> (Int -> Int) -> IO HState
 jumpTo st fn = do
     let l = max 0 (size st - 1)
         i = fn (cursor st)
-        n = if i > l then l else if i < 0 then 0 else i
-    return st { cursor = n }
+        n | i > l = l
+          | i < 0 = 0
+          | True  = i
+    pure st { cursor = n }
 
 ------------------------------------------------------------------------
 
@@ -372,12 +367,8 @@ jumpTo st fn = do
 play :: IO ()
 play = modifySTM $ \st ->
     if current st == cursor st
-    then do
-        n' <- randomIO
-        let n = abs n' `mod` (size st -1)
-        playAtN st (const n)
-    else
-        playAtN st (const $ cursor st)
+    then jumpToRandom st
+    else playAtN st (const $ cursor st)
 
 playCur :: IO ()
 playCur = modifySTM $ \st -> playAtN st (const $ cursor st)
@@ -387,12 +378,16 @@ blacklist = do
   st <- getsST id
   appendFile ".hmp3-delete" . (++"\n") . P.unpack $
     let fe = music st ! cursor st
-    in (P.intercalate (P.singleton '/') [(dname $ folders st ! fdir fe),(fbase fe)])
+    in P.intercalate (P.singleton '/') [dname $ folders st ! fdir fe, fbase fe]
 
 
 -- | Play a random song
 playRandom :: IO ()
-playRandom = modifySTM $ \st -> do
+playRandom = modifySTM jumpToRandom
+
+-- | Jump to a random song
+jumpToRandom :: HState -> IO HState
+jumpToRandom st = do
     n' <- randomIO
     let n = abs n' `mod` (size st - 1)
     playAtN st (const n)
@@ -409,7 +404,7 @@ playPrev = do
       case () of {_
         | i > 0             -> playAtN st (subtract 1)      -- just the prev track
         | mode st == Loop   -> playAtN st (const (size st - 1))  -- maybe loop
-        | otherwise         -> return  st            -- else stop at end
+        | otherwise         -> pure    st            -- else stop at end
       }
 
 -- | Play the song following the current song, if we're not at the end
@@ -424,7 +419,7 @@ playNext = do
       case () of {_
         | i < size st - 1   -> playAtN st (+ 1)      -- just the next track
         | mode st == Loop   -> playAtN st (const 0)  -- maybe loop
-        | otherwise         -> return  st            -- else stop at end
+        | otherwise         -> pure    st            -- else stop at end
       }
 
 -- | Generic next song selection
@@ -433,17 +428,17 @@ playAtN :: HState -> (Int -> Int) -> IO HState
 playAtN st fn = do
     let m   = music st
         i   = current st
-        fe  = m ! (fn i)
+        fe  = m ! fn i
         -- unsure of this GBH (2008)
         f   = P.intercalate (P.singleton '/')
-                     [(dname $ folders st ! fdir fe),(fbase fe)]
+                 [dname $ folders st ! fdir fe, fbase fe]
         j   = cursor  st
         st' = st { current = fn i
                  , status  = Playing
                  , cursor  = if i == cursor st then fn i else j }
     h <- readMVar (writeh st)
     send h (Load f)
-    return st'
+    pure st'
 
 ------------------------------------------------------------------------
 
@@ -459,7 +454,7 @@ quit = shutdown
 
 -- | Move cursor to currently playing song
 jumpToPlaying :: IO ()
-jumpToPlaying = modifyST $ \st -> st { cursor = (current st) }
+jumpToPlaying = modifyST $ \st -> st { cursor = current st }
 
 -- | Move cursor to first song in next directory (or wrap)
 jumpToNextDir, jumpToPrevDir :: IO ()
@@ -472,7 +467,7 @@ jumpToDir fn = modifyST $ \st -> if size st == 0 then st else
     let i   = fdir (music st ! cursor st)
         len = 1 + (snd . bounds $ folders st)
         d   = fn i len
-    in st { cursor = dlo ((folders st) ! d) }
+    in st { cursor = dlo (folders st ! d) }
 
 ------------------------------------------------------------------------
 
@@ -514,14 +509,14 @@ genericJumpToMatch re sw k sel = do
                                 Left _      -> Nothing
                                 Right v     -> Just (v,sw)
         case mre of
-            Nothing -> return (st,False)    -- no pattern
+            Nothing -> pure (st,False)    -- no pattern
             Just (p,forwards) -> do
 
             let (fs,cur,m) = k st
 
 {-
                 loop fn inc n
-                    | fn n      = return Nothing
+                    | fn n      = pure Nothing
                     | otherwise = do
                         let s = extract (fs ! n)
                         case match p s [] of
@@ -530,22 +525,22 @@ genericJumpToMatch re sw k sel = do
 
                 check n = let s = extract (fs ! n) in
                         case match p s [] of
-                            Nothing -> return Nothing
-                            Just _  -> return $ Just n
+                            Nothing -> pure Nothing
+                            Just _  -> pure $ Just n
 
             -- mi <- if forwards then loop (>=m) (+1)         (cur+1)
                               -- else loop (<0)  (subtract 1) (cur-1)
-            mi <- liftM msum $ mapM check $
-                        if forwards then [cur+1..m-1] ++ [0..cur]
-                                    else [cur-1,cur-2..0] ++ [m-1,m-2..cur]
+            mi <- fmap msum $ mapM check $
+                       if forwards then [cur+1..m-1] ++ [0..cur]
+                                   else [cur-1,cur-2..0] ++ [m-1,m-2..cur]
 
 
             let st' = st { regex = Just (p,forwards==sw) }
-            return $ case mi of
+            pure case mi of
                 Nothing -> (st',False)
                 Just i  -> (st' { cursor = sel i st }, True)
 
-    when (not found) $ putmsg (Fast "No match found." defaultSty) >> touchST
+    unless found $ putmsg (Fast "No match found." defaultSty) *> touchST
 
 ------------------------------------------------------------------------
 
@@ -572,7 +567,7 @@ writeSt :: IO ()
 writeSt = do
     home <- getHome
     let f = home </> ".hmp3db"
-    withST $ \st -> do
+    withST \st -> do
         let arr1 = music st
             arr2 = folders st
             idx  = current st
@@ -590,13 +585,13 @@ readSt = do
     home <- getHome
     let f = home </> ".hmp3db"
     b <- doesFileExist f
-    if b then liftM Just $! readTree f else return Nothing
+    if b then Just <$!> readTree f else pure Nothing
 
 -- | Find a user's home in a canonical sort of way
 getHome :: IO String
 getHome = catch @SomeException
-    (getRealUserID >>= getUserEntryForID >>= (return . homeDirectory))
-    (const $ getEnv "HOME")
+    do getRealUserID >>= getUserEntryForID <&> homeDirectory
+    do const $ getEnv "HOME"
 
 ------------------------------------------------------------------------
 -- Read styles from ~/.hmp3
@@ -608,11 +603,11 @@ loadConfig = do
     b <- doesFileExist f
     if b then do
         str  <- readFile f
-        msty <- catch (readM str >>= return . Just) -- TODO use maybe?
+        msty <- catch (Just <$> readM str)
                       (\ (_ :: SomeException) ->
-                        warnA "Parse error in ~/.hmp3" >> pure Nothing)
+                        warnA "Parse error in ~/.hmp3" $> Nothing)
         case msty of
-            Nothing  -> return ()
+            Nothing  -> pure ()
             Just rsty -> do
                 let sty = buildStyle rsty
                 initcolours sty
