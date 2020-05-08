@@ -155,7 +155,7 @@ class Pretty a where
 -- And a wrapper type 
 --
 data Msg = T {-# UNPACK #-} !Tag
-         | F {-# UNPACK #-} !File
+         | F                !File
          | I {-# UNPACK #-} !Info
          | R {-# UNPACK #-} !Frame
          | S                !Status
