@@ -22,17 +22,15 @@
 
 module Utils where
 
+import Base
+
 import qualified Data.ByteString       as P (ByteString)
 import qualified Data.ByteString.Char8 as P (pack)
 
-import Data.Char                (toLower)
 import System.Clock             (TimeSpec(..), diffTimeSpec)
-import System.Environment       (getEnv)
 
-import Control.Exception        (handle, SomeException)
+import Control.Monad.Fail as Fail  -- workaround needed for GHC 8.6
 
-import Text.Printf (printf)
-import Control.Monad.Fail as Fail
 
 ------------------------------------------------------------------------
 

@@ -21,6 +21,8 @@
 
 module Main where
 
+import Base
+
 import Core     (start, readSt, shutdown)
 import Tree     (SerialT(..))
 import Utils    ((<+>))
@@ -28,14 +30,9 @@ import Config   (darcsinfo, help, versinfo)
 
 import qualified Data.ByteString.Char8 as P (pack,ByteString)
 
-import Control.Exception    (catch, SomeException)
-
 import System.IO            (hPutStrLn, stderr)
-import System.Exit          (ExitCode(..), exitWith)
 import System.Posix.Signals (installHandler, sigTERM, sigPIPE, sigINT, sigHUP
                             ,sigALRM, sigABRT, Handler(Ignore, Default, Catch))
-
-import System.Environment   (getArgs)
 
 -- ---------------------------------------------------------------------
 -- | Set up the signal handlers
@@ -58,7 +55,7 @@ initSignals = do
     -- and exit if we get the following:
     flip mapM_ [sigINT, sigHUP, sigABRT, sigTERM] $ \sig -> do
             installHandler sig (Catch (do
-                Control.Exception.catch (shutdown Nothing) (\ (f :: SomeException) -> hPutStrLn stderr (show f))
+                catch (shutdown Nothing) (\ (f :: SomeException) -> hPutStrLn stderr (show f))
                 exitWith (ExitFailure 1) )) Nothing
 
 releaseSignals :: IO ()

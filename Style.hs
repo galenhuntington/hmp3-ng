@@ -24,17 +24,14 @@
 
 module Style where
 
+import Base
+
 import qualified UI.HSCurses.Curses as Curses
 import Data.ByteString (ByteString)
 
-import Data.Char                (toLower)
-import Data.Word                (Word8)
-import Data.Maybe               (fromJust)
-import Data.IORef               (readIORef, writeIORef, newIORef, IORef)
 import qualified Data.Map as M  (fromList, empty, lookup, Map)
 
 import System.IO.Unsafe         (unsafePerformIO)
-import Control.Exception        (handle, SomeException)
 
 ------------------------------------------------------------------------
 

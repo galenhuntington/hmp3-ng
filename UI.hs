@@ -41,6 +41,8 @@ module UI (
 
   )   where
 
+import Base
+
 import Style
 import Utils                    (isLightBg)
 import FastIO                   (basenameP)
@@ -51,15 +53,10 @@ import Config
 import qualified UI.HSCurses.Curses as Curses
 import {-# SOURCE #-} Keymap    (extraTable, keyTable, unkey, charToKey)
 
-import Data.List                (isPrefixOf)
 import Data.Array               ((!), bounds, Array, listArray)
 import Data.Array.Base          (unsafeAt)
-import Control.Monad            (when, void, guard)
-import Control.Exception        (handle, SomeException)
 import System.IO                (stderr, hFlush)
 import System.Posix.Signals     (raiseSignal, sigTSTP, installHandler, Handler(..))
-import System.Posix.Env         (getEnv, putEnv)
-import Text.Printf
 
 import Foreign.C.String
 import Foreign.C.Types
@@ -84,9 +81,9 @@ runDraw (Draw d) = withDrawLock d
 start :: IO UIStyle
 start = do
     handle @SomeException (\_ -> pure ()) do
-        thisterm <- getEnv "TERM"
+        thisterm <- lookupEnv "TERM"
         case thisterm of 
-            Just "vt220" -> putEnv "TERM=xterm-color"
+            Just "vt220" -> setEnv "TERM" "xterm-color"
             Just t | "xterm" `isPrefixOf` t 
                    -> silentlyModifyST $ \st -> st { xterm = True }
             _ -> return ()
@@ -398,7 +395,7 @@ instance Element PlayModes where
             PMode2 m' = draw dd
 
 instance Element PlayInfo where
-    draw dd = PlayInfo $ P.concat [
+    draw dd = PlayInfo $ mconcat [
            -- TODO pregenerate as template
            spaces (P.length numd - P.length curd)
          , curd
@@ -427,8 +424,8 @@ instance Element PlayTitle where
     draw dd =
         PlayTitle $ FancyS $ map (,hl)
             if gap >= 2
-            then [B $ P.concat [space,inf,spaces gapl], U modes,
-                    B $ P.concat [spaces gapr,time,space,ver,space]]
+            then [B $ mconcat [space,inf,spaces gapl], U modes,
+                    B $ mconcat [spaces gapr,time,space,ver,space]]
             else let gap' = x - modlen; gapl' = gap' `div` 2
                  in if gap' >= 2
                     then [B $ spaces gapl', U modes, B $ spaces $ gap' - gapl']

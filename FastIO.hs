@@ -22,6 +22,8 @@
 
 module FastIO where
 
+import Base
+
 import Syntax                   (Pretty(ppr))
 
 import qualified Data.ByteString.Char8 as P
@@ -31,11 +33,8 @@ import qualified Data.ByteString.Internal as B
 import System.Posix.Files.ByteString
 import System.Posix.Directory.ByteString
 
-import System.IO                (Handle,hFlush)
-import Data.IORef
-
-import Control.Exception        (catch, bracket, SomeException)
-import Control.Monad.Extra (sequenceWhile)
+import System.IO                (hFlush)
+import Control.Monad.Extra      (sequenceWhile)
 
 ------------------------------------------------------------------------
 
