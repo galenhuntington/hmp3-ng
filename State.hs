@@ -132,7 +132,7 @@ state = unsafePerformIO $ newMVar emptySt
 
 -- | Access a component of the state with a projection function
 getsST :: (HState -> a) -> IO a
-getsST f = withST (return . f)
+getsST f = withST (pure . f)
 
 -- | Perform a (read-only) IO action on the state
 withST :: (HState -> IO a) -> IO a
@@ -140,20 +140,20 @@ withST f = readMVar state >>= f
 
 -- | Modify the state with a pure function
 silentlyModifyST :: (HState -> HState) -> IO ()
-silentlyModifyST  f = modifyMVar_ state (return . f)
+silentlyModifyST  f = modifyMVar_ state (pure . f)
 
 ------------------------------------------------------------------------
 
 modifyST :: (HState -> HState) -> IO ()
-modifyST f = silentlyModifyST f >> touchST
+modifyST f = silentlyModifyST f <* touchST
 
 -- | Modify the state with an IO action, triggering a refresh
 modifySTM :: (HState -> IO HState) -> IO ()
-modifySTM f = modifyMVar_ state f >> touchST
+modifySTM f = modifyMVar_ state f <* touchST
 
 -- | Modify the state with an IO action, returning a value
 modifySTM_ :: (HState -> IO (HState,a)) -> IO a
-modifySTM_ f = modifyMVar state f >>= \a -> touchST >> return a
+modifySTM_ f = modifyMVar state f <* touchST
 
 -- | Trigger a refresh. This is the only way to update the screen
 touchST :: IO ()

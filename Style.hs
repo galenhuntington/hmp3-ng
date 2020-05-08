@@ -176,14 +176,14 @@ initcolours sty = do
 initUiColors :: [Style] -> IO PairMap
 initUiColors stys = do 
     ls <- sequence [ uncurry fn m | m <- zip stys [1..] ]
-    return (M.fromList ls)
+    pure (M.fromList ls)
   where
     fn :: Style -> Int -> IO (Style, (Curses.Attr,Curses.Pair))
     fn sty p = do
         let (CColor (a,fgc),CColor (b,bgc)) = style2curses sty
         handle @SomeException (\_ -> pure ()) $
             Curses.initPair (Curses.Pair p) fgc bgc
-        return (sty, (a `Curses.attrPlus` b, Curses.Pair p))
+        pure (sty, (a `Curses.attrPlus` b, Curses.Pair p))
 
 ------------------------------------------------------------------------
 --
@@ -195,7 +195,7 @@ initUiColors stys = do
 uiAttr :: Style -> IO (Curses.Attr, Curses.Pair)
 uiAttr sty = do
     m <- readIORef pairMap
-    return $ lookupPair m sty
+    pure $ lookupPair m sty
 {-# INLINE uiAttr #-}
 
 -- | Given a curses color pair, find the Curses.Pair (i.e. the pair

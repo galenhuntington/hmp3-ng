@@ -78,14 +78,14 @@ do_args []  = do    -- attempt to read db
     x <- readSt
     case x of
         Nothing -> do traverse_ putStrLn usage; exitSuccess
-        Just st -> return $ Left st
+        Just st -> pure $ Left st
 
 do_args [s] | s == "-V" || s == "--version"
             = do putStrLn (versinfo <+> help); putStrLn darcsinfo; exitSuccess
             | s == "-h" || s == "--help"
             = do putStrLn (versinfo <+> help); traverse_ putStrLn usage; exitSuccess
 
-do_args xs = return $ Right xs
+do_args xs = pure $ Right xs
 
 -- ---------------------------------------------------------------------
 -- | Static main. This is the front end to the statically linked

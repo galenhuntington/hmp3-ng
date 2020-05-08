@@ -67,11 +67,11 @@ buildTree fs = do
     (os,dirs) <- partition fs    -- note we will lose the ordering of files given on cmd line.
 
     let loop xs | seq xs False = undefined -- strictify
-        loop []     = return []
+        loop []     = pure []
         loop (a:xs) = do
             (m,ds) <- expandDir a
             ms     <- loop $! ds ++ xs  -- add to work list
-            return $! m : ms
+            pure $! m : ms
 
     ms' <- catMaybes <$!> loop dirs
 
@@ -123,11 +123,10 @@ expandDir f = do
                 $ packedGetDirectoryContents f
     let ls = map (\s -> P.intercalate (P.singleton '/') [f,s])
                 . sort . filter validFiles $! ls_raw
-    ls `seq` return ()
-    (fs',ds) <- partition ls
+    (fs',ds) <- partition $! ls
     let fs = filter onlyMp3s fs'
         v = if null fs then Nothing else Just (f,fs)
-    return (v,ds)
+    pure (v,ds)
     where
           notEdge    p = p /= dot && p /= dotdot
           validFiles p = notEdge p
@@ -153,40 +152,29 @@ listToDir n d fs =
         len = length fs
         n'  = n + len
 
--- | break a list of file paths into a pair of subliests corresponding
+-- | break a list of file paths into a pair of sublists corresponding
 -- to the paths that point to files and to directories.
 partition :: [FilePathP] -> IO ([FilePathP], [FilePathP])
 partition xs | seq xs False = undefined -- how to make `partition' strict
-partition [] = return ([],[])
+partition [] = pure ([],[])
 partition (a:xs) = do
     (fs,ds) <- partition xs
     x <- doesFileExist a
     if x then do y <- isReadable a
-                 return $! if y then (a:fs, ds) else (fs, ds)
-         else return (fs, a:ds)
+                 pure $! if y then (a:fs, ds) else (fs, ds)
+         else pure (fs, a:ds)
 
 ------------------------------------------------------------------------
 --
 -- And some more Binary instances
 --
 
-{-
-instance Binary a => Binary (Array Int a) where
-    put arr = do
-        put (bounds arr)
-        mapM_ put (elems arr)
-    get     = do
-        ((x,y) :: (Int,Int)) <- get
-        (els   :: [a])       <- sequence $ take (y+1) $ repeat get
-        return $! listArray (x,y) els
--}
-
 instance Binary File where
     put (File nm i) = put nm >> put i
     get = do
         nm <- get
         i  <- get
-        return (File nm i)
+        pure (File nm i)
 
 instance Binary Dir where
     put (Dir nm sz lo hi) = put nm >> put sz >> put lo >> put hi
@@ -195,7 +183,7 @@ instance Binary Dir where
         sz <- get
         lo <- get
         hi <- get
-        return (Dir nm sz lo hi)
+        pure (Dir nm sz lo hi)
 
 instance Binary Mode where
     put = put . fromEnum
@@ -212,7 +200,7 @@ instance Binary SerialT where
         (a,b)<- get
         i    <- get
         m    <- get
-        return $ SerialT {
+        pure $ SerialT {
                     ser_farr = a
                    ,ser_darr = b
                    ,ser_indx = i
@@ -234,4 +222,4 @@ writeTree f s = L.writeFile f (compress (encode s))
 
 readTree :: FilePath -> IO SerialT
 readTree f    = do s <- L.readFile f
-                   return (decode (decompress s))
+                   pure (decode (decompress s))

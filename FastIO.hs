@@ -96,7 +96,7 @@ checkF :: FiltHandle -> IO Bool
 checkF (FiltHandle _ ir) = do
   modifyIORef' ir (\x -> (x+1) `mod` dropRate)
   i <- readIORef ir
-  return $ dropRate==1 || i==1
+  pure $ dropRate==1 || i==1
 
 -- ---------------------------------------------------------------------
 

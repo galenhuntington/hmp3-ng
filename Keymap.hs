@@ -71,9 +71,7 @@ all :: LexerS
 all = commands >||< search
 
 commands :: LexerS
-commands = alt keys `action` \[c] -> Just $ case M.lookup c keyMap of
-        Nothing -> return ()    -- ignore
-        Just a  -> a
+commands = alt keys `action` \[c] -> Just $ fromMaybe (pure ()) $ M.lookup c keyMap
 
 ------------------------------------------------------------------------
 

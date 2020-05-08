@@ -86,12 +86,12 @@ start = do
             Just "vt220" -> setEnv "TERM" "xterm-color"
             Just t | "xterm" `isPrefixOf` t 
                    -> silentlyModifyST $ \st -> st { xterm = True }
-            _ -> return ()
+            _ -> pure ()
 
     Curses.initCurses
     case Curses.cursesSigWinch of
         Just wch -> void $ installHandler wch (Catch resetui) Nothing
-        _        -> return () -- handled elsewhere
+        _        -> pure () -- handled elsewhere
 
     colorify <- Curses.hasColors
     light    <- isLightBg
@@ -104,7 +104,7 @@ start = do
     Curses.keypad Curses.stdScr True    -- grab the keyboard
     runDraw nocursor
 
-    return sty
+    pure sty
 
 -- | Reset
 resetui :: IO ()
@@ -147,7 +147,7 @@ getKey = do
               when (isNothing Curses.cursesSigWinch) do
                   runDraw $ redraw <> resizeui
               getKey
-        else return $ unkey k
+        else pure $ unkey k
  
 -- | Resize the window
 -- From "Writing Programs with NCURSES", by Eric S. Raymond and Zeyd M. Ben-Halim
@@ -640,7 +640,7 @@ drawAmbiString as sty = withStyle sty $ case as of
 maybeLineDown :: StringA -> Int -> Int -> Int -> IO ()
 maybeLineDown (Fast s _) h y _ | s == P.empty = lineDown h y
 maybeLineDown _ h y x
-    | x == 0    = return ()     -- already moved down
+    | x == 0    = pure ()     -- already moved down
     | otherwise = lineDown h y
 
 ------------------------------------------------------------------------

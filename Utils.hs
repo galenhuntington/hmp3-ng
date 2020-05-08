@@ -66,5 +66,5 @@ drawUptime before now
 isLightBg :: IO Bool
 isLightBg = handle @SomeException (\_ -> pure False) do
     e <- getEnv "HMP_HAS_LIGHT_BG"
-    return $ map toLower e == "true"
+    pure $ map toLower e == "true"
 
