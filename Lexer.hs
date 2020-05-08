@@ -22,11 +22,11 @@
 
 module Lexer ( parser ) where
 
+import Base
+
 import Syntax   (Msg(..),Status(..),Frame(..),Info(..),Id3(..),File(..),Tag(..))
 import FastIO   (FiltHandle(..), checkF, getPacket, dropSpaceEnd)
-import Data.Char
 
-import Data.Maybe   (fromJust)
 import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString.UTF8 as UTF8
 import Control.Monad.Except
@@ -77,7 +77,7 @@ doS s = let fs = P.split ' ' $ s
                 , bitrate       = read $ P.unpack $ fs !! 10
                 , extension     = read $ P.unpack $ fs !! 11
             -}
-                userinfo      = P.concat
+                userinfo      = mconcat
                        ["mpeg "
                        ,fs !! 0
                        ," "

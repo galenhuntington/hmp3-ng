@@ -22,17 +22,12 @@
 
 module Utils where
 
+import Base
+
 import qualified Data.ByteString       as P (ByteString)
 import qualified Data.ByteString.Char8 as P (pack)
 
-import Data.Char                (toLower)
 import System.Clock             (TimeSpec(..), diffTimeSpec)
-import System.Environment       (getEnv)
-
-import Control.Exception        (handle, SomeException)
-
-import Text.Printf (printf)
-import Control.Monad.Fail as Fail
 
 ------------------------------------------------------------------------
 
@@ -79,6 +74,6 @@ readM :: (MonadFail m, Read a) => String -> m a
 readM s = case [x | (x,t) <- {-# SCC "Serial.readM.reads" #-} reads s    -- bad!
                , ("","")  <- lex t] of
         [x] -> return x
-        []  -> Fail.fail "Serial.readM: no parse"
-        _   -> Fail.fail "Serial.readM: ambiguous parse"
+        []  -> fail "Serial.readM: no parse"
+        _   -> fail "Serial.readM: ambiguous parse"
 

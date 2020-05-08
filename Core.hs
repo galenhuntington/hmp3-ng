@@ -38,7 +38,7 @@ module Core (
         loadConfig,
     ) where
 
-import Prelude
+import Base
 
 import Syntax
 import Lexer                (parser)
@@ -56,22 +56,15 @@ import {-# SOURCE #-} Keymap (keymap)
 import qualified Data.ByteString.Char8 as P (ByteString,pack,empty,intercalate,singleton,unpack)
 
 import Data.Array               ((!), bounds, Array)
-import Data.Maybe               (isJust,fromJust)
-import Control.Monad            (liftM, when, msum, forever, void)
 import System.Directory         (doesFileExist,findExecutable)
-import System.Environment       (getEnv)
-import System.Exit              (ExitCode(ExitSuccess),exitWith)
 import System.IO                (hPutStrLn, hGetLine, stderr, hFlush)
 import System.IO.Unsafe         (unsafeInterleaveIO)
-import System.Process
+import System.Process           (runInteractiveProcess, waitForProcess)
 import System.Clock             (getTime, Clock(..))
 import System.Random            (randomIO)
 
 import System.Posix.Process     (exitImmediately)
 import System.Posix.User        (getUserEntryForID, getRealUserID, homeDirectory)
-
-import Control.Concurrent
-import Control.Exception
 
 
 mp3Tool :: String

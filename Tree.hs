@@ -25,6 +25,8 @@
 
 module Tree where
 
+import Base
+
 import FastIO
 import Syntax           (Mode(..))
 import qualified Data.ByteString.Char8 as P
@@ -32,15 +34,9 @@ import qualified Data.ByteString.Lazy  as L
 import Codec.Compression.GZip
 
 import Data.Binary
-
 import Data.Array
-import Data.Maybe       (catMaybes)
-import Data.Char        (toLower)
-import Data.List        (sortBy,sort,foldl',groupBy)
-
 import System.IO        (hPutStrLn,stderr)
-import Control.Exception(handle, SomeException)
-import Control.Monad    (liftM)
+
 
 type FilePathP = P.ByteString
 

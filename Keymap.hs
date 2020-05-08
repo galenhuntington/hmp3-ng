@@ -32,20 +32,20 @@
 --
 module Keymap where
 
-import Prelude hiding (all)
+import Prelude ()
+import Base hiding (all)
 
 import Core
 import State        (getsST, touchST, HState(helpVisible))
 import Style        (defaultSty, StringA(Fast))
 import qualified UI (resetui)
-import UI.HSCurses.Curses (Key(..), decodeKey)
 import Lexers       ((>|<),(>||<),action,meta,execLexer
                     ,alt,with,char,Regexp,Lexer)
 
-import Data.List    ((\\), find)
+import UI.HSCurses.Curses (Key(..), decodeKey)
 
 import qualified Data.ByteString.Char8 as P (ByteString, pack, singleton)
-import qualified Data.Map as M (fromList, lookup, Map)
+import qualified Data.Map as M
 
 data Search = SearchFile | SearchDir
 

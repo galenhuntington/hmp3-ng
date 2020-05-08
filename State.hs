@@ -23,6 +23,8 @@
 --
 module State where
 
+import Base
+
 import FastIO (FiltHandle(..))
 import Syntax                   (Status(Stopped), Mode(..), Frame, Info,Id3)
 import Tree                     (FileArray, DirArray)
@@ -34,14 +36,8 @@ import Text.Regex.PCRE.Light    (Regex)
 import Data.Array               (listArray)
 import System.IO.Unsafe         (unsafePerformIO)
 import System.Clock             (TimeSpec(..))
-import System.IO                (Handle)
 import System.Process           (ProcessHandle)
 
-import Control.Concurrent       (ThreadId)
-import Control.Concurrent.MVar
-import Data.IORef
-
--- import Control.Monad.State
 
 ------------------------------------------------------------------------
 -- A state monad over IO would be another option.
