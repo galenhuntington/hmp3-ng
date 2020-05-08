@@ -59,21 +59,22 @@ data File =
     File { fbase :: !FilePathP      -- ^ basename of file
          , fdir  :: !Int }          -- ^ index of Dir entry 
 
+data Tree = Tree !DirArray !FileArray
+
 --
 -- | Given the start directories, populate the dirs and files arrays
 --
-buildTree :: [FilePathP] -> IO (DirArray, FileArray)
+buildTree :: [FilePathP] -> IO Tree
 buildTree fs = do
-    (os,dirs) <- partition fs    -- note we will lose the ordering of files given on cmd line.
+    (os, dirs) <- partition fs    -- note we will lose the ordering of files given on cmd line.
 
-    let loop xs | seq xs False = undefined -- strictify
-        loop []     = pure []
+    let loop []     = pure []
         loop (a:xs) = do
-            (m,ds) <- expandDir a
-            ms     <- loop $! ds ++ xs  -- add to work list
-            pure $! m : ms
+            (m, ds) <- expandDir a
+            ms      <- loop $ ds ++ xs  -- add to work list
+            pure $ m : ms
 
-    ms' <- catMaybes <$!> loop dirs
+    ms' <- catMaybes <$> loop dirs
 
     let extras = merge . doOrphans $ os
         ms = ms' ++ extras
@@ -82,7 +83,7 @@ buildTree fs = do
         dirsArray = listArray (0,length dirls - 1) (reverse dirls)
         fileArray = listArray (0, n-1) (reverse filels)
 
-    dirsArray `seq` fileArray `seq` pure (dirsArray, fileArray)
+    pure $! Tree dirsArray fileArray
 
 -- | Create nodes based on dirname for orphan files on cmdline
 doOrphans :: [FilePathP] -> [(FilePathP, [FilePathP])]
@@ -103,11 +104,11 @@ merge xs =
 -- | fold builder, for generating Dirs and Files
 make :: (Int,Int,[Dir],[File]) -> (FilePathP,[FilePathP]) -> (Int,Int,[Dir],[File])
 make (i,n,acc1,acc2) (d,fs) =
-    case listToDir n d fs of
-        (dir,n') -> case map makeFile fs of
-            fs' -> (i+1, n', dir:acc1, reverse fs' ++ acc2)
-    where
-        makeFile f = File (basenameP f) i
+    let (dir, n') = listToDir n d fs
+        fs'= map makeFile fs
+    in (i+1, n', dir:acc1, reverse fs' ++ acc2)
+  where
+    makeFile f = File (basenameP f) i
 
 ------------------------------------------------------------------------
 
@@ -122,8 +123,8 @@ expandDir f = do
     ls_raw <- handle @SomeException (\e -> hPrint stderr e $> [])
                 $ packedGetDirectoryContents f
     let ls = (map \s -> P.intercalate (P.singleton '/') [f,s])
-                . sort . filter validFiles $! ls_raw
-    (fs',ds) <- partition $! ls
+                . sort . filter validFiles $ ls_raw
+    (fs',ds) <- partition ls
     let fs = filter onlyMp3s fs'
         v = if null fs then Nothing else Just (f,fs)
     pure (v,ds)
@@ -155,13 +156,12 @@ listToDir n d fs =
 -- | break a list of file paths into a pair of sublists corresponding
 -- to the paths that point to files and to directories.
 partition :: [FilePathP] -> IO ([FilePathP], [FilePathP])
-partition xs | seq xs False = undefined -- how to make `partition' strict
 partition [] = pure ([],[])
 partition (a:xs) = do
     (fs,ds) <- partition xs
     x <- doesFileExist a
     if x then do y <- isReadable a
-                 pure $! if y then (a:fs, ds) else (fs, ds)
+                 pure if y then (a:fs, ds) else (fs, ds)
          else pure (fs, a:ds)
 
 ------------------------------------------------------------------------
@@ -211,10 +211,10 @@ instance Binary SerialT where
 
 -- | Wrap up the values we're going to dump to disk
 data SerialT = SerialT {
-        ser_farr :: FileArray,
-        ser_darr :: DirArray,
-        ser_indx :: Int,
-        ser_mode :: Mode
+        ser_farr :: !FileArray,
+        ser_darr :: !DirArray,
+        ser_indx :: !Int,
+        ser_mode :: !Mode
      }
 
 writeTree :: FilePath -> SerialT -> IO ()

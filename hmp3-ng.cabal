@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 4356a12b62a4df69e3aacf3d23d0d5d6714a1d09d88dc65fa23fc84bd9f66f7f
+-- hash: 917aa3c3261f6f32271efed7b69f9abe22f174e1e7876fdbc0ecbb95c9c0db3f
 
 name:           hmp3-ng
 version:        2.9.9
@@ -58,7 +58,6 @@ executable hmp3
     , bytestring >=0.10
     , clock
     , containers
-    , deepseq
     , directory
     , filepath
     , hscurses

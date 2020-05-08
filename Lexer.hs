@@ -40,7 +40,7 @@ readPS :: P.ByteString -> Int
 readPS = fst . fromJust . P.readInt
 
 doP :: P.ByteString -> Msg
-doP s = S $! case pSafeHead s of
+doP s = S case pSafeHead s of
                 '0' -> Stopped
                 '1' -> Paused
                 '2' -> Playing
@@ -50,7 +50,7 @@ doP s = S $! case pSafeHead s of
 
 -- Frame decoding status updates (once per frame).
 doF :: P.ByteString -> Msg
-doF s = R $ Frame {
+doF s = R Frame {
                 currentFrame = readPS f0
               , framesLeft   = readPS f1
               , currentTime  = read . P.unpack $ f2
@@ -62,7 +62,7 @@ doF s = R $ Frame {
 -- Outputs information about the mp3 file after loading.
 doS :: P.ByteString -> Msg
 doS s = let fs = P.split ' ' s
-        in I $ Info {
+        in I Info {
             {-
                   version       = fs !! 0
                 , layer         = read . P.unpack $ fs !! 1
@@ -114,17 +114,18 @@ doI s = let f = dropSpaceEnd . P.dropWhile isSpace $ s
         -- and some ugly code:
         toId :: Id3 -> [P.ByteString] -> Id3
         toId i ls =
-            let j = case length ls of
+            let arg n = normalise $ ls !! n
+                j = case length ls of
                     0   -> i
 
-                    1   -> i { id3title  = normalise $! ls !! 0 }
+                    1   -> i { id3title  = arg 0 }
 
-                    2   -> i { id3title  = normalise $! ls !! 0
-                             , id3artist = normalise $! ls !! 1 }
+                    2   -> i { id3title  = arg 0
+                             , id3artist = arg 1 }
 
-                    _   -> i { id3title  = normalise $! ls !! 0
-                             , id3artist = normalise $! ls !! 1
-                             , id3album  = normalise $! ls !! 2 }
+                    _   -> i { id3title  = arg 0
+                             , id3artist = arg 1
+                             , id3album  = arg 2 }
 
             in j { id3str =
                     id3artist j `maybeJoin` id3album j `maybeJoin` id3title j }

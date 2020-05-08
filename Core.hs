@@ -59,10 +59,9 @@ import System.Directory         (doesFileExist,findExecutable)
 import System.IO                (hPutStrLn, hGetLine, stderr, hFlush)
 import System.IO.Unsafe         (unsafeInterleaveIO)
 import System.Process           (runInteractiveProcess, waitForProcess)
-import System.Clock             (getTime, TimeSpec(..), Clock(..))
+import System.Clock             (getTime, TimeSpec(..), Clock(..), diffTimeSpec)
 import System.Random            (randomIO)
 import System.FilePath          ((</>))
-import System.Clock             (diffTimeSpec)
 
 import System.Posix.Process     (exitImmediately)
 import System.Posix.User        (getUserEntryForID, getRealUserID, homeDirectory)
@@ -87,7 +86,7 @@ start ms = handle @SomeException (shutdown . Just . show) do
 
     (ds,fs,i,m)   -- construct the state
         <- case ms of
-           Right roots -> do (a,b) <- buildTree roots
+           Right roots -> do Tree a b <- buildTree roots
                              pure (a,b,0,Normal)
 
            Left st     -> pure (ser_darr st

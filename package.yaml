@@ -50,7 +50,6 @@ dependencies:
    - monad-extras
    - utf8-string
    - filepath
-   - deepseq
 
 extra-libraries: ncursesw
 

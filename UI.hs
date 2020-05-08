@@ -301,8 +301,8 @@ instance Element HelpScreen where
                     then p <> spaces rt
                     else P.take (tot - 1) p <> UTF8.fromString "…"
                 where
-                    tot = max (min w 3) $! round $! fromIntegral w * (0.8::Float)
-                    len = max 2 $! round $! fromIntegral tot * (0.2::Float)
+                    tot = max (min w 3) $ round $ fromIntegral w * (0.8::Float)
+                    len = max 2 $ round $ fromIntegral tot * (0.2::Float)
 
                     str = P.take len $ P.intercalate " "
                         ([""] ++ map pprIt cs ++ [P.replicate len ' '])
@@ -381,14 +381,14 @@ instance Element PTime where
 
 -- | Play mode
 instance Element PMode where
-    draw dd = PMode $! case status $ drawState dd of 
+    draw dd = PMode case status $ drawState dd of
                         Stopped -> "◼"
                         Paused  -> "Ⅱ"
                         Playing -> "▶"
 
 -- | Loop, normal, or random
 instance Element PMode2 where
-    draw dd = PMode2 $ case mode $ drawState dd of 
+    draw dd = PMode2 case mode $ drawState dd of
                         Random  -> "rand"
                         Loop    -> "loop"
                         Normal  -> "once"
@@ -457,7 +457,7 @@ instance Element PlayTitle where
 -- | Playlist
 instance Element PlayList where
     draw dd@DD{ drawSize=Size y x, drawPos=Pos{posY=o}, drawState=st } =
-        PlayList $!
+        PlayList $
             title
             : list
             ++ replicate (height - length list - 2) (Fast P.empty defaultSty)
