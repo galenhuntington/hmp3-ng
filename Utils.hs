@@ -29,8 +29,6 @@ import qualified Data.ByteString.Char8 as P (pack)
 
 import System.Clock             (TimeSpec(..), diffTimeSpec)
 
-import Control.Monad.Fail as Fail  -- workaround needed for GHC 8.6
-
 
 ------------------------------------------------------------------------
 
@@ -69,14 +67,4 @@ isLightBg :: IO Bool
 isLightBg = handle @SomeException (\_ -> pure False) do
     e <- getEnv "HMP_HAS_LIGHT_BG"
     return $ map toLower e == "true"
-
-------------------------------------------------------------------------
-
--- | 'readM' behaves like read, but catches failure in a monad.
-readM :: (MonadFail m, Read a) => String -> m a
-readM s = case [x | (x,t) <- {-# SCC "Serial.readM.reads" #-} reads s    -- bad!
-               , ("","")  <- lex t] of
-        [x] -> return x
-        []  -> Fail.fail "Serial.readM: no parse"
-        _   -> Fail.fail "Serial.readM: ambiguous parse"
 

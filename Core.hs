@@ -603,7 +603,7 @@ loadConfig = do
     b <- doesFileExist f
     if b then do
         str  <- readFile f
-        msty <- catch (Just <$> readM str)
+        msty <- catch (fmap Just $ evaluate $ read str)
                       (\ (_ :: SomeException) ->
                         warnA "Parse error in ~/.hmp3" $> Nothing)
         case msty of
