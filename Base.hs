@@ -31,7 +31,7 @@ import Data.Char as X
 import Data.Foldable as X
 import Data.Functor as X
 import Data.IORef as X
-import Data.List as X ((\\), group, groupBy, isPrefixOf, sort, sortBy)
+import Data.List as X ((\\), group, groupBy, isPrefixOf, sort, sortBy, intersperse)
 import Data.Maybe as X
 import Data.Traversable as X
 import Data.Word as X

@@ -128,10 +128,8 @@ doI s = let f = dropSpaceEnd . P.dropWhile isSpace $ s
                              , id3album  = arg 2 }
 
             in j { id3str =
-                    id3artist j `maybeJoin` id3album j `maybeJoin` id3title j }
-
-        maybeJoin t f | P.null f = t
-                      | True     = mconcat [t, " : ", f]
+                    mconcat $ intersperse " : " $ filter (not . P.null)
+                        [id3artist j, id3album j, id3title j] }
 
         -- strip spaces, and decide if UTF-8 or ISO-8859-1
         normalise :: P.ByteString -> P.ByteString
