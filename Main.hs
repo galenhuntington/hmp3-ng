@@ -25,7 +25,6 @@ import Base
 
 import Core     (start, readSt, shutdown)
 import Tree     (SerialT(..))
-import Utils    ((<+>))
 import Config   (darcsinfo, help, versinfo)
 
 import qualified Data.ByteString.Char8 as P (pack,ByteString)
@@ -81,9 +80,10 @@ do_args []  = do    -- attempt to read db
         Just st -> pure $ Left st
 
 do_args [s] | s == "-V" || s == "--version"
-            = do putStrLn (versinfo <+> help); putStrLn darcsinfo; exitSuccess
+            = do verLine; putStrLn darcsinfo; exitSuccess
             | s == "-h" || s == "--help"
-            = do putStrLn (versinfo <+> help); traverse_ putStrLn usage; exitSuccess
+            = do verLine; traverse_ putStrLn usage; exitSuccess
+    where verLine = putStrLn $ unwords [versinfo, help]
 
 do_args xs = pure $ Right xs
 

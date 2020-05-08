@@ -32,21 +32,6 @@ import System.Clock             (TimeSpec(..), diffTimeSpec)
 
 ------------------------------------------------------------------------
 
---
--- | join two path components
---
-infixr 6 </>
-infixr 6 <+>
-
-(</>), (<+>) :: FilePath -> FilePath -> FilePath
-[] </> b = b
-a  </> b = a ++ "/" ++ b
-
-[] <+> b = b
-a  <+> b = a ++ " " ++ b
-
-------------------------------------------------------------------------
-
 drawUptime :: TimeSpec -> TimeSpec -> P.ByteString
 drawUptime before now
     | hs == 0 = P.pack $ printf "%dm" m

@@ -49,6 +49,7 @@ dependencies:
    - mtl
    - monad-extras
    - utf8-string
+   - filepath
 
 extra-libraries: ncursesw
 

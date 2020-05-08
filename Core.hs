@@ -62,6 +62,7 @@ import System.IO.Unsafe         (unsafeInterleaveIO)
 import System.Process           (runInteractiveProcess, waitForProcess)
 import System.Clock             (getTime, Clock(..))
 import System.Random            (randomIO)
+import System.FilePath          ((</>))
 
 import System.Posix.Process     (exitImmediately)
 import System.Posix.User        (getUserEntryForID, getRealUserID, homeDirectory)
