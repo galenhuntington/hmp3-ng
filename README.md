@@ -2,12 +2,12 @@
 
 ##  hmp3-ng
 
-The `hmp3` music player, written in Haskell, dates to 2005, and
-has a curses-based interface which can be used in a text terminal.
-But it has become abandonware: the last update was in June 2008,
-and it no longer builds with today's Haskell and standard libraries.
+The `hmp3` music player, written in Haskell, dates to 2005, and has a
+curses interface for use in a text terminal.  However, it has become
+abandonware: the last update was in June 2008, and it no longer builds
+with today’s Haskell and standard libraries.
 
-This repository is a work in progress to resurrect this software.
+This repository is an effort to resurrect this software.
 
 The original Darcs repo has vanished from the Internet.  However, I
 have a copy I checked out in 2008 (to hack on!) with all the patches
@@ -15,20 +15,18 @@ through version 1.5.1 (the latest is 1.5.2.1), and Hackage has tarballs
 for the later versions.
 
 *  I used [darcs-to-git](https://github.com/purcell/darcs-to-git)
-to port to Git.
+to port to Git.  I manually added commits for the two later published
+versions, which were quite minor, mostly the automated regeneration
+of a `configure` file (now gone).
 
-*  I added commits for the changes in the two later published versions.
-These were quite minor, the bulk being the automated regeneration of a
-`configure` file (now gone).
+*  The code is updated to compile under recent GHC (currently 8.6,
+8.8, and 8.10) and libraries.  This required rewriting or entirely
+replacing large sections, mainly low-level optimizations.
 
-*  I updated the code to compile under recent GHC (8.6.5, 8.8.3, and
-8.10.1 as of this writing) and libraries.  This required rewriting
-or entirely replacing large sections, mainly low-level optimizations.
+*  I added support for building with Stack.
 
-*  Cabal is configured via the more modern
-[hpack](https://github.com/sol/hpack) format.
-
-*  I have added support for building with Stack.
+*  [hpack](https://github.com/sol/hpack) is used, with Cabal configured
+via a `package.yaml` file.
 
 *  There is a GitHub issue tracker, and Travis integration to
 continuously test builds.
@@ -40,8 +38,8 @@ up-to-date packages from Hackage.  Much old code has now been
 *  All C code is removed, replaced with libraries from Hackage.
 There is still some use of the FFI.
 
-*  Unicode is supported in titles and filenames, and Unicode characters
-are utilized to sharpen the interface.
+*  Unicode is supported in titles and filenames, and Unicode glyphs
+are utilized in the interface.
 
 *  Several additions and changes have been made to the feature set
 and the UI.  A few of the key bindings have been modified per my
@@ -49,7 +47,7 @@ preference.
 
 *  Work on other features and changes, and documentation, is ongoing.
 
-I am still working out the flaws.  Let me know if there are problems.
+This is still a work in progress.  Let me know if there are problems.
 
 
 ##  Installation
@@ -58,19 +56,19 @@ Either `cabal install` or `stack install` will build a binary.
 You will need to have `mpg321` installed, which is free software
 and widely available in package managers.  Alternatively, `mpg123`
 can be used by compiling with the `-DMPG123` option, but, while your
-mileage may vary, in my experience it doesn't work as well.
+mileage may vary, in my experience it doesn’t work as well.
 
 The build depends on the package `hscurses`, which in turn requires
 curses dev files.  In Ubuntu/Debian, for example, these can be
-gotten by installing `libncurses5-dev`.  You probably also need
+obtained by installing `libncurses5-dev`.  You probably also need
 `libncursesw5-dev`.
 
 
 ##  Use
 
-The `hmp3` executable is called with arguments containing a list of mp3
-files or directories of mp3 files.  With no arguments, it will use the
-playlist from the last time it was run, which is stored in `~/.hmp3db`.
+The `hmp3` executable is invoked with a list of mp3 files or
+directories of mp3 files.  With no arguments, it will use the playlist
+from the last time it was run, which is stored in `~/.hmp3db`.
 
 ```
 $ hmp3 ~/Music ~/Downloads/La-La.mp3
@@ -82,7 +80,7 @@ Once running, `hmp3` is controlled by fairly intuitive key commands.
 
 A color scheme can be specified by writing out a `Config { .. }`
 value in `~/.hmp3`.  See `Style.hs` for the definition.  The `l`
-command reloads this configuration.
+command hot-reloads this configuration.
 
 
 ##  Original authorship list
