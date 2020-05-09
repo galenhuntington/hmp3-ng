@@ -14,21 +14,21 @@ have a copy I checked out in 2008 (to hack on!) with all the patches
 through version 1.5.1 (the latest is 1.5.2.1), and Hackage has tarballs
 for the later versions.
 
-*  I used [darcs-to-git](https://github.com/purcell/darcs-to-git)
-to port to Git.  I manually added commits for the two later published
-versions, which were quite minor, mostly the automated regeneration
-of a `configure` file (now gone).
+*  I used [darcs-to-git](https://github.com/purcell/darcs-to-git) to
+port to Git.  I manually added commits for the two later published
+versions, which were only minor changes, mostly the automated
+regeneration of a `configure` file (now gone).
 
-*  The code is updated to compile under recent GHC (currently 8.6,
-8.8, and 8.10) and libraries.  This required rewriting or entirely
+*  The code has been updated to compile under recent GHC (currently
+8.6, 8.8, and 8.10) and libraries.  This required rewriting or entirely
 replacing large sections, mainly low-level optimizations.
 
 *  I added support for building with Stack.
 
-*  [hpack](https://github.com/sol/hpack) is used, with Cabal configured
-via a `package.yaml` file.
+*  Cabal is configured using [hpack](https://github.com/sol/hpack)
+with a `package.yaml` file.
 
-*  There is a GitHub issue tracker, and Travis integration to
+*  There is a public GitHub issue tracker, and Travis integration to
 continuously test builds.
 
 *  I try to avoid “Not Invented Here” by using established,
