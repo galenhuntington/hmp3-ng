@@ -43,35 +43,35 @@ dropRate :: Int
 dropRate = 4   -- used to be 10, but computers are faster
 
 -- | Packed string version of basename
-basenameP :: P.ByteString -> P.ByteString
+basenameP :: ByteString -> ByteString
 basenameP fps = case P.elemIndexEnd '/' fps of
     Nothing -> fps
     Just i  -> P.drop (i+1) fps
 {-# INLINE basenameP #-}
 
-dirnameP :: P.ByteString -> P.ByteString
+dirnameP :: ByteString -> ByteString
 dirnameP fps = case P.elemIndexEnd '/' fps of
     Nothing -> "."
     Just i  -> P.take i fps
 {-# INLINE dirnameP #-}
 
 -- | Packed version of listDirectory
-packedGetDirectoryContents :: P.ByteString -> IO [P.ByteString]
+packedGetDirectoryContents :: ByteString -> IO [ByteString]
 packedGetDirectoryContents fp = bracket (openDirStream fp) closeDirStream
     $ \ds -> fmap (filter (\p -> p/="." && p/=".."))
         $ sequenceWhile (not . P.null) $ repeat $ readDirStream ds
 
-doesFileExist :: P.ByteString -> IO Bool
+doesFileExist :: ByteString -> IO Bool
 doesFileExist fp = catch @SomeException
    (not . isDirectory <$> getFileStatus fp)
    (\_ -> pure False)
 
-doesDirectoryExist :: P.ByteString -> IO Bool
+doesDirectoryExist :: ByteString -> IO Bool
 doesDirectoryExist fp = catch @SomeException
    (isDirectory <$> getFileStatus fp)
    (\_ -> pure False)
 
-packedFileNameEndClean :: P.ByteString -> P.ByteString
+packedFileNameEndClean :: ByteString -> ByteString
 packedFileNameEndClean name =
   case P.unsnoc name of
     Just (name', ec) | ec == '\\' || ec == '/'
@@ -87,7 +87,7 @@ newFiltHandle h = FiltHandle h <$> newIORef 0
 
 -- | Read a line from a file stream connected to an external prcoess,
 -- Returning a ByteString.
-getPacket :: FiltHandle -> IO P.ByteString
+getPacket :: FiltHandle -> IO ByteString
 getPacket (FiltHandle fp _) = B.hGetLine fp
 
 -- | Check if it's one of every dropRate packets.
@@ -100,7 +100,7 @@ checkF (FiltHandle _ ir) = do
 
 -- ---------------------------------------------------------------------
 
-isReadable :: P.ByteString -> IO Bool
+isReadable :: ByteString -> IO Bool
 isReadable fp = fileAccess fp True False False
 
 -- ---------------------------------------------------------------------
@@ -114,7 +114,7 @@ send h m = P.hPut h (ppr m) >> P.hPut h "\n" >> hFlush h
 -- white space removed from the end. I.e.,
 -- 
 -- > reverse . (dropWhile isSpace) . reverse == dropSpaceEnd
-dropSpaceEnd :: P.ByteString -> P.ByteString
+dropSpaceEnd :: ByteString -> ByteString
 {-# INLINE dropSpaceEnd #-}
 dropSpaceEnd bs = P.take (P.length bs - count) bs where
     count = B.foldl' go 0 bs

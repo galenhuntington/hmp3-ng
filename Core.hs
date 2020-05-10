@@ -52,12 +52,11 @@ import qualified UI
 import Text.Regex.PCRE.Light
 import {-# SOURCE #-} Keymap (keymap)
 
-import qualified Data.ByteString.Char8 as P (ByteString,pack,empty,intercalate,singleton,unpack)
+import qualified Data.ByteString.Char8 as P
 
 import Data.Array               ((!), bounds, Array)
 import System.Directory         (doesFileExist,findExecutable)
 import System.IO                (hPutStrLn, hGetLine, stderr, hFlush)
-import System.IO.Unsafe         (unsafeInterleaveIO)
 import System.Process           (runInteractiveProcess, waitForProcess)
 import System.Clock             (getTime, TimeSpec(..), Clock(..), diffTimeSpec)
 import System.Random            (randomIO)
@@ -77,7 +76,7 @@ mp3Tool =
 
 ------------------------------------------------------------------------
 
-start :: Either SerialT [P.ByteString] -> IO ()
+start :: Either SerialT [ByteString] -> IO ()
 start ms = handle @SomeException (shutdown . Just . show) do
 
     t0 <- forkIO mpgLoop    -- start this off early, to give mpg321 a time to settle
@@ -210,7 +209,7 @@ uptimeLoop = runForever $ do
 
 ------------------------------------------------------------------------
 
-showUptime :: TimeSpec -> TimeSpec -> P.ByteString
+showUptime :: TimeSpec -> TimeSpec -> ByteString
 showUptime before now
     | hs == 0 = P.pack $ printf "%dm" m
     | d == 0  = P.pack $ printf "%dh%02dm" h m

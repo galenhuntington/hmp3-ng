@@ -27,8 +27,6 @@ import Core     (start, readSt, shutdown)
 import Tree     (SerialT(..))
 import Config   (help, versinfo)
 
-import qualified Data.ByteString.Char8 as P (pack,ByteString)
-
 import System.IO            (hPrint, stderr)
 import System.Posix.Signals (installHandler, sigTERM, sigPIPE, sigINT, sigHUP
                             ,sigALRM, sigABRT, Handler(Ignore, Default, Catch))
@@ -72,7 +70,7 @@ usage = ["Usage: hmp3 [-Vh] [FILE|DIR ...]"
         ,"-h  --help     Show this help"]
 
 -- | Parse the args
-do_args :: [P.ByteString] -> IO (Either SerialT [P.ByteString])
+do_args :: [ByteString] -> IO (Either SerialT [ByteString])
 do_args []  = do    -- attempt to read db
     x <- readSt
     case x of
@@ -97,7 +95,7 @@ do_args xs = pure $ Right xs
 --
 main :: IO ()
 main = do
-    args  <- map P.pack <$> getArgs
+    args  <- map fromString <$> getArgs
     files <- do_args args
     initSignals
     start files -- never returns

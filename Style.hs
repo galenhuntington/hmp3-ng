@@ -25,13 +25,8 @@
 module Style where
 
 import Base
-
 import qualified UI.HSCurses.Curses as Curses
-import Data.ByteString (ByteString)
-
 import qualified Data.Map as M  (fromList, empty, lookup, Map)
-
-import System.IO.Unsafe         (unsafePerformIO)
 
 ------------------------------------------------------------------------
 

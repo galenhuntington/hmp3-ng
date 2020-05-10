@@ -1,6 +1,6 @@
 module Keymap where
 
-import Data.ByteString (ByteString)
+import Base
 import UI.HSCurses.Curses (Key)
 
 keymap :: [Char] -> [IO ()]

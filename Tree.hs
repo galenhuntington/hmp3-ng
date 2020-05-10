@@ -38,7 +38,7 @@ import Data.Array
 import System.IO        (hPrint, stderr)
 
 
-type FilePathP = P.ByteString
+type FilePathP = ByteString
 
 -- | A filesystem hierarchy is flattened to just the end nodes
 type DirArray = Array Int Dir

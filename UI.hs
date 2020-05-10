@@ -215,18 +215,18 @@ data PlayScreen = PlayScreen !PPlaying !ProgressBar !PTimes
 newtype PlayList = PlayList [StringA]
 
 newtype PPlaying    = PPlaying    StringA
-newtype PVersion    = PVersion    P.ByteString
+newtype PVersion    = PVersion    ByteString
 newtype PMode       = PMode       String
 newtype PMode2      = PMode2      String
 newtype ProgressBar = ProgressBar StringA
 newtype PTimes      = PTimes      StringA
 
-newtype PInfo       = PInfo       P.ByteString
-newtype PId3        = PId3        P.ByteString
-newtype PTime       = PTime       P.ByteString
+newtype PInfo       = PInfo       ByteString
+newtype PId3        = PId3        ByteString
+newtype PTime       = PTime       ByteString
 
 newtype PlayTitle = PlayTitle StringA
-newtype PlayInfo  = PlayInfo  P.ByteString
+newtype PlayInfo  = PlayInfo  ByteString
 newtype PlayModes = PlayModes String
 newtype HelpScreen = HelpScreen [StringA]
 
@@ -278,7 +278,7 @@ instance Element PInfo where
         Nothing  -> emptyVal
         Just i   -> userinfo i
 
-emptyVal :: P.ByteString
+emptyVal :: ByteString
 emptyVal = "(empty)"
 
 spc2 :: AmbiString
@@ -293,7 +293,7 @@ instance Element HelpScreen where
         where
             sty  = helpscreen . config $ st
 
-            f :: [Char] -> P.ByteString -> P.ByteString
+            f :: [Char] -> ByteString -> ByteString
             f cs ps =
                 let p = str <> ps
                     rt = tot - P.length p
@@ -538,16 +538,16 @@ printPlayList (PlayList s) = s
 ------------------------------------------------------------------------
 
 -- | Calculate whitespaces, very common, so precompute likely values
-spaces :: Int -> P.ByteString
+spaces :: Int -> ByteString
 spaces n
     | n <= 0    = ""
     | n > 100   = P.replicate n ' ' -- unlikely
     | otherwise = arr ! n
   where
-    arr :: Array Int P.ByteString   -- precompute some whitespace strs
+    arr :: Array Int ByteString   -- precompute some whitespace strs
     arr = listArray (0,100) [ P.take i s100 | i <- [0..100] ]
 
-    s100 :: P.ByteString
+    s100 :: ByteString
     s100 = P.replicate 100 ' '  -- seems reasonable
 
 ------------------------------------------------------------------------
@@ -675,7 +675,7 @@ slice i j arr =
     in [unsafeAt arr n | n <- [max a i .. min b j] ]
 {-# INLINE slice #-}
 
--- isAscii :: P.ByteString -> Bool
+-- isAscii :: ByteString -> Bool
 -- isAscii = P.all (<'\128')
 
 ------------------------------------------------------------------------
@@ -683,7 +683,7 @@ slice i j arr =
 --
 -- | magics for setting xterm titles using ansi escape sequences
 --
-setXtermTitle :: [P.ByteString] -> IO ()
+setXtermTitle :: [ByteString] -> IO ()
 setXtermTitle strs = do
     mapM_ (P.hPut stderr) (before : strs ++ [after])
     hFlush stderr 

@@ -44,7 +44,7 @@ import Lexers       ((>|<),(>||<),action,meta,execLexer
 
 import UI.HSCurses.Curses (Key(..), decodeKey)
 
-import qualified Data.ByteString.Char8 as P (ByteString, pack, singleton)
+import qualified Data.ByteString.Char8 as P
 import qualified Data.Map as M
 
 data Search = SearchFile | SearchDir
@@ -145,7 +145,7 @@ enter   = alt enter'
 --
 -- The default keymap, and its description
 --
-keyTable :: [(P.ByteString, [Char], IO ())]
+keyTable :: [(ByteString, [Char], IO ())]
 keyTable =
     [
      ("Move up",
@@ -203,7 +203,7 @@ keyTable =
 innerTable :: [(Char, IO ())]
 innerTable = [(c, jumpRel i) | (i, c) <- zip [0.1, 0.2 ..] ['1'..'9']]
 
-extraTable :: [(P.ByteString, [Char])]
+extraTable :: [(ByteString, [Char])]
 extraTable = [("Search for file matching regex", ['/'])
              ,("Search backwards for file", ['?'])
              ,("Search for directory matching regex", ['\\'])

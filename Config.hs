@@ -19,8 +19,8 @@
 -- 
 module Config where
 
+import Base
 import Style
-import Data.Version (showVersion)
 import Paths_hmp3_ng (version)
 
 defaultStyle :: UIStyle

@@ -27,8 +27,9 @@
 
 module Syntax where
 
-import qualified Data.ByteString.Char8 as P (pack, ByteString)
-import Data.Fixed (Fixed, E2)
+import Base
+
+import qualified Data.ByteString.Char8 as P
 
 ------------------------------------------------------------------------
 --
@@ -36,7 +37,7 @@ import Data.Fixed (Fixed, E2)
 
 -- Loads and starts playing <file>
 --
-newtype Load = Load P.ByteString
+newtype Load = Load ByteString
 
 instance Pretty Load where
     ppr (Load f) = mconcat ["LOAD ", f]
@@ -69,18 +70,18 @@ instance Pretty Quit where
 data Tag = Tag
 
 -- Track info if ID fields are in the file, otherwise file name.
-newtype File = File (Either P.ByteString Id3)
+newtype File = File (Either ByteString Id3)
 
 -- ID3 info 
 data Id3 = Id3
-        { id3title  :: !P.ByteString
-        , id3artist :: !P.ByteString
-        , id3album  :: !P.ByteString
-        , id3str    :: !P.ByteString
+        { id3title  :: !ByteString
+        , id3artist :: !ByteString
+        , id3album  :: !ByteString
+        , id3str    :: !ByteString
         }
 
---      , year   :: Maybe P.ByteString
---      , genre  :: Maybe P.ByteString }
+--      , year   :: Maybe ByteString
+--      , genre  :: Maybe ByteString }
 
 
 
@@ -100,11 +101,11 @@ data Id3 = Id3
 -- <k>: Bitrate, in kbps. (i.e., 128.) Integer.
 -- <l>: Extension. Integer.
 newtype Info = Info {
-                userinfo      :: P.ByteString  -- user friendly string
-           --   version       :: !P.ByteString,
+                userinfo      :: ByteString  -- user friendly string
+           --   version       :: !ByteString,
            --   layer         :: !Int,     -- 1,2 or 3
            --   sampleRate    :: !Int,
-           --   playMode      :: !P.ByteString,
+           --   playMode      :: !ByteString,
            --   modeExtns     :: !Int,
            --   bytesPerFrame :: !Int,
            --   channelCount  :: !Int,
@@ -149,7 +150,7 @@ data Mode = Normal | Loop | Random
 -- a pretty printing class
 --
 class Pretty a where
-    ppr :: a -> P.ByteString
+    ppr :: a -> ByteString
 
 --
 -- And a wrapper type 

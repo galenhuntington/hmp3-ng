@@ -29,12 +29,10 @@ import FastIO (FiltHandle(..))
 import Syntax                   (Status(Stopped), Mode(..), Frame, Info,Id3)
 import Tree                     (FileArray, DirArray)
 import Style                    (StringA(Fast), defaultSty, UIStyle)
-import qualified Data.ByteString as P (empty,ByteString)
 import qualified Config (defaultStyle)
 
 import Text.Regex.PCRE.Light    (Regex)
 import Data.Array               (listArray)
-import System.IO.Unsafe         (unsafePerformIO)
 import System.Clock             (TimeSpec(..))
 import System.Process           (ProcessHandle)
 
@@ -67,7 +65,7 @@ data HState = HState {
        ,helpVisible     :: !Bool                 -- is the help window shown
        ,miniFocused     :: !Bool                 -- is the mini buffer focused?
        ,mode            :: !Mode                 -- random mode
-       ,uptime          :: !P.ByteString
+       ,uptime          :: !ByteString
        ,boottime        :: !TimeSpec
        ,regex           :: !(Maybe (Regex,Bool)) -- most recent search pattern and direction
        ,xterm           :: !Bool
@@ -115,7 +113,7 @@ emptySt = HState {
        ,boottime     = 0
        ,status       = Stopped
        ,mode         = Normal
-       ,minibuffer   = Fast P.empty defaultSty
+       ,minibuffer   = Fast mempty defaultSty
        ,uptime       = mempty
        ,drawLock     = unsafePerformIO (newMVar ())
     }

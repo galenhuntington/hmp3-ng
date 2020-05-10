@@ -33,13 +33,13 @@ import Control.Monad.Except
 
 ------------------------------------------------------------------------
 
-pSafeHead :: P.ByteString -> Char
+pSafeHead :: ByteString -> Char
 pSafeHead s = if P.null s then ' ' else P.head s
 
-readPS :: P.ByteString -> Int
+readPS :: ByteString -> Int
 readPS = fst . fromJust . P.readInt
 
-doP :: P.ByteString -> Msg
+doP :: ByteString -> Msg
 doP s = S case pSafeHead s of
                 '0' -> Stopped
                 '1' -> Paused
@@ -49,7 +49,7 @@ doP s = S case pSafeHead s of
                 -- _ -> error "Invalid Status"
 
 -- Frame decoding status updates (once per frame).
-doF :: P.ByteString -> Msg
+doF :: ByteString -> Msg
 doF s = R Frame {
                 currentFrame = readPS f0
               , framesLeft   = readPS f1
@@ -60,7 +60,7 @@ doF s = R Frame {
           f0 : f1 : f2 : f3 : _ = P.split ' ' s
 
 -- Outputs information about the mp3 file after loading.
-doS :: P.ByteString -> Msg
+doS :: ByteString -> Msg
 doS s = let fs = P.split ' ' s
         in I Info {
             {-
@@ -89,7 +89,7 @@ doS s = let fs = P.split ' ' s
 
 -- Track info if ID fields are in the file, otherwise file name.
 -- 30 chars per field?
-doI :: P.ByteString -> Msg
+doI :: ByteString -> Msg
 doI s = let f = dropSpaceEnd . P.dropWhile isSpace $ s
         in case P.take 4 f of
             cs | cs == "ID3:" -> F . File $
@@ -103,7 +103,7 @@ doI s = let f = dropSpaceEnd . P.dropWhile isSpace $ s
         id3 = Id3 "" "" "" ""
 
         -- break the ID3 string up
-        splitUp :: P.ByteString -> [P.ByteString]
+        splitUp :: ByteString -> [ByteString]
         splitUp f
             | f == P.empty  = []
             | otherwise
@@ -112,7 +112,7 @@ doI s = let f = dropSpaceEnd . P.dropWhile isSpace $ s
               in a : xs'
 
         -- and some ugly code:
-        toId :: Id3 -> [P.ByteString] -> Id3
+        toId :: Id3 -> [ByteString] -> Id3
         toId i ls =
             let arg n = normalise $ ls !! n
                 j = case length ls of
@@ -132,7 +132,7 @@ doI s = let f = dropSpaceEnd . P.dropWhile isSpace $ s
                         [id3artist j, id3album j, id3title j] }
 
         -- strip spaces, and decide if UTF-8 or ISO-8859-1
-        normalise :: P.ByteString -> P.ByteString
+        normalise :: ByteString -> ByteString
         normalise raw =
             let bs = P.dropWhile isSpace . dropSpaceEnd $ raw
             in if UTF8.replacement_char `elem` UTF8.toString bs
