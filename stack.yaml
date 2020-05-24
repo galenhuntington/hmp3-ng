@@ -1,6 +1,6 @@
-resolver: lts-15.11
+resolver: lts-15.13
 system-ghc: true
 compiler-check: newer-minor
 
 extra-deps:
-   - hscurses-1.4.2.0@sha256:185f294036aaced6a4cf72c994339286e8e7886f5a327c3ccac898066985c528,2118
+- hscurses-1.4.2.0@sha256:185f294036aaced6a4cf72c994339286e8e7886f5a327c3ccac898066985c528,2118
