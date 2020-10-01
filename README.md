@@ -1,3 +1,4 @@
+[![Hackage](https://img.shields.io/hackage/v/hmp3-ng.svg)](https://hackage.haskell.org/package/hmp3-ng)
 [![Build Status](https://travis-ci.com/galenhuntington/hmp3-ng.svg?branch=master)](https://travis-ci.com/galenhuntington/hmp3-ng)
 
 ##  hmp3-ng
