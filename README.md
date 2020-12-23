@@ -42,9 +42,9 @@ There is still some use of the FFI.
 *  Unicode is supported in titles and filenames, and Unicode glyphs
 are utilized in the interface.
 
-*  It is much more stable.  The app used to crash fairly frequently
-for me and require restart, but I’ve had `hmp3-ng` running for more
-than six months with heavy use without any problems.
+*  It is much more stable.  The app used to crash frequently and
+require restart, but I’ve had `hmp3-ng` running continuously for
+more than a year with heavy use without any problems.
 
 *  Several additions and changes have been made to the feature set
 and the UI.  A few of the key bindings have been modified per my

@@ -17,7 +17,7 @@ matrix:
   # Cabal
   - ghc: 8.6.5
   - ghc: 8.8.3
-  - ghc: 8.10.1
+  - ghc: 8.10.3
 
   # Stack
   - ghc: 8.8.3
