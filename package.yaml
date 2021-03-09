@@ -30,6 +30,7 @@ default-extensions:
 - TypeApplications
 - DerivingStrategies
 - RecordWildCards
+- LambdaCase
 
 dependencies:
 - unix >= 2.7

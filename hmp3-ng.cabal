@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 22637e4749269bd59d6046d353461cf03665c10d0304d4124112fdc82101fb58
+-- hash: e9351df2fd25e31e7e7a60b9948f6deaaa5bb945053a18b4396bd5e1a928ae04
 
 name:           hmp3-ng
 version:        2.10.1
@@ -47,7 +47,7 @@ executable hmp3
       Paths_hmp3_ng
   hs-source-dirs:
       ./.
-  default-extensions: BangPatterns BlockArguments NondecreasingIndentation OverloadedStrings ScopedTypeVariables TypeApplications DerivingStrategies RecordWildCards
+  default-extensions: BangPatterns BlockArguments NondecreasingIndentation OverloadedStrings ScopedTypeVariables TypeApplications DerivingStrategies RecordWildCards LambdaCase
   ghc-options: -Wall -funbox-strict-fields -threaded -Wno-unused-do-bind
   extra-libraries:
       ncursesw

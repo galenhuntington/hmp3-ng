@@ -103,7 +103,7 @@ searchFile = searchStart '/' SearchFile Forwards
         >||< searchStart '?' SearchFile Backwards
 
 dosearch :: LexerS
-dosearch = search_char >||< search_bs >||< search_esc >||< search_eval
+dosearch = search_char >||< search_bs >||< search_up >||< search_down >||< search_esc >||< search_eval
 
 endSearchWith :: IO () -> [String] -> MetaTarget
 endSearchWith a hist = (with (a *> toggleFocus), SearchState hist undefined, Just all)
@@ -115,25 +115,22 @@ zipTop :: Zipper -> String
 zipTop (_, s:_) = s
 
 printSearch :: SearchSpec -> Maybe (Either a (IO ()))
-printSearch spec = with $ do
+printSearch spec = with do
     putmsg $ Fast (P.pack $ searchChar spec : zipTop (searchZipper spec)) defaultSty
     touchST
 
--- updateSearch :: SearchHist -> (SearchSpec -> SearchSpec) -> 
+updateSearch :: (Zipper -> Zipper) -> SearchState -> MetaTarget
+updateSearch f (SearchState hist spec) =
+    let spec' = spec{ searchZipper = f $ searchZipper spec }
+    in (printSearch spec', SearchState hist spec', Just dosearch)
 
 search_char :: LexerS
-search_char = anyNonSpecial
-    `meta` \c (SearchState hist spec) ->
-        let spec' = spec{searchZipper=zipEdit (++ c) $ searchZipper spec}
-        -- ( with (putmsg (Fast (P.pack $ searchChar spec : zipTop newZ) defaultSty) *> touchST)
-        in (printSearch spec', SearchState hist spec', Just dosearch)
+search_char = anyNonSpecial `meta` \c -> updateSearch $ zipEdit (++ c)
     where anyNonSpecial = alt $ any' \\ (enter' ++ delete' ++ ['\ESC'])
 
 search_bs :: LexerS
-search_bs = delete
-    `meta` \_ (SearchState hist spec) ->
-        let spec' = spec{searchZipper = zipEdit (\st -> case st of [] -> []; xs -> init xs) $ searchZipper spec}
-        in (printSearch spec', SearchState hist spec', Just dosearch)
+search_bs = delete `meta`
+    \_ -> updateSearch $ zipEdit \st -> case st of [] -> []; xs -> init xs
 
 -- escape exits ex mode immediately
 search_esc :: LexerS
@@ -149,11 +146,16 @@ search_eval = enter
                     SearchDir  -> jumpToMatch
                in endSearchWith (jumpTo (Just pat) (searchDirection spec == Forwards)) (pat : hist)
 
-{-
 search_up :: LexerS
-search_up = char (unkey KeyUp) `meta` \_ (SearchState hist spec) ->
-    
--}
+search_up = char (unkey KeyUp) `meta` \_ -> updateSearch \case
+    (nx : rest, front) -> (rest, nx : front)
+    zipp               -> zipp
+
+search_down :: LexerS
+search_down = char (unkey KeyDown) `meta` \_ -> updateSearch \case
+    (back, prev : rest@(_:_)) -> (prev : back, rest)
+    zipp                      -> zipp
+
 
 ------------------------------------------------------------------------
 
