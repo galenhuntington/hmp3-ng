@@ -39,18 +39,19 @@ import Core
 import State        (getsST, touchST, HState(helpVisible))
 import Style        (defaultSty, StringA(Fast))
 import qualified UI (resetui)
-import Lexers       ((>|<),(>||<),action,meta,execLexer
+import Lexers       ((>||<),action,meta,execLexer
                     ,alt,with,char,Regexp,Lexer)
 
 import UI.HSCurses.Curses (Key(..), decodeKey)
 
 import qualified Data.ByteString.Char8 as P
 import qualified Data.Map as M
+import Data.List.NonEmpty (NonEmpty(..), nonEmpty, (<|))
 
 data Direction = Forwards | Backwards
     deriving stock Eq
 -- data Zipper = Zipper { back :: [String], front :: [String] (nonempty) }
-type Zipper = ([String], [String])
+type Zipper = ([String], NonEmpty String)
 data SearchType = SearchFile | SearchDir
 data SearchSpec = SearchSpec
     { searchChar :: !Char
@@ -91,7 +92,7 @@ search = searchDir >||< searchFile
 searchStart :: Char -> SearchType -> Direction -> LexerS
 searchStart c typ dir = char c `meta` \_ (SearchState hist _) ->
     (with (toggleFocus *> putmsg (Fast (P.singleton c) defaultSty) *> touchST)
-    , SearchState hist $ SearchSpec c typ dir (hist, [""])
+    , SearchState hist $ SearchSpec c typ dir (hist, pure "")
     , Just dosearch)
 
 searchDir :: LexerS
@@ -109,10 +110,10 @@ endSearchWith :: IO () -> [String] -> MetaTarget
 endSearchWith a hist = (with (a *> toggleFocus), SearchState hist undefined, Just all)
 
 zipEdit :: (String -> String) -> Zipper -> Zipper
-zipEdit f (back, s:front) = (back, f s : front)
+zipEdit f (back, s:|front) = (back, f s :| front)
 
 zipTop :: Zipper -> String
-zipTop (_, s:_) = s
+zipTop (_, s:|_) = s
 
 printSearch :: SearchSpec -> Maybe (Either a (IO ()))
 printSearch spec = with do
@@ -132,6 +133,18 @@ search_bs :: LexerS
 search_bs = delete `meta`
     \_ -> updateSearch $ zipEdit \st -> case st of [] -> []; xs -> init xs
 
+search_up :: LexerS
+search_up = char (unkey KeyUp) `meta` \_ -> updateSearch \case
+    (nx : rest, front) -> (rest, nx <| front)
+    zipp               -> zipp
+
+search_down :: LexerS
+search_down = char (unkey KeyDown) `meta` \_ -> updateSearch \case
+    (back, prev :| rest')
+        | Just rest <- nonEmpty rest'
+                        -> (prev : back, rest)
+    zipp                -> zipp
+
 -- escape exits ex mode immediately
 search_esc :: LexerS
 search_esc = char '\ESC'
@@ -144,17 +157,8 @@ search_eval = enter
         pat -> let jumpTo = case searchType spec of
                     SearchFile -> jumpToMatchFile
                     SearchDir  -> jumpToMatch
-               in endSearchWith (jumpTo (Just pat) (searchDirection spec == Forwards)) (pat : hist)
-
-search_up :: LexerS
-search_up = char (unkey KeyUp) `meta` \_ -> updateSearch \case
-    (nx : rest, front) -> (rest, nx : front)
-    zipp               -> zipp
-
-search_down :: LexerS
-search_down = char (unkey KeyDown) `meta` \_ -> updateSearch \case
-    (back, prev : rest@(_:_)) -> (prev : back, rest)
-    zipp                      -> zipp
+               in endSearchWith (jumpTo (Just pat) (searchDirection spec == Forwards))
+                    $ if take 1 hist == [pat] then hist else pat : hist
 
 
 ------------------------------------------------------------------------
