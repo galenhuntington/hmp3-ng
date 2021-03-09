@@ -73,10 +73,7 @@ type MetaTarget = (Result, SearchState, Maybe LexerS)
 --
 keymap :: [Char] -> [IO ()]
 keymap cs = map (clrmsg *>) actions
-    where (actions,_,_) = execLexer all (cs, defaultS)
-
-defaultS :: SearchState
-defaultS = SearchState [] undefined
+    where (actions,_,_) = execLexer all (cs, SearchState [] undefined)
 
 all :: LexerS
 all = commands >||< search
