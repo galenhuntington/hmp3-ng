@@ -1,5 +1,5 @@
 name: hmp3-ng
-version: "2.9.11"
+version: "2.10.0"
 author: Don Stewart, Galen Huntington
 maintainer: Galen Huntington
 license: GPL
@@ -13,7 +13,7 @@ description: |
 github: galenhuntington/hmp3-ng
 
 source-dirs:
-   - .
+- .
 
 extra-source-files:
 - README.md

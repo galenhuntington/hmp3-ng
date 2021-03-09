@@ -36,6 +36,7 @@ module Core (
         jumpToMatch, jumpToMatchFile,
         toggleFocus, jumpToNextDir, jumpToPrevDir,
         loadConfig,
+        FileListSource,
     ) where
 
 import Base
@@ -65,6 +66,8 @@ import System.FilePath          ((</>))
 import System.Posix.Process     (exitImmediately)
 import System.Posix.User        (getUserEntryForID, getRealUserID, homeDirectory)
 
+type FileListSource = Either SerialT [ByteString]
+
 
 mp3Tool :: String
 mp3Tool =
@@ -76,10 +79,10 @@ mp3Tool =
 
 ------------------------------------------------------------------------
 
-start :: Either SerialT [ByteString] -> IO ()
-start ms = handle @SomeException (shutdown . Just . show) do
+start :: Bool -> FileListSource -> IO ()
+start playNow ms = handle @SomeException (shutdown . Just . show) do
 
-    t0 <- forkIO mpgLoop    -- start this off early, to give mpg321 a time to settle
+    t0 <- forkIO mpgLoop    -- start this off early, to give mpg321 time to settle
 
     c <- UI.start -- initialise curses
 
@@ -119,6 +122,7 @@ start ms = handle @SomeException (shutdown . Just . show) do
     loadConfig
 
     when (0 <= (snd . bounds $ fs)) play -- start the first song
+    when (not playNow) pause
 
     run         -- won't restart if this fails!
 

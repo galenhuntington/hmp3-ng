@@ -23,8 +23,7 @@ module Main where
 
 import Base
 
-import Core     (start, readSt, shutdown)
-import Tree     (SerialT(..))
+import Core     (start, readSt, shutdown, FileListSource)
 import Config   (help, versinfo)
 
 import System.IO            (hPrint, stderr)
@@ -65,25 +64,32 @@ releaseSignals =
 
 -- usage string.
 usage :: [String]
-usage = ["Usage: hmp3 [-Vh] [FILE|DIR ...]"
+usage = ["Usage: hmp3 [-VhP] [FILE|DIR ...]"
         ,"-V  --version  Show version information"
-        ,"-h  --help     Show this help"]
+        ,"-h  --help     Show this help"
+        ,"-P  --paused   Start in a paused state"
+        ]
 
 -- | Parse the args
-do_args :: [ByteString] -> IO (Either SerialT [ByteString])
-do_args []  = do    -- attempt to read db
-    x <- readSt
-    case x of
-        Nothing -> do traverse_ putStrLn usage; exitSuccess
-        Just st -> pure $ Left st
+doArgs :: [ByteString] -> IO (Bool, FileListSource)
+doArgs = loopArgs True where
 
-do_args [s] | s == "-V" || s == "--version"
-            = do verLine; exitSuccess
-            | s == "-h" || s == "--help"
-            = do verLine; traverse_ putStrLn usage; exitSuccess
-    where verLine = putStrLn $ unwords [versinfo, help]
+    loopArgs playNow []  = do    -- attempt to read db
+        x <- readSt
+        case x of
+            Nothing -> traverse_ putStrLn usage *> exitSuccess
+            Just st -> pure (playNow, Left st)
 
-do_args xs = pure $ Right xs
+    loopArgs _ (s:xs)
+        | s == "-V" || s == "--version"
+        = do verLine *> exitSuccess
+        | s == "-h" || s == "--help"
+        = do verLine *> traverse_ putStrLn usage *> exitSuccess
+        | s == "-P" || s == "--paused"
+        = loopArgs False xs
+        where verLine = putStrLn $ unwords [versinfo, help]
+
+    loopArgs playNow xs = pure (playNow, Right xs)
 
 -- ---------------------------------------------------------------------
 -- | Static main. This is the front end to the statically linked
@@ -95,8 +101,7 @@ do_args xs = pure $ Right xs
 --
 main :: IO ()
 main = do
-    args  <- map fromString <$> getArgs
-    files <- do_args args
+    (playNow, files) <- doArgs =<< map fromString <$> getArgs
     initSignals
-    start files -- never returns
+    start playNow files -- never returns
 

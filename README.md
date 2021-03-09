@@ -81,7 +81,8 @@ $ hmp3
 ```
 
 Once running, `hmp3` is controlled by fairly intuitive key commands.
-`h` shows a help menu, and `q` quits.
+`h` shows a help menu, and `q` quits.  `hmp3 -h` prints a simple help
+message with options.
 
 A color scheme can be specified by writing out a `Config { .. }`
 value in `~/.hmp3`.  See `Style.hs` for the definition.  The `l`
