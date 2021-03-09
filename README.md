@@ -21,8 +21,8 @@ versions, which were only minor changes, mostly the automated
 regeneration of a `configure` file (now gone).
 
 *  The code has been updated to compile under recent GHC (currently
-8.6, 8.8, and 8.10) and libraries.  This required rewriting or entirely
-replacing large sections, mainly low-level optimizations.
+8.6, 8.8, 8.10, and 9.0) and libraries.  This required rewriting or
+entirely replacing large sections, mainly low-level optimizations.
 
 *  I added support for building with Stack.
 
