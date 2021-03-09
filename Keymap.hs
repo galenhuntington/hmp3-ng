@@ -1,6 +1,6 @@
 -- 
 -- Copyright (c) 2004-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2008, 2019, 2020 Galen Huntington
+-- Copyright (c) 2008, 2019-2021 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -46,27 +46,27 @@ import UI.HSCurses.Curses (Key(..), decodeKey)
 
 import qualified Data.ByteString.Char8 as P
 import qualified Data.Map as M
-import Data.Bifunctor (first)
 
 data Direction = Forwards | Backwards
-    deriving stock Eq
--- data Zipper = Zipper { back :: [String], front :: [String], cur :: String }
-type Zipper = (String, ([String], [String]))
-data SearchType = SearchFile | SearchDir
+data Zipper = Zipper { cur :: !String, back :: ![String], front :: ![String] }
+data SearchWhat = SearchFiles | SearchDirs
+data SearchType = SearchType
+    { schChar :: !Char
+    , schWhat :: !SearchWhat
+    , schDir  :: !Direction
+    }
 data SearchSpec = SearchSpec
-    { searchChar      :: !Char
-    , searchType      :: !SearchType
-    , searchDirection :: !Direction
-    , searchZipper    :: Zipper
+    { schType   :: !SearchType
+    , schZipper :: !Zipper
     }
 data SearchState = SearchState
-    { searchHist :: ![String]
-    , searchSpec :: SearchSpec
+    { schHist :: ![String]
+    , schSpec :: SearchSpec
     }
 
-
 type LexerS = Lexer SearchState (IO ())
-type MetaTarget = (Maybe (Either String (IO ())), SearchState, Maybe LexerS)
+type Result = Maybe (Either String (IO ()))
+type MetaTarget = (Result, SearchState, Maybe LexerS)
 
 --
 -- The keymap
@@ -87,21 +87,21 @@ commands = alt keys `action` \[c] -> Just $ fromMaybe (pure ()) $ M.lookup c key
 ------------------------------------------------------------------------
 
 search :: LexerS
-search = searchDir >||< searchFile
+search = searchDirs >||< searchFiles
 
-searchStart :: Char -> SearchType -> Direction -> LexerS
+searchStart :: Char -> SearchWhat -> Direction -> LexerS
 searchStart c typ dir = char c `meta` \_ (SearchState hist _) ->
     (with (toggleFocus *> putmsg (Fast (P.singleton c) defaultSty) *> touchST)
-    , SearchState hist $ SearchSpec c typ dir ("", (hist, []))
+    , SearchState hist $ SearchSpec (SearchType c typ dir) (Zipper "" hist [])
     , Just dosearch)
 
-searchDir :: LexerS
-searchDir =  searchStart '\\' SearchDir Forwards
-        >||< searchStart '|' SearchDir Backwards
+searchDirs :: LexerS
+searchDirs =  searchStart '\\' SearchDirs Forwards
+        >||< searchStart '|' SearchDirs Backwards
 
-searchFile :: LexerS
-searchFile = searchStart '/' SearchFile Forwards
-        >||< searchStart '?' SearchFile Backwards
+searchFiles :: LexerS
+searchFiles = searchStart '/' SearchFiles Forwards
+        >||< searchStart '?' SearchFiles Backwards
 
 dosearch :: LexerS
 dosearch = search_char >||< search_bs >||< search_up >||< search_down >||< search_esc >||< search_eval
@@ -109,21 +109,19 @@ dosearch = search_char >||< search_bs >||< search_up >||< search_down >||< searc
 endSearchWith :: IO () -> [String] -> MetaTarget
 endSearchWith a hist = (with (a *> toggleFocus), SearchState hist undefined, Just all)
 
+-- "lens"
 zipEdit :: (String -> String) -> Zipper -> Zipper
-zipEdit = first
-
-zipTop :: Zipper -> String
-zipTop = fst
+zipEdit f zipp = zipp{cur = f $ cur zipp}
 
 printSearch :: SearchSpec -> Maybe (Either a (IO ()))
 printSearch spec = with do
-    putmsg $ Fast (P.pack $ searchChar spec : zipTop (searchZipper spec)) defaultSty
+    putmsg $ Fast (P.pack $ schChar (schType spec) : cur (schZipper spec)) defaultSty
     touchST
 
 updateSearch :: (Zipper -> Zipper) -> SearchState -> MetaTarget
-updateSearch f (SearchState hist spec) =
-    let spec' = spec{ searchZipper = f $ searchZipper spec }
-    in (printSearch spec', SearchState hist spec', Just dosearch)
+updateSearch f st@(SearchState _ spec) =
+    let spec' = spec{ schZipper = f $ schZipper spec }
+    in (printSearch spec', st{schSpec=spec'}, Just dosearch)
 
 search_char :: LexerS
 search_char = anyNonSpecial `meta` \c -> updateSearch $ zipEdit (++ c)
@@ -131,32 +129,33 @@ search_char = anyNonSpecial `meta` \c -> updateSearch $ zipEdit (++ c)
 
 search_bs :: LexerS
 search_bs = delete `meta`
-    \_ -> updateSearch $ zipEdit \st -> case st of [] -> []; xs -> init xs
+    \_ -> updateSearch $ zipEdit \case [] -> []; xs -> init xs
 
 search_up :: LexerS
 search_up = char (unkey KeyUp) `meta` \_ -> updateSearch \case
-    (cur, (nx : rest, front)) -> (nx, (rest, cur : front))
-    zipp                      -> zipp
+    Zipper cur (nx:rest) front -> Zipper nx rest (cur:front)
+    zipp                       -> zipp
 
 search_down :: LexerS
 search_down = char (unkey KeyDown) `meta` \_ -> updateSearch \case
-    (cur, (back, pv : rest)) -> (pv, (cur : back, rest))
-    zipp                     -> zipp
+    Zipper cur back (pv:rest) -> Zipper pv (cur:back) rest
+    zipp                      -> zipp
 
--- escape exits ex mode immediately
 search_esc :: LexerS
-search_esc = char '\ESC'
-    `meta` \_ (SearchState hist _) -> endSearchWith (clrmsg *> touchST) hist
+search_esc = char '\ESC' `meta`
+    \_ (SearchState hist _) -> endSearchWith (clrmsg *> touchST) hist
 
 search_eval :: LexerS
-search_eval = enter
-    `meta` \_ (SearchState hist spec) -> case zipTop $ searchZipper spec of
-        []  -> endSearchWith (clrmsg *> touchST) hist
-        pat -> let jumpTo = case searchType spec of
-                    SearchFile -> jumpToMatchFile
-                    SearchDir  -> jumpToMatch
-               in endSearchWith (jumpTo (Just pat) (searchDirection spec == Forwards))
-                    $ if take 1 hist == [pat] then hist else pat : hist
+search_eval = enter `meta` \_ (SearchState hist spec) -> case cur $ schZipper spec of
+    []  -> endSearchWith (clrmsg *> touchST) hist
+    pat ->
+        let typ = schType spec
+            jumpTo = case schWhat typ of
+              SearchFiles -> jumpToMatchFile
+              SearchDirs  -> jumpToMatch
+        in endSearchWith
+            do jumpTo (Just pat) case schDir typ of Forwards -> True; _ -> False
+            do if take 1 hist == [pat] then hist else pat : hist
 
 
 ------------------------------------------------------------------------

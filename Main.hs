@@ -1,7 +1,7 @@
 -- 
 -- Copyright (c) Don Stewart 2004-2008.
 -- Copyright (c) Tuomo Valkonen 2004.
--- Copyright (c) 2019, 2020 Galen Huntington
+-- Copyright (c) 2019-2021 Galen Huntington
 --
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
