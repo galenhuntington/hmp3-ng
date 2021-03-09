@@ -1,5 +1,5 @@
 name: hmp3-ng
-version: "2.10.1"
+version: "2.11.0"
 author: Don Stewart, Galen Huntington
 maintainer: Galen Huntington
 license: GPL
@@ -30,6 +30,7 @@ default-extensions:
 - TypeApplications
 - DerivingStrategies
 - RecordWildCards
+- LambdaCase
 
 dependencies:
 - unix >= 2.7
