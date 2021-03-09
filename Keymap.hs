@@ -55,16 +55,18 @@ toBool :: Direction -> Bool
 toBool Forwards = True
 toBool _        = False
 
-type LexerS = Lexer (Search, Direction, String) (IO ())
+type Context = (Search, Direction, String)
+
+type LexerS = Lexer Context (IO ())
 
 --
 -- The keymap
 --
 keymap :: [Char] -> [IO ()]
-keymap cs = map (clrmsg >>) actions
+keymap cs = map (clrmsg *>) actions
     where (actions,_,_) = execLexer all (cs, defaultS)
 
-defaultS :: (Search, Direction, String)
+defaultS :: Context
 defaultS = (SearchDir, Forwards, [])
 
 all :: LexerS
@@ -80,44 +82,45 @@ search = searchDir >||< searchFile
 
 searchDir :: LexerS
 searchDir = (char '\\' >|< char '|') `meta` \[c] _ ->
-                (with (toggleFocus >> putmsg (Fast (P.singleton c) defaultSty) >> touchST)
+                (with (toggleFocus *> putmsg (Fast (P.singleton c) defaultSty) *> touchST)
                 ,(SearchDir,if c == '\\' then Forwards else Backwards,[c]) ,Just dosearch)
 
 searchFile :: LexerS
 searchFile = (char '/' >|< char '?') `meta` \[c] _ ->
-                (with (toggleFocus >> putmsg (Fast (P.singleton c) defaultSty) >> touchST)
+                (with (toggleFocus *> putmsg (Fast (P.singleton c) defaultSty) *> touchST)
                 ,(SearchFile,if c == '/' then Forwards else Backwards,[c]) ,Just dosearch)
 
 dosearch :: LexerS
 dosearch = search_char >||< search_edit >||< search_esc >||< search_eval
 
+endSearchWith :: IO () -> (Maybe (Either err (IO ())), Context, Maybe LexerS)
+endSearchWith a = (with (a *> toggleFocus), defaultS, Just all)
+
 search_char :: LexerS
-search_char = anyButDelNL
+search_char = anyNonSpecial
     `meta` \c (t,d,st) ->
-        (with (putmsg (Fast (P.pack(st++c)) defaultSty) >> touchST), (t,d,st++c), Just dosearch)
-    where anyButDelNL = alt $ any' \\ (enter' ++ delete' ++ ['\ESC'])
+        (with (putmsg (Fast (P.pack(st++c)) defaultSty) *> touchST), (t,d,st++c), Just dosearch)
+    where anyNonSpecial = alt $ any' \\ (enter' ++ delete' ++ ['\ESC'])
 
 search_edit :: LexerS
 search_edit = delete
     `meta` \_ (t,d,st) ->
         let st' = case st of [c] -> [c]; xs  -> init xs
-        in (with (putmsg (Fast (P.pack st') defaultSty) >> touchST), (t,d,st'), Just dosearch)
+        in (with (putmsg (Fast (P.pack st') defaultSty) *> touchST), (t,d,st'), Just dosearch)
 
 -- escape exits ex mode immediately
 search_esc :: LexerS
 search_esc = char '\ESC'
-    `meta` \_ _ -> wrap (clrmsg >> touchST)
-    where wrap a = (with (a >> toggleFocus), defaultS, Just all)
+    `meta` \_ _ -> endSearchWith (clrmsg *> touchST)
 
 search_eval :: LexerS
 search_eval = enter
     `meta` \_ (t, d, _:pat) -> case pat of
-        [] -> wrap (clrmsg >> touchST)
-        _  -> case t of
-                SearchFile -> wrap (jumpToMatchFile (Just pat) (toBool d))
-                SearchDir  -> wrap (jumpToMatch     (Just pat) (toBool d))
-
-    where wrap a = (with (a >> toggleFocus), defaultS, Just all)
+        [] -> endSearchWith (clrmsg *> touchST)
+        _  -> let jumpTo = case t of
+                    SearchFile -> jumpToMatchFile
+                    SearchDir  -> jumpToMatch
+              in endSearchWith (jumpTo (Just pat) (toBool d))
 
 ------------------------------------------------------------------------
 
@@ -181,7 +184,7 @@ keyTable =
     ,("Quit (or close help screen)",
         ['q'],   do b <- helpIsVisible ; if b then toggleHelp else quit Nothing)
     ,("Select and play next track",
-        ['d'],   playNext >> jumpToPlaying)
+        ['d'],   playNext *> jumpToPlaying)
     ,("Cycle through normal, random, and loop modes",
         ['m'],   nextMode)
     ,("Refresh the display",
