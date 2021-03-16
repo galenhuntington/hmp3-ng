@@ -1,9 +1,6 @@
 #  Adapted from https://kodimensional.dev/posts/2019-02-25-haskell-travis
 
-sudo: true
 language: haskell
-
-cabal: "2.4"
 
 cache:
   directories:
