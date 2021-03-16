@@ -96,7 +96,7 @@ start playNow ms = handle @SomeException (shutdown . Just . show) do
                                ,ser_indx st
                                ,ser_mode st)
 
-    now <- getTime Monotonic
+    now <- getTime Boottime
 
     -- fork some threads
     t1 <- forkIO $ mpgInput readf
@@ -206,7 +206,7 @@ refreshLoop = do
 uptimeLoop :: IO ()
 uptimeLoop = runForever $ do
     threadDelay delay
-    now <- getTime Monotonic
+    now <- getTime Boottime
     modifyST $ \st -> st { uptime = showUptime (boottime st) now }
   where
     delay = 5 * 1000 * 1000 -- refresh every 5 seconds
