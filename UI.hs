@@ -2,7 +2,7 @@
 
 -- 
 -- Copyright (C) 2004-5 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2019, 2020 Galen Huntington
+-- Copyright (c) 2019-2021 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -54,6 +54,7 @@ import {-# SOURCE #-} Keymap    (extraTable, keyTable, unkey, charToKey)
 
 import Data.Array               ((!), bounds, Array, listArray)
 import Data.Array.Base          (unsafeAt)
+import Data.List                (intercalate)
 import System.IO                (stderr, hFlush)
 import System.Posix.Signals     (raiseSignal, sigTSTP, installHandler, Handler(..))
 
@@ -229,7 +230,9 @@ newtype PlayModes = PlayModes String
 
 data HelpScreen
 data HistScreen
-class ModalElement a where drawModal :: DrawData -> Maybe [StringA]
+class ModalElement a where
+    -- returns (width, list of lines)
+    drawModal :: DrawData -> Maybe (Int, [StringA])
 
 ------------------------------------------------------------------------
 
@@ -258,8 +261,8 @@ instance Element PPlaying where
         PId3 a  = draw dd
         PInfo b = draw dd
         s       = UTF8.toString a
-        line | gap >= 0 = [U s, B $ spaces gap] ++ right
-             | True     = [U $ ellipsize lim s] ++ right
+        line | gap >= 0 = U s : (B $ spaces gap) : right
+             | True     = U (ellipsize lim s) : right
             where lim = x - 5 - (if showId3 then P.length b else -1)
                   gap = lim - displayWidth s
                   showId3 = x > 59
@@ -295,25 +298,26 @@ modalWidth w = max (min w 3) $ round $ fromIntegral w * (0.8::Float)
 instance ModalElement HelpScreen where
     drawModal DD{drawSize=Size{sizeW=w}, drawState=st} = do
         guard $ helpVisible st
-        pure $
+        pure $ (tot,) $
             [ Fast (f cs h) sty | (h,cs,_) <- keyTable ] ++
             [ Fast (f cs h) sty | (h,cs) <- extraTable ]
         where
             sty  = modal . config $ st
+            tot = modalWidth w
 
+            -- TODO use String or Text for help table
             f :: [Char] -> ByteString -> ByteString
             f cs ps =
-                let p = str <> ps
-                    rt = tot - P.length p
-                in if rt > 0
-                    then p <> spaces rt
-                    else P.take (tot - 1) p <> UTF8.fromString "…"
+                let p = str <> (P.unpack ps)
+                    rt = tot - displayWidth p
+                in UTF8.fromString if rt > 0
+                    then p <> replicate rt ' '
+                    else ellipsize tot p
                 where
-                    tot = modalWidth w
-                    len = max 2 $ round $ fromIntegral tot * (0.2::Float)
+                    len = max 4 $ round $ fromIntegral tot * (0.2::Float)
 
-                    str = P.take len $ P.intercalate " "
-                        ([""] ++ map pprIt cs ++ [P.replicate len ' '])
+                    cmds = intercalate " " $ "" : map pprIt cs
+                    str = ellipsize len cmds ++ replicate (len - displayWidth cmds) ' '
 
                     pprIt c = case c of
                           '\n'            -> "Enter"
@@ -321,22 +325,22 @@ instance ModalElement HelpScreen where
                           '\\'            -> "\\"
                           ' '             -> "Space"
                           _ -> case charToKey c of
-                            Curses.KeyUp    -> "Up"
-                            Curses.KeyDown  -> "Down"
+                            Curses.KeyUp    -> "↑"
+                            Curses.KeyDown  -> "↓"
                             Curses.KeyPPage -> "PgUp"
                             Curses.KeyNPage -> "PgDn"
-                            Curses.KeyLeft  -> "Left"
-                            Curses.KeyRight -> "Right"
+                            Curses.KeyLeft  -> "←"
+                            Curses.KeyRight -> "→"
                             Curses.KeyEnd   -> "End"
                             Curses.KeyHome  -> "Home"
                             Curses.KeyBackspace -> "Backspace"
-                            _ -> P.singleton c
+                            _ -> [c]
 
 ------------------------------------------------------------------------
 
 instance ModalElement HistScreen where
     drawModal DD{drawSize=Size{sizeW=w}, drawState=st} =
-        fmap (\_ -> [Fast "test" $ modal . config $ st]) $ histVisible st
+        fmap (\_ -> (modalWidth w, [Fast "test" $ modal . config $ st])) $ histVisible st
         -- [ Fast (f cs h) sty | (h,cs,_) <- keyTable ]
 
 ------------------------------------------------------------------------
@@ -591,9 +595,8 @@ redrawJustClock = Draw $ discardErrors do
 --
 renderModal :: forall me. ModalElement me => HState -> Maybe Frame -> Size -> IO ()
 renderModal st fr s@(Size h w) = do
-   whenJust (drawModal @me $ DD s (Pos 0 0) st fr) \modal' -> do
-       let Fast fps _ = head modal'
-           offset     = max 0 $ (w - P.length fps) `div` 2
+   whenJust (drawModal @me $ DD s (Pos 0 0) st fr) \(mw, modal') -> do
+       let offset     = max 0 $ (w - mw) `div` 2
            height     = (h - length modal') `div` 2
        when (height > 0) do
             Curses.wMove Curses.stdScr ((h - length modal') `div` 2) offset
