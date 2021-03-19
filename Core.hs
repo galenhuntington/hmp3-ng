@@ -32,10 +32,12 @@ module Core (
         upPage, downPage,
         seekStart,
         blacklist,
+        showHist, hideHist,
         writeSt, readSt,
         jumpToMatch, jumpToMatchFile,
         toggleFocus, jumpToNextDir, jumpToPrevDir,
         loadConfig,
+        discardErrors,
         FileListSource,
     ) where
 
@@ -54,6 +56,7 @@ import Text.Regex.PCRE.Light
 import {-# SOURCE #-} Keymap (keymap)
 
 import qualified Data.ByteString.Char8 as P
+import qualified Data.Sequence as Seq
 
 import Data.Array               ((!), bounds, Array)
 import System.Directory         (doesFileExist,findExecutable)
@@ -62,6 +65,7 @@ import System.Process           (runInteractiveProcess, waitForProcess)
 import System.Clock             (getTime, TimeSpec(..), Clock(..), diffTimeSpec)
 import System.Random            (randomIO)
 import System.FilePath          ((</>))
+import Data.List                (isInfixOf, tails)
 
 import System.Posix.Process     (exitImmediately)
 import System.Posix.User        (getUserEntryForID, getRealUserID, homeDirectory)
@@ -275,7 +279,7 @@ run = runForever $ sequence_ . keymap =<< getKeys
 shutdown :: Maybe String -> IO ()
 shutdown ms =
     do  silentlyModifyST $ \st -> st { doNotResuscitate = True }
-        handle @SomeException (\_ -> pure ()) writeSt
+        discardErrors writeSt
         withST $ \st -> do
             case mp3pid st of
                 Nothing  -> pure ()
@@ -417,11 +421,10 @@ playPrev = do
     if md == Random then playRandom else
       modifySTM $ \st -> do
       let i   = current st
-      case () of {_
+      if
         | i > 0             -> playAtN st (subtract 1)      -- just the prev track
         | mode st == Loop   -> playAtN st (const (size st - 1))  -- maybe loop
         | otherwise         -> pure    st            -- else stop at end
-      }
 
 -- | Play the song following the current song, if we're not at the end
 -- If we're at the end, and loop mode is on, then loop to the start
@@ -432,26 +435,29 @@ playNext = do
     if md == Random then playRandom else
       modifySTM $ \st -> do
       let i   = current st
-      case () of {_
+      if
         | i < size st - 1   -> playAtN st (+ 1)      -- just the next track
         | mode st == Loop   -> playAtN st (const 0)  -- maybe loop
         | otherwise         -> pure    st            -- else stop at end
-      }
 
 -- | Generic next song selection
 -- If the cursor and current are currently the same, continue that.
 playAtN :: HState -> (Int -> Int) -> IO HState
 playAtN st fn = do
+    now <- getTime Boottime
     let m   = music st
         i   = current st
-        fe  = m ! fn i
+        new = fn i
+        fe  = m ! new
         -- unsure of this GBH (2008)
         f   = P.intercalate (P.singleton '/')
                  [dname $ folders st ! fdir fe, fbase fe]
         j   = cursor  st
-        st' = st { current = fn i
+        st' = st { current = new
                  , status  = Playing
-                 , cursor  = if i == cursor st then fn i else j }
+                 , cursor  = if i == cursor st then new else j
+                 , playHist = Seq.take 36 $ (now, new) Seq.<| playHist st
+                 }
     h <- readMVar (writeh st)
     send h (Load f)
     pure st'
@@ -568,6 +574,12 @@ toggleHelp = modifyST $ \st -> st { helpVisible = not (helpVisible st) }
 toggleFocus :: IO ()
 toggleFocus = modifyST $ \st -> st { miniFocused = not (miniFocused st) }
 
+-- | History on or off
+hideHist :: IO ()
+hideHist = modifyST $ \st -> st { histVisible = Nothing }
+showHist :: IO ()
+showHist = modifyST $ \st -> st { histVisible = Just [("2h1m", "Song.mp3")] }
+
 -- | Toggle the mode flag
 nextMode :: IO ()
 nextMode = modifyST $ \st -> st { mode = next (mode st) }
@@ -618,7 +630,14 @@ loadConfig = do
     let f = home </> ".hmp3"
     b <- doesFileExist f
     if b then do
-        str  <- readFile f
+        str' <- readFile f
+        str <- let (old, new) = ("hmp3_helpscreen", "hmp3_modal") in
+            if old `isInfixOf` str'
+            then do
+                warnA $ old ++ " is now " ++ new ++ " in ~/.hmp3"
+                let (ix, rest) = head $ filter (\ (_, s) -> old `isPrefixOf` s) $ zip [0..] $ tails str'
+                pure $ take ix str' ++ new ++ drop (length old) rest
+            else pure str'
         msty <- catch (fmap Just $ evaluate $ read str)
                       (\ (_ :: SomeException) ->
                         warnA "Parse error in ~/.hmp3" $> Nothing)
@@ -649,3 +668,4 @@ warnA :: String -> IO ()
 warnA x = do
     sty <- getsST config
     putmsg $ Fast (P.pack x) (warnings sty)
+

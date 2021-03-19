@@ -76,7 +76,7 @@ keymap cs = map (clrmsg *>) actions
     where (actions,_,_) = execLexer all (cs, SearchState [] undefined)
 
 all :: LexerS
-all = commands >||< search
+all = commands >||< search >||< history
 
 commands :: LexerS
 commands = alt keys `action` \[c] -> Just $ fromMaybe (pure ()) $ M.lookup c keyMap
@@ -154,6 +154,13 @@ search_eval = enter `meta` \_ (SearchState hist spec) -> case cur $ schZipper sp
             do jumpTo (Just pat) case schDir typ of Forwards -> True; _ -> False
             do if take 1 hist == [pat] then hist else pat : hist
 
+
+------------------------------------------------------------------------
+
+history :: LexerS
+history = char 'H' `meta` \_ st ->
+    (with (showHist *> touchST), st,
+        Just $ alt any' `meta` \_ _ -> (with (hideHist *> touchST), st, Just all))
 
 ------------------------------------------------------------------------
 
@@ -240,7 +247,8 @@ innerTable :: [(Char, IO ())]
 innerTable = [(c, jumpRel i) | (i, c) <- zip [0.1, 0.2 ..] ['1'..'9']]
 
 extraTable :: [(ByteString, [Char])]
-extraTable = [("Search for file matching regex", ['/'])
+extraTable = [("Toggle the song history", ['H'])
+             ,("Search for file matching regex", ['/'])
              ,("Search backwards for file", ['?'])
              ,("Search for directory matching regex", ['\\'])
              ,("Search backwards for directory", ['|']) ]

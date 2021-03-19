@@ -31,6 +31,10 @@ default-extensions:
 - DerivingStrategies
 - RecordWildCards
 - LambdaCase
+- MultiWayIf
+- DataKinds
+- KindSignatures
+- FlexibleInstances
 
 dependencies:
 - unix >= 2.7

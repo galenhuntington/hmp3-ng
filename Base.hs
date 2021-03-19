@@ -17,7 +17,7 @@
 -- 02111-1307, USA.
 --
 
-module Base (module Prelude, module X) where
+module Base (module Prelude, module X, module Base) where
 
 import Prelude
 
@@ -44,4 +44,10 @@ import System.Exit as X
 import System.IO as X (Handle, hClose)
 import System.IO.Unsafe as X
 import Text.Printf as X
+
+discardErrors :: IO () -> IO ()
+discardErrors = X.handle @SomeException (\_ -> pure ())
+
+whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
+whenJust mval f = case mval of Nothing -> pure (); Just v -> f v
 

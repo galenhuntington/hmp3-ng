@@ -1,4 +1,4 @@
-{-# LANGUAGE ForeignFunctionInterface, TupleSections #-}
+{-# LANGUAGE ForeignFunctionInterface, TupleSections, AllowAmbiguousTypes #-}
 
 -- 
 -- Copyright (C) 2004-5 Don Stewart - http://www.cse.unsw.edu.au/~dons
@@ -79,7 +79,7 @@ runDraw (Draw d) = withDrawLock d
 --
 start :: IO UIStyle
 start = do
-    handle @SomeException (\_ -> pure ()) do
+    discardErrors do
         thisterm <- lookupEnv "TERM"
         case thisterm of 
             Just "vt220" -> setEnv "TERM" "xterm-color"
@@ -111,9 +111,7 @@ resetui = runDraw (resizeui <> nocursor) >> refresh
 
 -- | And force invisible
 nocursor :: Draw
-nocursor = Draw do
-    handle @SomeException (\_ -> pure ()) $
-        void $ Curses.cursSet Curses.CursorInvisible
+nocursor = Draw $ discardErrors $ void $ Curses.cursSet Curses.CursorInvisible
 
 --
 -- | Clean up and go home. Refresh is needed on linux. grr.
@@ -228,7 +226,10 @@ newtype PTime       = PTime       ByteString
 newtype PlayTitle = PlayTitle StringA
 newtype PlayInfo  = PlayInfo  ByteString
 newtype PlayModes = PlayModes String
-newtype HelpScreen = HelpScreen [StringA]
+
+data HelpScreen
+data HistScreen
+class ModalElement a where drawModal :: DrawData -> Maybe [StringA]
 
 ------------------------------------------------------------------------
 
@@ -284,14 +285,21 @@ emptyVal = "(empty)"
 spc2 :: AmbiString
 spc2 = B $ spaces 2
 
+modalWidth :: Int -> Int
+modalWidth w = max (min w 3) $ round $ fromIntegral w * (0.8::Float)
+
 ------------------------------------------------------------------------
 
-instance Element HelpScreen where
-    draw DD{drawSize=Size{sizeW=w}, drawState=st} = HelpScreen $
-        [ Fast (f cs h) sty | (h,cs,_) <- keyTable ] ++
-        [ Fast (f cs h) sty | (h,cs) <- extraTable ]
+-- instance ModalElement me => Element (Modal me) where draw = drawModal
+
+instance ModalElement HelpScreen where
+    drawModal DD{drawSize=Size{sizeW=w}, drawState=st} = do
+        guard $ helpVisible st
+        pure $
+            [ Fast (f cs h) sty | (h,cs,_) <- keyTable ] ++
+            [ Fast (f cs h) sty | (h,cs) <- extraTable ]
         where
-            sty  = helpscreen . config $ st
+            sty  = modal . config $ st
 
             f :: [Char] -> ByteString -> ByteString
             f cs ps =
@@ -301,7 +309,7 @@ instance Element HelpScreen where
                     then p <> spaces rt
                     else P.take (tot - 1) p <> UTF8.fromString "…"
                 where
-                    tot = max (min w 3) $ round $ fromIntegral w * (0.8::Float)
+                    tot = modalWidth w
                     len = max 2 $ round $ fromIntegral tot * (0.2::Float)
 
                     str = P.take len $ P.intercalate " "
@@ -323,6 +331,13 @@ instance Element HelpScreen where
                             Curses.KeyHome  -> "Home"
                             Curses.KeyBackspace -> "Backspace"
                             _ -> P.singleton c
+
+------------------------------------------------------------------------
+
+instance ModalElement HistScreen where
+    drawModal DD{drawSize=Size{sizeW=w}, drawState=st} =
+        fmap (\_ -> [Fast "test" $ modal . config $ st]) $ histVisible st
+        -- [ Fast (f cs h) sty | (h,cs,_) <- keyTable ]
 
 ------------------------------------------------------------------------
 
@@ -556,9 +571,7 @@ spaces n
 -- Speed things up a bit, just use read State.
 --
 redrawJustClock :: Draw
-redrawJustClock = Draw do
-   handle @SomeException (\_ -> pure ()) do
-
+redrawJustClock = Draw $ discardErrors do
    st      <- getsST id
    let fr = clock st
    (h, w) <- screenSize
@@ -570,34 +583,31 @@ redrawJustClock = Draw do
    drawLine w bar
    Curses.wMove Curses.stdScr 2 0   -- hardcoded!
    drawLine w times
-   drawHelp st fr s
+   -- drawHelp st fr s
 
 ------------------------------------------------------------------------
 --
 -- work for drawing help. draw the help screen if it is up
 --
-drawHelp :: HState -> Maybe Frame -> Size -> IO ()
-drawHelp st fr s@(Size h w) =
-   when (helpVisible st) $ do
-       let (HelpScreen help') = draw $ DD s (Pos 0 0) st fr :: HelpScreen
-           (Fast fps _)      = head help'
-           offset            = max 0 $ (w - P.length fps) `div` 2
-           height            = (h - length help') `div` 2
-       when (height > 0) $ do
-            Curses.wMove Curses.stdScr ((h - length help') `div` 2) offset
+renderModal :: forall me. ModalElement me => HState -> Maybe Frame -> Size -> IO ()
+renderModal st fr s@(Size h w) = do
+   whenJust (drawModal @me $ DD s (Pos 0 0) st fr) \modal' -> do
+       let Fast fps _ = head modal'
+           offset     = max 0 $ (w - P.length fps) `div` 2
+           height     = (h - length modal') `div` 2
+       when (height > 0) do
+            Curses.wMove Curses.stdScr ((h - length modal') `div` 2) offset
             mapM_ (\t -> do drawLine w t
                             (y',_) <- Curses.getYX Curses.stdScr
-                            Curses.wMove Curses.stdScr (y'+1) offset) help'
+                            Curses.wMove Curses.stdScr (y'+1) offset) modal'
 
 ------------------------------------------------------------------------
 --
 -- | Draw the screen
 --
 redraw :: Draw
-redraw = Draw $
+redraw = Draw $ discardErrors do
    -- linux ncurses, in particular, seems to complain a lot. this is an easy solution
-   handle @SomeException (\_ -> pure ()) do
-
    s <- getsST id    -- another refresh could be triggered?
    let f = clock s
    (h, w) <- screenSize
@@ -615,7 +625,8 @@ redraw = Draw $
                    fillLine
                    maybeLineDown t h y x )
          (take (h-1) (init a))
-   drawHelp s f sz
+   renderModal @HelpScreen s f sz
+   renderModal @HistScreen s f sz
 
    -- minibuffer
    Curses.wMove Curses.stdScr (h-1) 0
@@ -659,7 +670,7 @@ lineDown h y = Curses.wMove Curses.stdScr (min h (y+1)) 0
 -- | Fill to end of line spaces
 --
 fillLine :: IO ()
-fillLine = handle @SomeException (\_ -> pure ()) Curses.clrToEol -- harmless?
+fillLine = discardErrors Curses.clrToEol -- harmless?
 
 --
 -- | move cursor to origin of stdScr.
