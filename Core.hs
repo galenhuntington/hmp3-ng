@@ -527,7 +527,7 @@ genericJumpToMatch re sw k sel = do
                 Nothing     -> case regex st of
                                 Nothing     -> Nothing
                                 Just (r,d)  -> Just (r,d==sw)
-                Just s  -> case compileM (P.pack s) [caseless] of
+                Just s  -> case compileM (P.pack s) [caseless,utf8] of
                                 Left _      -> Nothing
                                 Right v     -> Just (v,sw)
         case mre of
