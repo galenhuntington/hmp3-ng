@@ -380,6 +380,7 @@ jumpRel r | r < 0 || r >= 1 = pure ()
                 pure st { cursor = floor $ fromIntegral (size st) * r }
 
 -- | Generic jump
+--   TODO why is this in IO?
 jumpTo :: HState -> (Int -> Int) -> IO HState
 jumpTo st fn = do
     let l = max 0 (size st - 1)

@@ -36,7 +36,7 @@ import Prelude ()
 import Base hiding (all)
 
 import Core
-import State        (getsST, touchST, HState(helpVisible))
+import State        (getsST, touchST, HState(helpVisible, playHist))
 import Style        (defaultSty, StringA(Fast))
 import qualified UI (resetui)
 import Lexers       ((>||<),action,meta,execLexer
@@ -46,6 +46,7 @@ import UI.HSCurses.Curses (Key(..), decodeKey)
 
 import qualified Data.ByteString.Char8 as P
 import qualified Data.Map as M
+import qualified Data.Sequence as Seq
 
 data Direction = Forwards | Backwards
 data Zipper = Zipper { cur :: !String, back :: ![String], front :: ![String] }
@@ -147,20 +148,34 @@ search_eval = enter `meta` \_ (SearchState hist spec) -> case cur $ schZipper sp
     []  -> endSearchWith (clrmsg *> touchST) hist
     pat ->
         let typ = schType spec
-            jumpTo = case schWhat typ of
+            jumpy = case schWhat typ of
               SearchFiles -> jumpToMatchFile
               SearchDirs  -> jumpToMatch
         in endSearchWith
-            do jumpTo (Just pat) case schDir typ of Forwards -> True; _ -> False
+            do jumpy (Just pat) case schDir typ of Forwards -> True; _ -> False
             do if take 1 hist == [pat] then hist else pat : hist
 
 
 ------------------------------------------------------------------------
 
 history :: LexerS
-history = char 'H' `meta` \_ st ->
-    (with (showHist *> touchST), st,
-        Just $ alt any' `meta` \_ _ -> (with (hideHist *> touchST), st, Just all))
+history = char 'H' `meta`
+        \_ st -> (with (showHist *> touchST), st, Just inner) where
+    inner =
+        alt any' `meta` (\_ st -> (with (hideHist *> touchST), st, Just all))
+        >||< alt ['0'..'9'] `meta` handleKey '0' 0
+        >||< alt ['a'..'z'] `meta` handleKey 'a' 10
+    handleKey base off cs st =
+        (with do
+            ph <- getsST playHist
+            whenJust
+                do ph Seq.!? (fromEnum (head cs) - (fromEnum base - off))
+                do jump . snd
+            hideHist
+            touchST
+        , st
+        , Just all
+        )
 
 ------------------------------------------------------------------------
 
