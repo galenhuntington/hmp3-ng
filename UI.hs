@@ -108,7 +108,7 @@ start = do
 
 -- | Reset
 resetui :: IO ()
-resetui = runDraw (resizeui <> nocursor) >> refresh
+resetui = runDraw (resizeui <> nocursor) *> refresh
 
 -- | And force invisible
 nocursor :: Draw
@@ -572,15 +572,15 @@ redrawJustClock = Draw $ discardErrors do
    st      <- getsST id
    let fr = clock st
    (h, w) <- screenSize
-   let s = Size h w
-   let (ProgressBar bar) = draw $ DD s undefined st fr :: ProgressBar
+   let sz = Size h w
+   let (ProgressBar bar) = draw $ DD sz undefined st fr :: ProgressBar
        (PTimes times)    = {-# SCC "redrawJustClock.times" #-}
-                           draw $ DD s undefined st fr :: PTimes
+                           draw $ DD sz undefined st fr :: PTimes
    Curses.wMove Curses.stdScr 1 0   -- hardcoded!
    drawLine w bar
    Curses.wMove Curses.stdScr 2 0   -- hardcoded!
    drawLine w times
-   -- drawHelp st fr s
+   when (h<45) $ renderModals st sz -- small screen modals paint over clock
 
 ------------------------------------------------------------------------
 --
@@ -589,13 +589,19 @@ redrawJustClock = Draw $ discardErrors do
 renderModal :: forall me. ModalElement me => HState -> Size -> IO ()
 renderModal st (Size h w) = do
    whenJust (drawModal @me (modal $ config st) w st) \(mw, modal') -> do
-       let offset     = max 0 $ (w - mw) `div` 2
-           height     = (h - length modal') `div` 2
-       when (height > 0) do
-            Curses.wMove Curses.stdScr ((h - length modal') `div` 2) offset
-            mapM_ (\t -> do drawLine w t
-                            (y',_) <- Curses.getYX Curses.stdScr
-                            Curses.wMove Curses.stdScr (y'+1) offset) modal'
+       let hoffset = max 0 $ (w - mw) `div` 2
+           mlines  = min h $ length modal'
+           voffset = (h - mlines) `div` 2
+       Curses.wMove Curses.stdScr voffset hoffset
+       for_ (take mlines modal') \t -> do
+            drawLine w t
+            (y',_) <- Curses.getYX Curses.stdScr
+            Curses.wMove Curses.stdScr (y'+1) hoffset
+
+renderModals :: HState -> Size -> IO ()
+renderModals s sz = do
+   renderModal @HelpScreen s sz
+   renderModal @HistScreen s sz
 
 ------------------------------------------------------------------------
 --
@@ -621,8 +627,7 @@ redraw = Draw $ discardErrors do
                    fillLine
                    maybeLineDown t h y x )
          (take (h-1) (init a))
-   renderModal @HelpScreen s sz
-   renderModal @HistScreen s sz
+   renderModals s sz
 
    -- minibuffer
    Curses.wMove Curses.stdScr (h-1) 0
