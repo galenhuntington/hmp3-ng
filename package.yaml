@@ -32,9 +32,7 @@ default-extensions:
 - RecordWildCards
 - LambdaCase
 - MultiWayIf
-- DataKinds
-- KindSignatures
-- FlexibleInstances
+- NamedFieldPuns
 
 dependencies:
 - unix >= 2.7

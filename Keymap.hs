@@ -188,7 +188,7 @@ enter   = alt enter'
 --
 -- The default keymap, and its description
 --
-keyTable :: [(ByteString, [Char], IO ())]
+keyTable :: [(String, [Char], IO ())]
 keyTable =
     [
      ("Move up",
@@ -246,7 +246,7 @@ keyTable =
 innerTable :: [(Char, IO ())]
 innerTable = [(c, jumpRel i) | (i, c) <- zip [0.1, 0.2 ..] ['1'..'9']]
 
-extraTable :: [(ByteString, [Char])]
+extraTable :: [(String, [Char])]
 extraTable = [("Toggle the song history", ['H'])
              ,("Search for file matching regex", ['/'])
              ,("Search backwards for file", ['?'])

@@ -232,7 +232,7 @@ data HelpScreen
 data HistScreen
 class ModalElement a where
     -- returns (width, list of lines)
-    drawModal :: DrawData -> Maybe (Int, [StringA])
+    drawModal :: Style -> Int -> HState -> Maybe (Int, [StringA])
 
 ------------------------------------------------------------------------
 
@@ -296,51 +296,41 @@ modalWidth w = max (min w 3) $ round $ fromIntegral w * (0.8::Float)
 -- instance ModalElement me => Element (Modal me) where draw = drawModal
 
 instance ModalElement HelpScreen where
-    drawModal DD{drawSize=Size{sizeW=w}, drawState=st} = do
+    drawModal sty swd st = do
         guard $ helpVisible st
-        pure $ (tot,) $
+        pure $ (wd,) $
             [ Fast (f cs h) sty | (h,cs,_) <- keyTable ] ++
             [ Fast (f cs h) sty | (h,cs) <- extraTable ]
         where
-            sty  = modal . config $ st
-            tot = modalWidth w
-
+            wd = modalWidth swd
             -- TODO use String or Text for help table
-            f :: [Char] -> ByteString -> ByteString
-            f cs ps =
-                let p = str <> (P.unpack ps)
-                    rt = tot - displayWidth p
-                in UTF8.fromString if rt > 0
-                    then p <> replicate rt ' '
-                    else ellipsize tot p
-                where
-                    len = max 4 $ round $ fromIntegral tot * (0.2::Float)
-
-                    cmds = intercalate " " $ "" : map pprIt cs
-                    str = ellipsize len cmds ++ replicate (len - displayWidth cmds) ' '
-
-                    pprIt c = case c of
-                          '\n'            -> "Enter"
-                          '\f'            -> "^L"
-                          '\\'            -> "\\"
-                          ' '             -> "Space"
-                          _ -> case charToKey c of
-                            Curses.KeyUp    -> "↑"
-                            Curses.KeyDown  -> "↓"
-                            Curses.KeyPPage -> "PgUp"
-                            Curses.KeyNPage -> "PgDn"
-                            Curses.KeyLeft  -> "←"
-                            Curses.KeyRight -> "→"
-                            Curses.KeyEnd   -> "End"
-                            Curses.KeyHome  -> "Home"
-                            Curses.KeyBackspace -> "Backspace"
-                            _ -> [c]
+            f :: [Char] -> String -> ByteString
+            f cs ps = UTF8.fromString $ forceWidth wd
+                        $ forceWidth clen cmds <> ps where
+                clen = max 4 $ round $ fromIntegral wd * (0.2::Float)
+                cmds = intercalate " " $ "" : map pprIt cs
+                pprIt c = case c of
+                      '\n'            -> "Enter"
+                      '\f'            -> "^L"
+                      '\\'            -> "\\"
+                      ' '             -> "Space"
+                      _ -> case charToKey c of
+                        Curses.KeyUp    -> "↑"
+                        Curses.KeyDown  -> "↓"
+                        Curses.KeyPPage -> "PgUp"
+                        Curses.KeyNPage -> "PgDn"
+                        Curses.KeyLeft  -> "←"
+                        Curses.KeyRight -> "→"
+                        Curses.KeyEnd   -> "End"
+                        Curses.KeyHome  -> "Home"
+                        Curses.KeyBackspace -> "Backspace"
+                        _ -> [c]
 
 ------------------------------------------------------------------------
 
 instance ModalElement HistScreen where
-    drawModal DD{drawSize=Size{sizeW=w}, drawState=st} =
-        fmap (\_ -> (modalWidth w, [Fast "test" $ modal . config $ st])) $ histVisible st
+    drawModal sty swd st =
+        fmap (\_ -> (modalWidth swd, [Fast "test" sty])) $ histVisible st
         -- [ Fast (f cs h) sty | (h,cs,_) <- keyTable ]
 
 ------------------------------------------------------------------------
@@ -593,9 +583,9 @@ redrawJustClock = Draw $ discardErrors do
 --
 -- work for drawing help. draw the help screen if it is up
 --
-renderModal :: forall me. ModalElement me => HState -> Maybe Frame -> Size -> IO ()
-renderModal st fr s@(Size h w) = do
-   whenJust (drawModal @me $ DD s (Pos 0 0) st fr) \(mw, modal') -> do
+renderModal :: forall me. ModalElement me => HState -> Size -> IO ()
+renderModal st (Size h w) = do
+   whenJust (drawModal @me (modal $ config st) w st) \(mw, modal') -> do
        let offset     = max 0 $ (w - mw) `div` 2
            height     = (h - length modal') `div` 2
        when (height > 0) do
@@ -628,8 +618,8 @@ redraw = Draw $ discardErrors do
                    fillLine
                    maybeLineDown t h y x )
          (take (h-1) (init a))
-   renderModal @HelpScreen s f sz
-   renderModal @HistScreen s f sz
+   renderModal @HelpScreen s sz
+   renderModal @HistScreen s sz
 
    -- minibuffer
    Curses.wMove Curses.stdScr (h-1) 0
@@ -725,16 +715,21 @@ setXterm s = setXtermTitle $ case status s of
 displayWidth :: String -> Int
 displayWidth = sum . map charWidth
 
-ellipsize :: Int -> String -> String
-ellipsize w s
-  | displayWidth s <= w = s
-  | True = go 0 0 s where
+sizer :: Bool -> Int -> String -> String
+sizer pad w s
+  | dw <= w = if pad then s ++ replicate (w - dw) ' ' else s
+  | True    = go 0 0 s where
     go !i !l (c:s') =
         if l' > w-1
             then take i s ++ replicate (w-l) '…'
             else go (i+1) l' s'
       where l' = l + charWidth c
     go _  _ _ = error "Should've been in first case!"
+    dw = displayWidth s
+
+ellipsize, forceWidth :: Int -> String -> String
+ellipsize = sizer False
+forceWidth = sizer True
 
 charWidth :: Char -> Int
 charWidth = fromIntegral . wcwidth . toEnum . fromEnum

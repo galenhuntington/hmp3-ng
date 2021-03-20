@@ -1,11 +1,10 @@
 module Keymap where
 
-import Base
 import UI.HSCurses.Curses (Key)
 
 keymap :: [Char] -> [IO ()]
 
-keyTable   :: [(ByteString, [Char], IO ())]
-extraTable :: [(ByteString, [Char])]
+keyTable   :: [(String, [Char], IO ())]
+extraTable :: [(String, [Char])]
 unkey      :: Key -> Char
 charToKey  :: Char -> Key
