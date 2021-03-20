@@ -561,7 +561,7 @@ genericJumpToMatch re sw k sel = do
 
             -- mi <- if forwards then loop (>=m) (+1)         (cur+1)
                               -- else loop (<0)  (subtract 1) (cur-1)
-            mi <- fmap msum $ mapM check $
+            mi <- fmap msum $ traverse check $
                        if forwards then [cur+1..m-1] ++ [0..cur]
                                    else [cur-1,cur-2..0] ++ [m-1,m-2..cur]
 
@@ -589,7 +589,9 @@ hideHist = modifyST $ \st -> st { histVisible = Nothing }
 showHist :: IO ()
 showHist = do
     now <- getMonoTime
-    modifyST $ \st -> st { histVisible = Just $ do
+    modifyST $ \st -> st {
+        helpVisible = False,
+        histVisible = Just $ do
             (tm, ix) <- toList $ playHist st
             pure (UTF8.toString $ showTimeDiff_ True tm now
                 , UTF8.toString $ fbase $ music st ! ix)

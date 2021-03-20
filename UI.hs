@@ -622,11 +622,11 @@ redraw = Draw $ discardErrors do
    when (xterm s) $ setXterm s
    
    gotoTop
-   mapM_ (\t -> do drawLine w t
-                   (y, x) <- Curses.getYX Curses.stdScr
-                   fillLine
-                   maybeLineDown t h y x )
-         (take (h-1) (init a))
+   for_ (take (h-1) (init a)) \t -> do
+       drawLine w t
+       (y, x) <- Curses.getYX Curses.stdScr
+       fillLine
+       maybeLineDown t h y x
    renderModals s sz
 
    -- minibuffer
@@ -697,7 +697,7 @@ slice i j arr =
 --
 setXtermTitle :: [ByteString] -> IO ()
 setXtermTitle strs = do
-    mapM_ (P.hPut stderr) (before : strs ++ [after])
+    traverse_ (P.hPut stderr) (before : strs ++ [after])
     hFlush stderr 
   where
     before = "\ESC]0;"
