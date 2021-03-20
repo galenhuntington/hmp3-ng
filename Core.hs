@@ -56,13 +56,14 @@ import Text.Regex.PCRE.Light
 import {-# SOURCE #-} Keymap (keymap)
 
 import qualified Data.ByteString.Char8 as P
+import qualified Data.ByteString.UTF8 as UTF8
 import qualified Data.Sequence as Seq
 
 import Data.Array               ((!), bounds, Array)
 import System.Directory         (doesFileExist,findExecutable)
 import System.IO                (hPutStrLn, hGetLine, stderr, hFlush)
 import System.Process           (runInteractiveProcess, waitForProcess)
-import System.Clock             (getTime, TimeSpec(..), Clock(..), diffTimeSpec)
+import System.Clock             (TimeSpec(..), diffTimeSpec)
 import System.Random            (randomIO)
 import System.FilePath          ((</>))
 import Data.List                (isInfixOf, tails)
@@ -100,7 +101,7 @@ start playNow ms = handle @SomeException (shutdown . Just . show) do
                                ,ser_indx st
                                ,ser_mode st)
 
-    now <- getTime Boottime
+    now <- getMonoTime
 
     -- fork some threads
     t1 <- forkIO $ mpgInput readf
@@ -118,7 +119,7 @@ start playNow ms = handle @SomeException (shutdown . Just . show) do
         , cursor       = i
         , current      = i
         , mode         = m
-        , uptime       = showUptime now now
+        , uptime       = showTimeDiff now now
         , boottime     = now
         , config       = c
         , threads      = [t0,t1,t2,t3,t4,t5] }
@@ -210,23 +211,30 @@ refreshLoop = do
 uptimeLoop :: IO ()
 uptimeLoop = runForever $ do
     threadDelay delay
-    now <- getTime Boottime
-    modifyST $ \st -> st { uptime = showUptime (boottime st) now }
+    now <- getMonoTime
+    modifyST $ \st -> st { uptime = showTimeDiff (boottime st) now }
   where
     delay = 5 * 1000 * 1000 -- refresh every 5 seconds
 
 ------------------------------------------------------------------------
 
-showUptime :: TimeSpec -> TimeSpec -> ByteString
-showUptime before now
-    | hs == 0 = P.pack $ printf "%dm" m
-    | d == 0  = P.pack $ printf "%dh%02dm" h m
-    | True    = P.pack $ printf "%dd%02dh%02dm" d h m
+showTimeDiff_ :: Bool -> TimeSpec -> TimeSpec -> ByteString
+showTimeDiff_ secs before now
+    | ms == 0 && secs
+              = go ""
+    | hs == 0 = go $ printf "%dm" m
+    | d == 0  = go $ printf "%dh%02dm" h m
+    | True    = go $ printf "%dd%02dh%02dm" d h m
     where
-        s      = sec $ diffTimeSpec before now
-        ms     = quot s 60
+        go     = P.pack . ss
+        stot   = sec $ diffTimeSpec before now
+        (ms,s) = quotRem stot 60
         (hs,m) = quotRem ms 60
         (d,h)  = quotRem hs 24
+        ss     = if secs then (<> printf (if ms > 0 then "%02ds" else "%ds") s) else id
+
+showTimeDiff :: TimeSpec -> TimeSpec -> ByteString
+showTimeDiff = showTimeDiff_ False
 
 ------------------------------------------------------------------------
 
@@ -444,7 +452,7 @@ playNext = do
 -- If the cursor and current are currently the same, continue that.
 playAtN :: HState -> (Int -> Int) -> IO HState
 playAtN st fn = do
-    now <- getTime Boottime
+    now <- getMonoTime
     let m   = music st
         i   = current st
         new = fn i
@@ -578,7 +586,13 @@ toggleFocus = modifyST $ \st -> st { miniFocused = not (miniFocused st) }
 hideHist :: IO ()
 hideHist = modifyST $ \st -> st { histVisible = Nothing }
 showHist :: IO ()
-showHist = modifyST $ \st -> st { histVisible = Just [("2h1m", "Song.mp3")] }
+showHist = do
+    now <- getMonoTime
+    modifyST $ \st -> st { histVisible = Just $ do
+            (tm, ix) <- toList $ playHist st
+            pure (UTF8.toString $ showTimeDiff_ True tm now
+                , UTF8.toString $ fbase $ music st ! ix)
+        }
 
 -- | Toggle the mode flag
 nextMode :: IO ()

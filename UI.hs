@@ -231,7 +231,7 @@ newtype PlayModes = PlayModes String
 data HelpScreen
 data HistScreen
 class ModalElement a where
-    -- returns (width, list of lines)
+    -- takes style, window width, state; returns (width, list of lines)
     drawModal :: Style -> Int -> HState -> Maybe (Int, [StringA])
 
 ------------------------------------------------------------------------
@@ -303,7 +303,6 @@ instance ModalElement HelpScreen where
             [ Fast (f cs h) sty | (h,cs) <- extraTable ]
         where
             wd = modalWidth swd
-            -- TODO use String or Text for help table
             f :: [Char] -> String -> ByteString
             f cs ps = UTF8.fromString $ forceWidth wd
                         $ forceWidth clen cmds <> ps where
@@ -329,9 +328,13 @@ instance ModalElement HelpScreen where
 ------------------------------------------------------------------------
 
 instance ModalElement HistScreen where
-    drawModal sty swd st =
-        fmap (\_ -> (modalWidth swd, [Fast "test" sty])) $ histVisible st
-        -- [ Fast (f cs h) sty | (h,cs,_) <- keyTable ]
+    drawModal sty swd st = flip fmap (histVisible st) \hist -> do
+        let wd = modalWidth swd
+            mtlen = maximum $ map (length . fst) hist
+            tlen = min (mtlen + 1) $ wd `div` 3
+        (wd,) $ flip map (zip (['0'..'9']++['a'..'z']) hist) \ (c, (time, song)) ->
+            let tstr = ellipsize tlen $ replicate (tlen - displayWidth time) ' ' ++ time
+            in Fast (UTF8.fromString $ forceWidth wd $ ' ' : c : ' ' : tstr ++ ' ' : song) sty
 
 ------------------------------------------------------------------------
 
