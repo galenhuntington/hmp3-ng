@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 2b7ed3d5bec82a4bf3247c9473becedc60895ad0f1472694191d8bb49bb9dfed
+-- hash: 7e011cbec8ee4d43dd59e9069cbbf60c01ab0526f525032386a642899e629a25
 
 name:           hmp3-ng
 version:        2.12.0
@@ -47,7 +47,7 @@ executable hmp3
       Paths_hmp3_ng
   hs-source-dirs:
       ./.
-  default-extensions: BangPatterns BlockArguments NondecreasingIndentation OverloadedStrings ScopedTypeVariables TypeApplications DerivingStrategies RecordWildCards LambdaCase MultiWayIf NamedFieldPuns
+  default-extensions: BangPatterns BlockArguments NondecreasingIndentation OverloadedStrings ScopedTypeVariables TypeApplications DerivingStrategies RecordWildCards LambdaCase MultiWayIf
   ghc-options: -Wall -funbox-strict-fields -threaded -Wno-unused-do-bind
   extra-libraries:
       ncursesw
@@ -61,7 +61,6 @@ executable hmp3
     , directory
     , filepath
     , hscurses
-    , monad-extras
     , mtl
     , pcre-light >=0.3
     , process

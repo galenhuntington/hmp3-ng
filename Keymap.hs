@@ -159,7 +159,7 @@ search_eval = enter `meta` \_ (SearchState hist spec) -> case cur $ schZipper sp
 ------------------------------------------------------------------------
 
 history :: LexerS
-history = char 'H' `meta`
+history = alt ['H', '.'] `meta`
         \_ st -> (with (showHist *> touchST), st, Just inner) where
     inner =
         alt any' `meta` (\_ st -> (with (hideHist *> touchST), st, Just all))
@@ -250,8 +250,8 @@ keyTable =
         ['N'],   jumpToMatchFile Nothing False)
     ,("Play",
         ['p'],   playCur)
-    ,("Mark as deletable",
-        ['d'],   blacklist)
+    ,("Mark for deletion in ~/.hmp3-delete",
+        ['D'],   blacklist)
     ,("Load config file",
         ['l'],   loadConfig)
     ,("Restart song",
@@ -262,7 +262,7 @@ innerTable :: [(Char, IO ())]
 innerTable = [(c, jumpRel i) | (i, c) <- zip [0.1, 0.2 ..] ['1'..'9']]
 
 extraTable :: [(String, [Char])]
-extraTable = [("Toggle the song history", ['H'])
+extraTable = [("Toggle the song history", ['H', '.'])
              ,("Search for file matching regex", ['/'])
              ,("Search backwards for file", ['?'])
              ,("Search for directory matching regex", ['\\'])

@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 --
 -- Copyright (c) 2020, 2021 Galen Huntington
 --
@@ -46,6 +48,9 @@ import System.IO.Unsafe as X
 import Text.Printf as X
 import System.Clock
 
+
+--  Random utility functions.
+
 discardErrors :: IO () -> IO ()
 discardErrors = X.handle @SomeException (\_ -> pure ())
 
@@ -53,5 +58,15 @@ whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
 whenJust mval f = case mval of Nothing -> pure (); Just v -> f v
 
 getMonoTime :: IO TimeSpec
-getMonoTime = getTime Boottime
+getMonoTime = getTime
+#if linux_HOST_OS
+    Boottime
+#else
+    Monotonic
+#endif
+
+sequenceWhile :: Monad m => (a -> Bool) -> [m a] -> m [a]
+sequenceWhile _ [] = pure []
+sequenceWhile p (m:ms) = m >>= \a ->
+    if p a then (a:) <$> sequenceWhile p ms else pure []
 
