@@ -1,6 +1,6 @@
 -- 
 -- Copyright (c) 2004-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2019, 2020 Galen Huntington
+-- Copyright (c) 2019-2021 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -35,7 +35,7 @@ import qualified Data.Map as M  (fromList, empty, lookup, Map)
 -- for an item in the ui
 data UIStyle = UIStyle {
      window      :: !Style  -- default window colour
-   , helpscreen  :: !Style  -- help screen
+   , modal       :: !Style  -- help screen
    , titlebar    :: !Style  -- titlebar of window
    , selected    :: !Style  -- currently playing track
    , cursors     :: !Style  -- the scrolling cursor line
@@ -150,7 +150,7 @@ reset = setAttribute (Curses.attr0, Curses.Pair 0)
 --
 initcolours :: UIStyle -> IO ()
 initcolours sty = do
-    let ls  = [helpscreen sty, warnings sty, window sty, 
+    let ls  = [modal sty, warnings sty, window sty, 
                selected sty, titlebar sty, progress sty,
                blockcursor sty, cursors sty, combined sty ]
         (Style fg bg) = progress sty    -- bonus style
@@ -176,8 +176,7 @@ initUiColors stys = do
     fn :: Style -> Int -> IO (Style, (Curses.Attr,Curses.Pair))
     fn sty p = do
         let (CColor (a,fgc),CColor (b,bgc)) = style2curses sty
-        handle @SomeException (\_ -> pure ()) $
-            Curses.initPair (Curses.Pair p) fgc bgc
+        discardErrors $ Curses.initPair (Curses.Pair p) fgc bgc
         pure (sty, (a `Curses.attrPlus` b, Curses.Pair p))
 
 ------------------------------------------------------------------------
@@ -310,7 +309,7 @@ defaultSty = Style Default Default
 --
 data Config = Config {
          hmp3_window      :: (String,String)
-       , hmp3_helpscreen  :: (String,String)
+       , hmp3_modal       :: (String,String)
        , hmp3_titlebar    :: (String,String)
        , hmp3_selected    :: (String,String)
        , hmp3_cursors     :: (String,String)
@@ -327,7 +326,7 @@ data Config = Config {
 buildStyle :: Config -> UIStyle
 buildStyle bs = UIStyle {
          window      = f $ hmp3_window      bs
-       , helpscreen  = f $ hmp3_helpscreen  bs
+       , modal       = f $ hmp3_modal       bs
        , titlebar    = f $ hmp3_titlebar    bs
        , selected    = f $ hmp3_selected    bs
        , cursors     = f $ hmp3_cursors     bs

@@ -36,7 +36,7 @@ import Prelude ()
 import Base hiding (all)
 
 import Core
-import State        (getsST, touchST, HState(helpVisible))
+import State        (getsST, touchST, HState(helpVisible, playHist))
 import Style        (defaultSty, StringA(Fast))
 import qualified UI (resetui)
 import Lexers       ((>||<),action,meta,execLexer
@@ -46,6 +46,7 @@ import UI.HSCurses.Curses (Key(..), decodeKey)
 
 import qualified Data.ByteString.Char8 as P
 import qualified Data.Map as M
+import qualified Data.Sequence as Seq
 
 data Direction = Forwards | Backwards
 data Zipper = Zipper { cur :: !String, back :: ![String], front :: ![String] }
@@ -76,7 +77,7 @@ keymap cs = map (clrmsg *>) actions
     where (actions,_,_) = execLexer all (cs, SearchState [] undefined)
 
 all :: LexerS
-all = commands >||< search
+all = commands >||< search >||< history
 
 commands :: LexerS
 commands = alt keys `action` \[c] -> Just $ fromMaybe (pure ()) $ M.lookup c keyMap
@@ -147,13 +148,34 @@ search_eval = enter `meta` \_ (SearchState hist spec) -> case cur $ schZipper sp
     []  -> endSearchWith (clrmsg *> touchST) hist
     pat ->
         let typ = schType spec
-            jumpTo = case schWhat typ of
+            jumpy = case schWhat typ of
               SearchFiles -> jumpToMatchFile
               SearchDirs  -> jumpToMatch
         in endSearchWith
-            do jumpTo (Just pat) case schDir typ of Forwards -> True; _ -> False
+            do jumpy (Just pat) case schDir typ of Forwards -> True; _ -> False
             do if take 1 hist == [pat] then hist else pat : hist
 
+
+------------------------------------------------------------------------
+
+history :: LexerS
+history = alt ['H', ';'] `meta`
+        \_ st -> (with (showHist *> touchST), st, Just inner) where
+    inner =
+        alt any' `meta` (\_ st -> (with (hideHist *> touchST), st, Just all))
+        >||< alt ['0'..'9'] `meta` handleKey '0' 0
+        >||< alt ['a'..'z'] `meta` handleKey 'a' 10
+    handleKey base off cs st =
+        (with do
+            ph <- getsST playHist
+            whenJust
+                do ph Seq.!? (fromEnum (head cs) - (fromEnum base - off))
+                do jump . snd
+            hideHist
+            touchST
+        , st
+        , Just all
+        )
 
 ------------------------------------------------------------------------
 
@@ -181,7 +203,7 @@ enter   = alt enter'
 --
 -- The default keymap, and its description
 --
-keyTable :: [(ByteString, [Char], IO ())]
+keyTable :: [(String, [Char], IO ())]
 keyTable =
     [
      ("Move up",
@@ -228,8 +250,8 @@ keyTable =
         ['N'],   jumpToMatchFile Nothing False)
     ,("Play",
         ['p'],   playCur)
-    ,("Mark as deletable",
-        ['d'],   blacklist)
+    ,("Mark for deletion in ~/.hmp3-delete",
+        ['D'],   blacklist)
     ,("Load config file",
         ['l'],   loadConfig)
     ,("Restart song",
@@ -239,8 +261,9 @@ keyTable =
 innerTable :: [(Char, IO ())]
 innerTable = [(c, jumpRel i) | (i, c) <- zip [0.1, 0.2 ..] ['1'..'9']]
 
-extraTable :: [(ByteString, [Char])]
-extraTable = [("Search for file matching regex", ['/'])
+extraTable :: [(String, [Char])]
+extraTable = [("Toggle the song history", ['H', ';'])
+             ,("Search for file matching regex", ['/'])
              ,("Search backwards for file", ['?'])
              ,("Search for directory matching regex", ['\\'])
              ,("Search backwards for directory", ['|']) ]

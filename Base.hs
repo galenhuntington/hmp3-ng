@@ -1,5 +1,7 @@
+{-# LANGUAGE CPP #-}
+
 --
--- Copyright (c) 2020 Galen Huntington
+-- Copyright (c) 2020, 2021 Galen Huntington
 --
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -17,7 +19,7 @@
 -- 02111-1307, USA.
 --
 
-module Base (module Prelude, module X) where
+module Base (module Prelude, module X, module Base) where
 
 import Prelude
 
@@ -44,4 +46,27 @@ import System.Exit as X
 import System.IO as X (Handle, hClose)
 import System.IO.Unsafe as X
 import Text.Printf as X
+import System.Clock
+
+
+--  Random utility functions.
+
+discardErrors :: IO () -> IO ()
+discardErrors = X.handle @SomeException (\_ -> pure ())
+
+whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
+whenJust mval f = case mval of Nothing -> pure (); Just v -> f v
+
+getMonoTime :: IO TimeSpec
+getMonoTime = getTime
+#if linux_HOST_OS
+    Boottime
+#else
+    Monotonic
+#endif
+
+sequenceWhile :: Monad m => (a -> Bool) -> [m a] -> m [a]
+sequenceWhile _ [] = pure []
+sequenceWhile p (m:ms) = m >>= \a ->
+    if p a then (a:) <$> sequenceWhile p ms else pure []
 

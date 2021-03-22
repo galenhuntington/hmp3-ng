@@ -33,6 +33,7 @@ import qualified Config (defaultStyle)
 
 import Text.Regex.PCRE.Light    (Regex)
 import Data.Array               (listArray)
+import Data.Sequence            (Seq)
 import System.Clock             (TimeSpec(..))
 import System.Process           (ProcessHandle)
 
@@ -63,13 +64,15 @@ data HState = HState {
        ,status          :: !Status
        ,minibuffer      :: !StringA              -- contents of minibuffer
        ,helpVisible     :: !Bool                 -- is the help window shown
+       ,histVisible     :: !(Maybe [(String, String)]) -- history pop-up if shown
        ,miniFocused     :: !Bool                 -- is the mini buffer focused?
        ,mode            :: !Mode                 -- random mode
        ,uptime          :: !ByteString
        ,boottime        :: !TimeSpec
        ,regex           :: !(Maybe (Regex,Bool)) -- most recent search pattern and direction
        ,xterm           :: !Bool
-       ,doNotResuscitate:: !Bool                -- should we just let mpg321 die?
+       ,doNotResuscitate :: !Bool                -- should we just let mpg321 die?
+       ,playHist        :: Seq (TimeSpec, Int)  -- limited history of songs played
        ,config          :: !UIStyle             -- config values
 
        ,modified        :: !(MVar ())           -- Set when redrawable components of 
@@ -105,10 +108,12 @@ emptySt = HState {
 
        ,clockUpdate      = False
        ,helpVisible      = False
+       ,histVisible      = Nothing
        ,miniFocused      = False
        ,xterm            = False
        ,doNotResuscitate = False    -- mpg321 should be restarted
 
+       ,playHist     = mempty
        ,config       = Config.defaultStyle
        ,boottime     = 0
        ,status       = Stopped

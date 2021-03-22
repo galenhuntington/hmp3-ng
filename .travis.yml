@@ -2,7 +2,7 @@
 
 language: haskell
 
-cabal: 2.4
+cabal: 3.4
 
 cache:
   directories:

@@ -34,7 +34,6 @@ import System.Posix.Files.ByteString
 import System.Posix.Directory.ByteString
 
 import System.IO                (hFlush)
-import Control.Monad.Extra      (sequenceWhile)
 
 ------------------------------------------------------------------------
 

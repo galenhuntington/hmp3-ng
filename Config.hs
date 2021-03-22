@@ -1,6 +1,6 @@
 -- 
 -- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2019 Galen Huntington
+-- Copyright (c) 2019-2021 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -30,7 +30,7 @@ defaultStyle  = UIStyle { window     = Style defaultfg    defaultbg
                         , cursors    = Style black        cyan
                         , combined   = Style brightwhite  cyan
                         , warnings   = Style red          defaultbg
-                        , helpscreen = Style black        white
+                        , modal      = Style black        white
                         , blockcursor= Style black        red
                         , progress   = Style cyan         white }
 
@@ -50,7 +50,7 @@ muttStyle   = UIStyle { window     = Style brightwhite  black
                       , cursors    = Style black        cyan
                       , combined   = Style black        cyan
                       , warnings   = Style brightwhite  red
-                      , helpscreen = Style black        cyan
+                      , modal      = Style black        cyan
                       , blockcursor= Style black        darkred
                       , progress   = Style cyan         white  }
 
@@ -62,7 +62,7 @@ bwStyle = UIStyle {
        ,cursors     = Style reversefg   reversebg
        ,combined    = Style reversefg   reversebg
        ,warnings    = Style reversefg   reversebg
-       ,helpscreen  = Style reversefg   reversebg
+       ,modal       = Style reversefg   reversebg
        ,blockcursor = Style reversefg   reversebg
        ,progress    = Style reversefg   reversebg
     }

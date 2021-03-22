@@ -1,8 +1,8 @@
-{-# LANGUAGE ForeignFunctionInterface, TupleSections #-}
+{-# LANGUAGE ForeignFunctionInterface, TupleSections, AllowAmbiguousTypes #-}
 
 -- 
 -- Copyright (C) 2004-5 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2019, 2020 Galen Huntington
+-- Copyright (c) 2019-2021 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -54,6 +54,7 @@ import {-# SOURCE #-} Keymap    (extraTable, keyTable, unkey, charToKey)
 
 import Data.Array               ((!), bounds, Array, listArray)
 import Data.Array.Base          (unsafeAt)
+import Data.List                (intercalate)
 import System.IO                (stderr, hFlush)
 import System.Posix.Signals     (raiseSignal, sigTSTP, installHandler, Handler(..))
 
@@ -79,7 +80,7 @@ runDraw (Draw d) = withDrawLock d
 --
 start :: IO UIStyle
 start = do
-    handle @SomeException (\_ -> pure ()) do
+    discardErrors do
         thisterm <- lookupEnv "TERM"
         case thisterm of 
             Just "vt220" -> setEnv "TERM" "xterm-color"
@@ -107,13 +108,11 @@ start = do
 
 -- | Reset
 resetui :: IO ()
-resetui = runDraw (resizeui <> nocursor) >> refresh
+resetui = runDraw (resizeui <> nocursor) *> refresh
 
 -- | And force invisible
 nocursor :: Draw
-nocursor = Draw do
-    handle @SomeException (\_ -> pure ()) $
-        void $ Curses.cursSet Curses.CursorInvisible
+nocursor = Draw $ discardErrors $ void $ Curses.cursSet Curses.CursorInvisible
 
 --
 -- | Clean up and go home. Refresh is needed on linux. grr.
@@ -228,7 +227,12 @@ newtype PTime       = PTime       ByteString
 newtype PlayTitle = PlayTitle StringA
 newtype PlayInfo  = PlayInfo  ByteString
 newtype PlayModes = PlayModes String
-newtype HelpScreen = HelpScreen [StringA]
+
+data HelpScreen
+data HistScreen
+class ModalElement a where
+    -- takes style, window width, state; returns (width, list of lines)
+    drawModal :: Style -> Int -> HState -> Maybe (Int, [StringA])
 
 ------------------------------------------------------------------------
 
@@ -257,8 +261,8 @@ instance Element PPlaying where
         PId3 a  = draw dd
         PInfo b = draw dd
         s       = UTF8.toString a
-        line | gap >= 0 = [U s, B $ spaces gap] ++ right
-             | True     = [U $ ellipsize lim s] ++ right
+        line | gap >= 0 = U s : (B $ spaces gap) : right
+             | True     = U (ellipsize lim s) : right
             where lim = x - 5 - (if showId3 then P.length b else -1)
                   gap = lim - displayWidth s
                   showId3 = x > 59
@@ -284,45 +288,53 @@ emptyVal = "(empty)"
 spc2 :: AmbiString
 spc2 = B $ spaces 2
 
+modalWidth :: Int -> Int
+modalWidth w = max (min w 3) $ round $ fromIntegral w * (0.8::Float)
+
 ------------------------------------------------------------------------
 
-instance Element HelpScreen where
-    draw DD{drawSize=Size{sizeW=w}, drawState=st} = HelpScreen $
-        [ Fast (f cs h) sty | (h,cs,_) <- keyTable ] ++
-        [ Fast (f cs h) sty | (h,cs) <- extraTable ]
+-- instance ModalElement me => Element (Modal me) where draw = drawModal
+
+instance ModalElement HelpScreen where
+    drawModal sty swd st = do
+        guard $ helpVisible st
+        pure $ (wd,) $
+            [ Fast (f cs h) sty | (h,cs,_) <- keyTable ] ++
+            [ Fast (f cs h) sty | (h,cs) <- extraTable ]
         where
-            sty  = helpscreen . config $ st
+            wd = modalWidth swd
+            f :: [Char] -> String -> ByteString
+            f cs ps = UTF8.fromString $ forceWidth wd
+                        $ forceWidth clen cmds <> ps where
+                clen = max 4 $ round $ fromIntegral wd * (0.2::Float)
+                cmds = intercalate " " $ "" : map pprIt cs
+                pprIt c = case c of
+                      '\n'            -> "Enter"
+                      '\f'            -> "^L"
+                      '\\'            -> "\\"
+                      ' '             -> "Space"
+                      _ -> case charToKey c of
+                        Curses.KeyUp    -> "↑"
+                        Curses.KeyDown  -> "↓"
+                        Curses.KeyPPage -> "PgUp"
+                        Curses.KeyNPage -> "PgDn"
+                        Curses.KeyLeft  -> "←"
+                        Curses.KeyRight -> "→"
+                        Curses.KeyEnd   -> "End"
+                        Curses.KeyHome  -> "Home"
+                        Curses.KeyBackspace -> "Backspace"
+                        _ -> [c]
 
-            f :: [Char] -> ByteString -> ByteString
-            f cs ps =
-                let p = str <> ps
-                    rt = tot - P.length p
-                in if rt > 0
-                    then p <> spaces rt
-                    else P.take (tot - 1) p <> UTF8.fromString "…"
-                where
-                    tot = max (min w 3) $ round $ fromIntegral w * (0.8::Float)
-                    len = max 2 $ round $ fromIntegral tot * (0.2::Float)
+------------------------------------------------------------------------
 
-                    str = P.take len $ P.intercalate " "
-                        ([""] ++ map pprIt cs ++ [P.replicate len ' '])
-
-                    pprIt c = case c of
-                          '\n'            -> "Enter"
-                          '\f'            -> "^L"
-                          '\\'            -> "\\"
-                          ' '             -> "Space"
-                          _ -> case charToKey c of
-                            Curses.KeyUp    -> "Up"
-                            Curses.KeyDown  -> "Down"
-                            Curses.KeyPPage -> "PgUp"
-                            Curses.KeyNPage -> "PgDn"
-                            Curses.KeyLeft  -> "Left"
-                            Curses.KeyRight -> "Right"
-                            Curses.KeyEnd   -> "End"
-                            Curses.KeyHome  -> "Home"
-                            Curses.KeyBackspace -> "Backspace"
-                            _ -> P.singleton c
+instance ModalElement HistScreen where
+    drawModal sty swd st = flip fmap (histVisible st) \hist -> do
+        let wd = modalWidth swd
+            mtlen = maximum $ map (length . fst) hist
+            tlen = min (mtlen + 1) $ wd `div` 3
+        (wd,) $ flip map (zip (['0'..'9']++['a'..'z']) hist) \ (c, (time, song)) ->
+            let tstr = ellipsize tlen $ replicate (tlen - displayWidth time) ' ' ++ time
+            in Fast (UTF8.fromString $ forceWidth wd $ ' ' : c : ' ' : tstr ++ ' ' : song) sty
 
 ------------------------------------------------------------------------
 
@@ -556,48 +568,48 @@ spaces n
 -- Speed things up a bit, just use read State.
 --
 redrawJustClock :: Draw
-redrawJustClock = Draw do
-   handle @SomeException (\_ -> pure ()) do
-
+redrawJustClock = Draw $ discardErrors do
    st      <- getsST id
    let fr = clock st
    (h, w) <- screenSize
-   let s = Size h w
-   let (ProgressBar bar) = draw $ DD s undefined st fr :: ProgressBar
+   let sz = Size h w
+   let (ProgressBar bar) = draw $ DD sz undefined st fr :: ProgressBar
        (PTimes times)    = {-# SCC "redrawJustClock.times" #-}
-                           draw $ DD s undefined st fr :: PTimes
+                           draw $ DD sz undefined st fr :: PTimes
    Curses.wMove Curses.stdScr 1 0   -- hardcoded!
    drawLine w bar
    Curses.wMove Curses.stdScr 2 0   -- hardcoded!
    drawLine w times
-   drawHelp st fr s
+   when (h<45) $ renderModals st sz -- small screen modals paint over clock
 
 ------------------------------------------------------------------------
 --
 -- work for drawing help. draw the help screen if it is up
 --
-drawHelp :: HState -> Maybe Frame -> Size -> IO ()
-drawHelp st fr s@(Size h w) =
-   when (helpVisible st) $ do
-       let (HelpScreen help') = draw $ DD s (Pos 0 0) st fr :: HelpScreen
-           (Fast fps _)      = head help'
-           offset            = max 0 $ (w - P.length fps) `div` 2
-           height            = (h - length help') `div` 2
-       when (height > 0) $ do
-            Curses.wMove Curses.stdScr ((h - length help') `div` 2) offset
-            mapM_ (\t -> do drawLine w t
-                            (y',_) <- Curses.getYX Curses.stdScr
-                            Curses.wMove Curses.stdScr (y'+1) offset) help'
+renderModal :: forall me. ModalElement me => HState -> Size -> IO ()
+renderModal st (Size h w) = do
+   whenJust (drawModal @me (modal $ config st) w st) \(mw, modal') -> do
+       let hoffset = max 0 $ (w - mw) `div` 2
+           mlines  = min h $ length modal'
+           voffset = (h - mlines) `div` 2
+       Curses.wMove Curses.stdScr voffset hoffset
+       for_ (take mlines modal') \t -> do
+            drawLine w t
+            (y',_) <- Curses.getYX Curses.stdScr
+            Curses.wMove Curses.stdScr (y'+1) hoffset
+
+renderModals :: HState -> Size -> IO ()
+renderModals s sz = do
+   renderModal @HelpScreen s sz
+   renderModal @HistScreen s sz
 
 ------------------------------------------------------------------------
 --
 -- | Draw the screen
 --
 redraw :: Draw
-redraw = Draw $
+redraw = Draw $ discardErrors do
    -- linux ncurses, in particular, seems to complain a lot. this is an easy solution
-   handle @SomeException (\_ -> pure ()) do
-
    s <- getsST id    -- another refresh could be triggered?
    let f = clock s
    (h, w) <- screenSize
@@ -610,12 +622,12 @@ redraw = Draw $
    when (xterm s) $ setXterm s
    
    gotoTop
-   mapM_ (\t -> do drawLine w t
-                   (y, x) <- Curses.getYX Curses.stdScr
-                   fillLine
-                   maybeLineDown t h y x )
-         (take (h-1) (init a))
-   drawHelp s f sz
+   for_ (take (h-1) (init a)) \t -> do
+       drawLine w t
+       (y, x) <- Curses.getYX Curses.stdScr
+       fillLine
+       maybeLineDown t h y x
+   renderModals s sz
 
    -- minibuffer
    Curses.wMove Curses.stdScr (h-1) 0
@@ -659,7 +671,7 @@ lineDown h y = Curses.wMove Curses.stdScr (min h (y+1)) 0
 -- | Fill to end of line spaces
 --
 fillLine :: IO ()
-fillLine = handle @SomeException (\_ -> pure ()) Curses.clrToEol -- harmless?
+fillLine = discardErrors Curses.clrToEol -- harmless?
 
 --
 -- | move cursor to origin of stdScr.
@@ -685,7 +697,7 @@ slice i j arr =
 --
 setXtermTitle :: [ByteString] -> IO ()
 setXtermTitle strs = do
-    mapM_ (P.hPut stderr) (before : strs ++ [after])
+    traverse_ (P.hPut stderr) (before : strs ++ [after])
     hFlush stderr 
   where
     before = "\ESC]0;"
@@ -711,16 +723,21 @@ setXterm s = setXtermTitle $ case status s of
 displayWidth :: String -> Int
 displayWidth = sum . map charWidth
 
-ellipsize :: Int -> String -> String
-ellipsize w s
-  | displayWidth s <= w = s
-  | True = go 0 0 s where
+sizer :: Bool -> Int -> String -> String
+sizer pad w s
+  | dw <= w = if pad then s ++ replicate (w - dw) ' ' else s
+  | True    = go 0 0 s where
     go !i !l (c:s') =
         if l' > w-1
             then take i s ++ replicate (w-l) '…'
             else go (i+1) l' s'
       where l' = l + charWidth c
     go _  _ _ = error "Should've been in first case!"
+    dw = displayWidth s
+
+ellipsize, forceWidth :: Int -> String -> String
+ellipsize = sizer False
+forceWidth = sizer True
 
 charWidth :: Char -> Int
 charWidth = fromIntegral . wcwidth . toEnum . fromEnum

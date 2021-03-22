@@ -32,10 +32,12 @@ module Core (
         upPage, downPage,
         seekStart,
         blacklist,
+        showHist, hideHist,
         writeSt, readSt,
         jumpToMatch, jumpToMatchFile,
         toggleFocus, jumpToNextDir, jumpToPrevDir,
         loadConfig,
+        discardErrors,
         FileListSource,
     ) where
 
@@ -54,14 +56,17 @@ import Text.Regex.PCRE.Light
 import {-# SOURCE #-} Keymap (keymap)
 
 import qualified Data.ByteString.Char8 as P
+import qualified Data.ByteString.UTF8 as UTF8
+import qualified Data.Sequence as Seq
 
 import Data.Array               ((!), bounds, Array)
 import System.Directory         (doesFileExist,findExecutable)
 import System.IO                (hPutStrLn, hGetLine, stderr, hFlush)
 import System.Process           (runInteractiveProcess, waitForProcess)
-import System.Clock             (getTime, TimeSpec(..), Clock(..), diffTimeSpec)
+import System.Clock             (TimeSpec(..), diffTimeSpec)
 import System.Random            (randomIO)
 import System.FilePath          ((</>))
+import Data.List                (isInfixOf, tails)
 
 import System.Posix.Process     (exitImmediately)
 import System.Posix.User        (getUserEntryForID, getRealUserID, homeDirectory)
@@ -96,7 +101,7 @@ start playNow ms = handle @SomeException (shutdown . Just . show) do
                                ,ser_indx st
                                ,ser_mode st)
 
-    now <- getTime Boottime
+    now <- getMonoTime
 
     -- fork some threads
     t1 <- forkIO $ mpgInput readf
@@ -114,7 +119,7 @@ start playNow ms = handle @SomeException (shutdown . Just . show) do
         , cursor       = i
         , current      = i
         , mode         = m
-        , uptime       = showUptime now now
+        , uptime       = showTimeDiff now now
         , boottime     = now
         , config       = c
         , threads      = [t0,t1,t2,t3,t4,t5] }
@@ -206,23 +211,30 @@ refreshLoop = do
 uptimeLoop :: IO ()
 uptimeLoop = runForever $ do
     threadDelay delay
-    now <- getTime Boottime
-    modifyST $ \st -> st { uptime = showUptime (boottime st) now }
+    now <- getMonoTime
+    modifyST $ \st -> st { uptime = showTimeDiff (boottime st) now }
   where
     delay = 5 * 1000 * 1000 -- refresh every 5 seconds
 
 ------------------------------------------------------------------------
 
-showUptime :: TimeSpec -> TimeSpec -> ByteString
-showUptime before now
-    | hs == 0 = P.pack $ printf "%dm" m
-    | d == 0  = P.pack $ printf "%dh%02dm" h m
-    | True    = P.pack $ printf "%dd%02dh%02dm" d h m
+showTimeDiff_ :: Bool -> TimeSpec -> TimeSpec -> ByteString
+showTimeDiff_ secs before now
+    | ms == 0 && secs
+              = go ""
+    | hs == 0 = go $ printf "%dm" m
+    | d == 0  = go $ printf "%dh%02dm" h m
+    | True    = go $ printf "%dd%02dh%02dm" d h m
     where
-        s      = sec $ diffTimeSpec before now
-        ms     = quot s 60
+        go     = P.pack . ss
+        stot   = sec $ diffTimeSpec before now
+        (ms,s) = quotRem stot 60
         (hs,m) = quotRem ms 60
         (d,h)  = quotRem hs 24
+        ss     = if secs then (<> printf (if ms > 0 then "%02ds" else "%ds") s) else id
+
+showTimeDiff :: TimeSpec -> TimeSpec -> ByteString
+showTimeDiff = showTimeDiff_ False
 
 ------------------------------------------------------------------------
 
@@ -275,7 +287,7 @@ run = runForever $ sequence_ . keymap =<< getKeys
 shutdown :: Maybe String -> IO ()
 shutdown ms =
     do  silentlyModifyST $ \st -> st { doNotResuscitate = True }
-        handle @SomeException (\_ -> pure ()) writeSt
+        discardErrors writeSt
         withST $ \st -> do
             case mp3pid st of
                 Nothing  -> pure ()
@@ -368,6 +380,7 @@ jumpRel r | r < 0 || r >= 1 = pure ()
                 pure st { cursor = floor $ fromIntegral (size st) * r }
 
 -- | Generic jump
+--   TODO why is this in IO?
 jumpTo :: HState -> (Int -> Int) -> IO HState
 jumpTo st fn = do
     let l = max 0 (size st - 1)
@@ -417,11 +430,10 @@ playPrev = do
     if md == Random then playRandom else
       modifySTM $ \st -> do
       let i   = current st
-      case () of {_
+      if
         | i > 0             -> playAtN st (subtract 1)      -- just the prev track
         | mode st == Loop   -> playAtN st (const (size st - 1))  -- maybe loop
         | otherwise         -> pure    st            -- else stop at end
-      }
 
 -- | Play the song following the current song, if we're not at the end
 -- If we're at the end, and loop mode is on, then loop to the start
@@ -432,26 +444,29 @@ playNext = do
     if md == Random then playRandom else
       modifySTM $ \st -> do
       let i   = current st
-      case () of {_
+      if
         | i < size st - 1   -> playAtN st (+ 1)      -- just the next track
         | mode st == Loop   -> playAtN st (const 0)  -- maybe loop
         | otherwise         -> pure    st            -- else stop at end
-      }
 
 -- | Generic next song selection
 -- If the cursor and current are currently the same, continue that.
 playAtN :: HState -> (Int -> Int) -> IO HState
 playAtN st fn = do
+    now <- getMonoTime
     let m   = music st
         i   = current st
-        fe  = m ! fn i
+        new = fn i
+        fe  = m ! new
         -- unsure of this GBH (2008)
         f   = P.intercalate (P.singleton '/')
                  [dname $ folders st ! fdir fe, fbase fe]
         j   = cursor  st
-        st' = st { current = fn i
+        st' = st { current = new
                  , status  = Playing
-                 , cursor  = if i == cursor st then fn i else j }
+                 , cursor  = if i == cursor st then new else j
+                 , playHist = Seq.take 36 $ (now, new) Seq.<| playHist st
+                 }
     h <- readMVar (writeh st)
     send h (Load f)
     pure st'
@@ -521,7 +536,7 @@ genericJumpToMatch re sw k sel = do
                 Nothing     -> case regex st of
                                 Nothing     -> Nothing
                                 Just (r,d)  -> Just (r,d==sw)
-                Just s  -> case compileM (P.pack s) [caseless] of
+                Just s  -> case compileM (P.pack s) [caseless,utf8] of
                                 Left _      -> Nothing
                                 Right v     -> Just (v,sw)
         case mre of
@@ -546,7 +561,7 @@ genericJumpToMatch re sw k sel = do
 
             -- mi <- if forwards then loop (>=m) (+1)         (cur+1)
                               -- else loop (<0)  (subtract 1) (cur-1)
-            mi <- fmap msum $ mapM check $
+            mi <- fmap msum $ traverse check $
                        if forwards then [cur+1..m-1] ++ [0..cur]
                                    else [cur-1,cur-2..0] ++ [m-1,m-2..cur]
 
@@ -567,6 +582,20 @@ toggleHelp = modifyST $ \st -> st { helpVisible = not (helpVisible st) }
 -- | Focus the minibuffer
 toggleFocus :: IO ()
 toggleFocus = modifyST $ \st -> st { miniFocused = not (miniFocused st) }
+
+-- | History on or off
+hideHist :: IO ()
+hideHist = modifyST $ \st -> st { histVisible = Nothing }
+showHist :: IO ()
+showHist = do
+    now <- getMonoTime
+    modifyST $ \st -> st {
+        helpVisible = False,
+        histVisible = Just $ do
+            (tm, ix) <- toList $ playHist st
+            pure (UTF8.toString $ showTimeDiff_ True tm now
+                , UTF8.toString $ fbase $ music st ! ix)
+        }
 
 -- | Toggle the mode flag
 nextMode :: IO ()
@@ -618,7 +647,14 @@ loadConfig = do
     let f = home </> ".hmp3"
     b <- doesFileExist f
     if b then do
-        str  <- readFile f
+        str' <- readFile f
+        str <- let (old, new) = ("hmp3_helpscreen", "hmp3_modal") in
+            if old `isInfixOf` str'
+            then do
+                warnA $ old ++ " is now " ++ new ++ " in ~/.hmp3"
+                let (ix, rest) = head $ filter (\ (_, s) -> old `isPrefixOf` s) $ zip [0..] $ tails str'
+                pure $ take ix str' ++ new ++ drop (length old) rest
+            else pure str'
         msty <- catch (fmap Just $ evaluate $ read str)
                       (\ (_ :: SomeException) ->
                         warnA "Parse error in ~/.hmp3" $> Nothing)
@@ -649,3 +685,4 @@ warnA :: String -> IO ()
 warnA x = do
     sty <- getsST config
     putmsg $ Fast (P.pack x) (warnings sty)
+
