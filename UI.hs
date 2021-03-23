@@ -588,7 +588,7 @@ redrawJustClock = Draw $ discardErrors do
 --
 renderModal :: forall me. ModalElement me => HState -> Size -> IO ()
 renderModal st (Size h w) = do
-   whenJust (drawModal @me (modal $ config st) w st) \(mw, modal') -> do
+   whenJust (drawModal @me (modals $ config st) w st) \(mw, modal') -> do
        let hoffset = max 0 $ (w - mw) `div` 2
            mlines  = min h $ length modal'
            voffset = (h - mlines) `div` 2

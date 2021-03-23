@@ -648,7 +648,7 @@ loadConfig = do
     b <- doesFileExist f
     if b then do
         str' <- readFile f
-        str <- let (old, new) = ("hmp3_helpscreen", "hmp3_modal") in
+        str <- let (old, new) = ("hmp3_helpscreen", "hmp3_modals") in
             if old `isInfixOf` str'
             then do
                 warnA $ old ++ " is now " ++ new ++ " in ~/.hmp3"

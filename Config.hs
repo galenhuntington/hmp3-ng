@@ -30,7 +30,7 @@ defaultStyle  = UIStyle { window     = Style defaultfg    defaultbg
                         , cursors    = Style black        cyan
                         , combined   = Style brightwhite  cyan
                         , warnings   = Style red          defaultbg
-                        , modal      = Style black        white
+                        , modals     = Style black        white
                         , blockcursor= Style black        red
                         , progress   = Style cyan         white }
 
@@ -50,7 +50,7 @@ muttStyle   = UIStyle { window     = Style brightwhite  black
                       , cursors    = Style black        cyan
                       , combined   = Style black        cyan
                       , warnings   = Style brightwhite  red
-                      , modal      = Style black        cyan
+                      , modals     = Style black        cyan
                       , blockcursor= Style black        darkred
                       , progress   = Style cyan         white  }
 
@@ -62,7 +62,7 @@ bwStyle = UIStyle {
        ,cursors     = Style reversefg   reversebg
        ,combined    = Style reversefg   reversebg
        ,warnings    = Style reversefg   reversebg
-       ,modal       = Style reversefg   reversebg
+       ,modals      = Style reversefg   reversebg
        ,blockcursor = Style reversefg   reversebg
        ,progress    = Style reversefg   reversebg
     }

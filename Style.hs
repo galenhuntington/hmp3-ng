@@ -35,7 +35,7 @@ import qualified Data.Map as M  (fromList, empty, lookup, Map)
 -- for an item in the ui
 data UIStyle = UIStyle {
      window      :: !Style  -- default window colour
-   , modal       :: !Style  -- help screen
+   , modals      :: !Style  -- help screen
    , titlebar    :: !Style  -- titlebar of window
    , selected    :: !Style  -- currently playing track
    , cursors     :: !Style  -- the scrolling cursor line
@@ -150,7 +150,7 @@ reset = setAttribute (Curses.attr0, Curses.Pair 0)
 --
 initcolours :: UIStyle -> IO ()
 initcolours sty = do
-    let ls  = [modal sty, warnings sty, window sty, 
+    let ls  = [modals sty, warnings sty, window sty,
                selected sty, titlebar sty, progress sty,
                blockcursor sty, cursors sty, combined sty ]
         (Style fg bg) = progress sty    -- bonus style
@@ -309,7 +309,7 @@ defaultSty = Style Default Default
 --
 data Config = Config {
          hmp3_window      :: (String,String)
-       , hmp3_modal       :: (String,String)
+       , hmp3_modals      :: (String,String)
        , hmp3_titlebar    :: (String,String)
        , hmp3_selected    :: (String,String)
        , hmp3_cursors     :: (String,String)
@@ -326,7 +326,7 @@ data Config = Config {
 buildStyle :: Config -> UIStyle
 buildStyle bs = UIStyle {
          window      = f $ hmp3_window      bs
-       , modal       = f $ hmp3_modal       bs
+       , modals      = f $ hmp3_modals      bs
        , titlebar    = f $ hmp3_titlebar    bs
        , selected    = f $ hmp3_selected    bs
        , cursors     = f $ hmp3_cursors     bs
