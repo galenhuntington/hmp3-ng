@@ -21,8 +21,8 @@ versions, which were only minor changes, mostly the automated
 regeneration of a `configure` file (now gone).
 
 *  The code has been updated to compile under recent GHC (currently
-8.6, 8.8, 8.10, and 9.0) and libraries.  This required rewriting or
-entirely replacing large sections, mainly low-level optimizations.
+8.6, 8.8, 8.10, 9.0, and 9.2) and libraries.  This required rewriting
+or entirely replacing large sections, mainly low-level optimizations.
 
 *  I added support for building with Stack.
 
@@ -43,8 +43,8 @@ There is still some use of the FFI.
 are utilized in the interface.
 
 *  It is much more stable.  The app used to crash frequently and
-require restart, but I’ve had `hmp3-ng` running continuously for
-more than a year with heavy use without any problems.
+require restart, but I’ve had `hmp3-ng` running multiple times
+continuously for more than a year with heavy use without any problems.
 
 *  Several additions and changes have been made to the feature set
 and the UI.  A few of the key bindings have been modified per my
