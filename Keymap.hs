@@ -178,9 +178,11 @@ history = alt ['H', ';'] `meta`
         , Just allKeys
         )
 
+------------------------------------------------------------------------
+
 confirmQuit :: LexerS
 confirmQuit = char 'q' `meta`
-                \_ st -> (with (toggleExit *> touchST), st, Just inner) where
+                \_ st -> (with (forcePause *> toggleExit *> touchST), st, Just inner) where
     inner = alt any' `meta` (\_ st -> (with (toggleExit *> touchST), st, Just allKeys))
             >||< char 'y' `meta` (\_ st -> (with $ quit Nothing, st, Nothing))
 

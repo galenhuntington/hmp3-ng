@@ -1,5 +1,5 @@
 name: hmp3-ng
-version: "2.13.1"
+version: "2.14.0"
 author: Don Stewart, Galen Huntington
 maintainer: Galen Huntington
 license: GPL
@@ -7,9 +7,9 @@ category: Sound
 synopsis: "A 2019 fork of an ncurses mp3 player written in Haskell"
 description: |
    An mp3 player with a curses frontend. Playlists are populated by
-   passing file and directory names on the command line, and saved to the
-   ~/.hmp3db database. Type 'h' to display the help page.  Colours may
-   be configured at runtime by editing the "~/.hmp3" file.
+   passing file and directory names on the command line, and saved to
+   ~/.cache/hmp3/playlist.db. Type 'h' to display the help page. Colors
+   may be configured at runtime by editing "~/.config/hmp3/style.conf".
 github: galenhuntington/hmp3-ng
 
 source-dirs:

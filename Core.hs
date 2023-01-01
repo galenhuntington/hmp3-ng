@@ -27,7 +27,7 @@ module Core (
         start,
         shutdown,
         seekLeft, seekRight, up, down, pause, nextMode, playNext, playPrev,
-        quit, putmsg, clrmsg, toggleHelp, play, playCur,
+        forcePause, quit, putmsg, clrmsg, toggleHelp, play, playCur,
         jumpToPlaying, jump, jumpRel,
         upPage, downPage,
         seekStart,
@@ -61,16 +61,16 @@ import qualified Data.ByteString.UTF8 as UTF8
 import qualified Data.Sequence as Seq
 
 import Data.Array               ((!), bounds, Array)
-import System.Directory         (doesFileExist,findExecutable)
+import System.Directory         (doesFileExist, findExecutable, createDirectoryIfMissing,
+                                 getXdgDirectory, XdgDirectory(..))
 import System.IO                (hPutStrLn, hGetLine, stderr, hFlush)
 import System.Process           (runInteractiveProcess, waitForProcess)
 import System.Clock             (TimeSpec(..), diffTimeSpec)
 import System.Random            (randomIO)
-import System.FilePath          ((</>))
+import System.FilePath          ((</>), takeDirectory)
 import Data.List                (isInfixOf, tails)
 
 import System.Posix.Process     (exitImmediately)
-import System.Posix.User        (getUserEntryForID, getRealUserID, homeDirectory)
 
 type FileListSource = Either SerialT [ByteString]
 
@@ -478,6 +478,12 @@ playAtN st fn = do
 pause :: IO ()
 pause = withST $ \st -> readMVar (writeh st) >>= flip send Pause
 
+-- | Always pause
+forcePause :: IO ()
+forcePause = do
+    st <- getsST status
+    when (st == Playing) pause
+
 -- | Shutdown and exit
 quit :: Maybe String -> IO ()
 quit = shutdown
@@ -610,59 +616,58 @@ nextMode = modifyST $ \st -> st { mode = next (mode st) }
 
 ------------------------------------------------------------------------
 
+getCachePath :: IO FilePath
+getCachePath = getXdgDirectory XdgCache $ "hmp3" </> "playlist.db"
+
 -- | Saving the playlist 
--- Only save if there's something to save. Should preven dbs being wiped
+-- Only save if there's something to save. Should prevent dbs being wiped
 -- if curses crashes before the state is read.
 writeSt :: IO ()
 writeSt = do
-    home <- getHome
-    let f = home </> ".hmp3db"
-    withST \st -> do
+    f <- getCachePath
+    withST \st -> when (size st > 0) do
         let arr1 = music st
             arr2 = folders st
             idx  = current st
             mde  = mode st
-        when (size st > 0) $ writeTree f $ SerialT {
-                                            ser_farr = arr1
-                                           ,ser_darr = arr2
-                                           ,ser_indx = idx
-                                           ,ser_mode = mde
-                                          }
+        createDirectoryIfMissing True $ takeDirectory f
+        writeTree f $ SerialT {
+            ser_farr = arr1
+           ,ser_darr = arr2
+           ,ser_indx = idx
+           ,ser_mode = mde
+          }
 
 -- | Read the playlist back
 readSt :: IO (Maybe SerialT)
 readSt = do
-    home <- getHome
-    let f = home </> ".hmp3db"
+    f <- getCachePath
     b <- doesFileExist f
     if b then Just <$!> readTree f else pure Nothing
 
--- | Find a user's home in a canonical sort of way
-getHome :: IO String
-getHome = catch @SomeException
-    do getRealUserID >>= getUserEntryForID <&> homeDirectory
-    do const $ getEnv "HOME"
-
 ------------------------------------------------------------------------
--- Read styles from ~/.hmp3
+-- Read styles from style.conf
 --
+
+getConfPath :: IO FilePath
+getConfPath = getXdgDirectory XdgConfig $ "hmp3" </> "style.conf"
+
 loadConfig :: IO ()
 loadConfig = do
-    home <- getHome
-    let f = home </> ".hmp3"
+    f <- getConfPath
     b <- doesFileExist f
     if b then do
         str' <- readFile f
         str <- let (old, new) = ("hmp3_helpscreen", "hmp3_modals") in
             if old `isInfixOf` str'
             then do
-                warnA $ old ++ " is now " ++ new ++ " in ~/.hmp3"
+                warnA $ old ++ " is now " ++ new ++ " in style.conf"
                 let (ix, rest) = head $ filter (\ (_, s) -> old `isPrefixOf` s) $ zip [0..] $ tails str'
                 pure $ take ix str' ++ new ++ drop (length old) rest
             else pure str'
         msty <- catch (fmap Just $ evaluate $ read str)
                       (\ (_ :: SomeException) ->
-                        warnA "Parse error in ~/.hmp3" $> Nothing)
+                        warnA "Parse error in style.conf" $> Nothing)
         case msty of
             Nothing  -> pure ()
             Just rsty -> do

@@ -72,8 +72,10 @@ obtained by installing `libncurses5-dev`.  You probably also need
 ##  Use
 
 The `hmp3` executable is invoked with a list of mp3 files or
-directories of mp3 files.  With no arguments, it will use the playlist
-from the last time it was run, which is stored in `~/.hmp3db`.
+directories of mp3 files.  With no arguments, it will use the
+playlist from the last time it was run, which is stored in an XDG
+cache directory, usually `~/.cache/hmp3/playlist.db`.  `-h` will list
+command line options.
 
 ```
 $ hmp3 ~/Music ~/Downloads/La-La.mp3
@@ -85,7 +87,8 @@ Once running, `hmp3` is controlled by fairly intuitive key commands.
 message with options.
 
 A color scheme can be specified by writing out a `Config { .. }`
-value in `~/.hmp3`.  See `Style.hs` for the definition.  The `l`
+value in `~/.config/hmp3/style.conf` or the equivalent in your
+XDG config directory.  See `Style.hs` for the definition.  The `l`
 command hot-reloads this configuration.
 
 

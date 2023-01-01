@@ -305,7 +305,7 @@ defaultSty = Style Default Default
 --
 -- The fields must map to UIStyle
 --
--- It is this data type that is stored in 'show' format in ~/.hmp3
+-- It is this data type that is stored in 'show' format in style.conf
 --
 data Config = Config {
          hmp3_window      :: (String,String)
@@ -320,8 +320,7 @@ data Config = Config {
      } deriving stock (Show,Read)
 
 --
--- | Read the ~/.hmp3 file, and construct a UIStyle from it, to insert
--- into 
+-- | Read style.conf, and construct a UIStyle from it, to insert into
 --
 buildStyle :: Config -> UIStyle
 buildStyle bs = UIStyle {
