@@ -1,4 +1,4 @@
-resolver: lts-17.7
+resolver: lts-20.5
 system-ghc: true
 compiler-check: newer-minor
 

@@ -2,7 +2,7 @@
 
 -- 
 -- Copyright (C) 2004-5 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2019-2021 Galen Huntington
+-- Copyright (c) 2019-2022 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -228,8 +228,9 @@ newtype PlayTitle = PlayTitle StringA
 newtype PlayInfo  = PlayInfo  ByteString
 newtype PlayModes = PlayModes String
 
-data HelpScreen
-data HistScreen
+data HelpModal
+data HistModal
+data ExitModal
 class ModalElement a where
     -- takes style, window width, state; returns (width, list of lines)
     drawModal :: Style -> Int -> HState -> Maybe (Int, [StringA])
@@ -295,7 +296,7 @@ modalWidth w = max (min w 3) $ round $ fromIntegral w * (0.8::Float)
 
 -- instance ModalElement me => Element (Modal me) where draw = drawModal
 
-instance ModalElement HelpScreen where
+instance ModalElement HelpModal where
     drawModal sty swd st = do
         guard $ helpVisible st
         pure $ (wd,) $
@@ -327,7 +328,7 @@ instance ModalElement HelpScreen where
 
 ------------------------------------------------------------------------
 
-instance ModalElement HistScreen where
+instance ModalElement HistModal where
     drawModal sty swd st = flip fmap (histVisible st) \hist -> do
         let wd = modalWidth swd
             mtlen = maximum $ map (length . fst) hist
@@ -335,6 +336,17 @@ instance ModalElement HistScreen where
         (wd,) $ flip map (zip (['0'..'9']++['a'..'z']) hist) \ (c, (time, song)) ->
             let tstr = ellipsize tlen $ replicate (tlen - displayWidth time) ' ' ++ time
             in Fast (UTF8.fromString $ forceWidth wd $ ' ' : c : ' ' : tstr ++ ' ' : song) sty
+
+------------------------------------------------------------------------
+
+instance ModalElement ExitModal where
+    drawModal sty swd st = do
+        guard $ exitVisible st
+        let wd = modalWidth swd `min` 19
+            blank = Fast (UTF8.fromString $ forceWidth wd "") sty
+            padl = replicate ((wd - 9) `div` 2) ' '
+            msg = forceWidth wd $ padl ++ "Exit (y)?"
+        pure $ (wd, [blank, Fast (UTF8.fromString msg) sty, blank])
 
 ------------------------------------------------------------------------
 
@@ -598,10 +610,12 @@ renderModal st (Size h w) = do
             (y',_) <- Curses.getYX Curses.stdScr
             Curses.wMove Curses.stdScr (y'+1) hoffset
 
+-- XXX don't understand what sz is even doing
 renderModals :: HState -> Size -> IO ()
 renderModals s sz = do
-   renderModal @HelpScreen s sz
-   renderModal @HistScreen s sz
+   renderModal @HelpModal s sz
+   renderModal @HistModal s sz
+   renderModal @ExitModal s sz
 
 ------------------------------------------------------------------------
 --

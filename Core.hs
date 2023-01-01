@@ -2,7 +2,7 @@
 
 -- 
 -- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2008, 2019-2021 Galen Huntington
+-- Copyright (c) 2008, 2019-2022 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -39,6 +39,7 @@ module Core (
         loadConfig,
         discardErrors,
         FileListSource,
+        toggleExit,
     ) where
 
 import Base
@@ -575,13 +576,17 @@ genericJumpToMatch re sw k sel = do
 
 ------------------------------------------------------------------------
 
--- | Show\/hide the help window
+-- | Show/hide the help window
 toggleHelp :: IO ()
 toggleHelp = modifyST $ \st -> st { helpVisible = not (helpVisible st) }
 
 -- | Focus the minibuffer
 toggleFocus :: IO ()
 toggleFocus = modifyST $ \st -> st { miniFocused = not (miniFocused st) }
+
+-- | Show/hide the confirm exit modal
+toggleExit :: IO ()
+toggleExit = modifyST $ \st -> st { exitVisible = not (exitVisible st) }
 
 -- | History on or off
 hideHist :: IO ()

@@ -1,6 +1,6 @@
 -- 
 -- Copyright (c) 2004-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2008, 2019-2021 Galen Huntington
+-- Copyright (c) 2008, 2019-2022 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -36,6 +36,7 @@ import Prelude ()
 import Base hiding (all)
 
 import Core
+import Config       (package)
 import State        (getsST, touchST, HState(helpVisible, playHist))
 import Style        (defaultSty, StringA(Fast))
 import qualified UI (resetui)
@@ -74,10 +75,10 @@ type MetaTarget = (Result, SearchState, Maybe LexerS)
 --
 keymap :: [Char] -> [IO ()]
 keymap cs = map (clrmsg *>) actions
-    where (actions,_,_) = execLexer all (cs, SearchState [] undefined)
+    where (actions,_,_) = execLexer allKeys (cs, SearchState [] undefined)
 
-all :: LexerS
-all = commands >||< search >||< history
+allKeys :: LexerS
+allKeys = commands >||< search >||< history >||< confirmQuit
 
 commands :: LexerS
 commands = alt keys `action` \[c] -> Just $ fromMaybe (pure ()) $ M.lookup c keyMap
@@ -105,7 +106,7 @@ dosearch :: LexerS
 dosearch = search_char >||< search_bs >||< search_up >||< search_down >||< search_esc >||< search_eval
 
 endSearchWith :: IO () -> [String] -> MetaTarget
-endSearchWith a hist = (with (a *> toggleFocus), SearchState hist undefined, Just all)
+endSearchWith a hist = (with (a *> toggleFocus), SearchState hist undefined, Just allKeys)
 
 -- "lens"
 zipEdit :: (String -> String) -> Zipper -> Zipper
@@ -162,7 +163,7 @@ history :: LexerS
 history = alt ['H', ';'] `meta`
         \_ st -> (with (showHist *> touchST), st, Just inner) where
     inner =
-        alt any' `meta` (\_ st -> (with (hideHist *> touchST), st, Just all))
+        alt any' `meta` (\_ st -> (with (hideHist *> touchST), st, Just allKeys))
         >||< alt ['0'..'9'] `meta` handleKey '0' 0
         >||< alt ['a'..'z'] `meta` handleKey 'a' 10
     handleKey base off cs st =
@@ -174,8 +175,14 @@ history = alt ['H', ';'] `meta`
             hideHist
             touchST
         , st
-        , Just all
+        , Just allKeys
         )
+
+confirmQuit :: LexerS
+confirmQuit = char 'q' `meta`
+                \_ st -> (with (toggleExit *> touchST), st, Just inner) where
+    inner = alt any' `meta` (\_ st -> (with (toggleExit *> touchST), st, Just allKeys))
+            >||< char 'y' `meta` (\_ st -> (with $ quit Nothing, st, Nothing))
 
 ------------------------------------------------------------------------
 
@@ -225,19 +232,17 @@ keyTable =
     ,("Seek right within song",
         [unkey KeyRight], seekRight)
     ,("Toggle pause",
-        [' '],          pause)
+        [' '],   pause)
     ,("Play song under cursor",
-        ['\n'],     play)
+        ['\n'],  play)
     ,("Play previous track",
-        ['K'],    playPrev)
+        ['K'],   playPrev)
     ,("Play next track",
-        ['J'],  playNext)
+        ['J'],   playNext)
     ,("Toggle the help screen",
         ['h'],   toggleHelp)
     ,("Jump to currently playing song",
         ['t'],   jumpToPlaying)
-    ,("Quit (or close help screen)",
-        ['q'],   do b <- helpIsVisible ; if b then toggleHelp else quit Nothing)
     ,("Select and play next track",
         ['d'],   playNext *> jumpToPlaying)
     ,("Cycle through normal, random, and loop modes",
@@ -266,7 +271,10 @@ extraTable = [("Toggle the song history", ['H', ';'])
              ,("Search for file matching regex", ['/'])
              ,("Search backwards for file", ['?'])
              ,("Search for directory matching regex", ['\\'])
-             ,("Search backwards for directory", ['|']) ]
+             ,("Search backwards for directory", ['|'])
+             -- ,("Quit (or close help screen)", ['q'])
+             ,("Quit " ++ package, ['q'])
+             ]
 
 helpIsVisible :: IO Bool
 helpIsVisible = getsST helpVisible

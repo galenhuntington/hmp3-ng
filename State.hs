@@ -63,8 +63,9 @@ data HState = HState {
        ,info            :: !(Maybe Info)         -- mp3 info
        ,status          :: !Status
        ,minibuffer      :: !StringA              -- contents of minibuffer
-       ,helpVisible     :: !Bool                 -- is the help window shown
+       ,helpVisible     :: !Bool                 -- is the help window shown?
        ,histVisible     :: !(Maybe [(String, String)]) -- history pop-up if shown
+       ,exitVisible     :: !Bool                 -- confirm exit modal shown
        ,miniFocused     :: !Bool                 -- is the mini buffer focused?
        ,mode            :: !Mode                 -- random mode
        ,uptime          :: !ByteString
@@ -109,6 +110,7 @@ emptySt = HState {
        ,clockUpdate      = False
        ,helpVisible      = False
        ,histVisible      = Nothing
+       ,exitVisible      = False
        ,miniFocused      = False
        ,xterm            = False
        ,doNotResuscitate = False    -- mpg321 should be restarted

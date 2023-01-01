@@ -549,4 +549,4 @@ joinDL  = (.)
 
 -- | closing a difference list into a normal list (EXPORTED)
 closeDL :: DList a -> [a]
-closeDL  = ($[])
+closeDL  = ($ [])
