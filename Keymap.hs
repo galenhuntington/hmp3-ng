@@ -189,13 +189,18 @@ confirmQuit = char 'q' `meta`
 ------------------------------------------------------------------------
 
 -- "Key"s seem to be inscrutable and incomparable.
--- Solution is to translate to chars.  Really hacky!
---   TODO at least use lookup table (standalone deriving Ord)
-unkey :: Key -> Char
-unkey k = let Just c' = find (\c -> charToKey c == k) ['\0' .. '\500'] in c'
+-- So, add an orphan instance to help translate to chars.
+
+deriving instance Ord Key
 
 charToKey :: Char -> Key
 charToKey = decodeKey . toEnum . fromEnum
+
+keyCharMap :: M.Map Key Char
+keyCharMap = M.fromList [(charToKey c, c) | c <- ['\0' .. '\377']]
+
+unkey :: Key -> Char
+unkey k = fromMaybe '\0' $ M.lookup k keyCharMap
 
 enter', any', digit', delete' :: [Char]
 enter'   = ['\n', '\r']
