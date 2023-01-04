@@ -26,9 +26,6 @@ or entirely replacing large sections, mainly low-level optimizations.
 
 *  I added support for building with Stack.
 
-*  Cabal is configured using [hpack](https://github.com/sol/hpack)
-with a `package.yaml` file.
-
 *  There is a public GitHub issue tracker, and Travis integration to
 continuously test builds.
 
