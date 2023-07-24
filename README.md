@@ -1,5 +1,5 @@
 [![Hackage](https://img.shields.io/hackage/v/hmp3-ng.svg)](https://hackage.haskell.org/package/hmp3-ng)
-[![Build Status](https://travis-ci.com/galenhuntington/hmp3-ng.svg?branch=master)](https://travis-ci.com/galenhuntington/hmp3-ng)
+![Build status](https://github.com/galenhuntington/hmp3-ng/actions/workflows/haskell.yml/badge.svg)
 
 ##  hmp3-ng
 
@@ -26,7 +26,7 @@ or entirely replacing large sections, mainly low-level optimizations.
 
 *  I added support for building with Stack.
 
-*  There is a public GitHub issue tracker, and Travis integration to
+*  There is a public GitHub issue tracker, and a GitHub action to
 continuously test builds.
 
 *  I try to avoid “Not Invented Here” by using established,
