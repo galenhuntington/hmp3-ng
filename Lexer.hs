@@ -30,6 +30,7 @@ import FastIO   (FiltHandle(..), checkF, getPacket, dropSpaceEnd)
 import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString.UTF8 as UTF8
 import Control.Monad.Except
+import Control.Monad.Trans (lift)
 
 ------------------------------------------------------------------------
 
