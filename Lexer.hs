@@ -1,6 +1,6 @@
 -- 
 -- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2008, 2019, 2020 Galen Huntington
+-- Copyright (c) 2008, 2019-2024 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -18,7 +18,7 @@
 -- 02111-1307, USA.
 -- 
 
--- Lexer for mpg321 messages
+-- Lexer for mpg123 messages
 
 module Lexer ( parser ) where
 
@@ -45,7 +45,7 @@ doP s = S case pSafeHead s of
                 '0' -> Stopped
                 '1' -> Paused
                 '2' -> Playing
-                '3' -> Stopped  -- used by mpg321
+                '3' -> Stopped  -- used by mpg123
                 _ -> Playing
                 -- _ -> error "Invalid Status"
 
@@ -95,7 +95,7 @@ doI s = let f = dropSpaceEnd . P.dropWhile isSpace $ s
         in case P.take 4 f of
             cs | cs == "ID3:" -> F . File $
                     let ttl = toId id3 . splitUp . P.drop 4 $ f
-                    -- mpg321 sometimes returns null titles
+                    -- mpg123 sometimes returns null titles
                     in if P.null (id3title ttl) then Left f else Right ttl
                | otherwise    -> F . File . Left $ f
     where
@@ -162,6 +162,6 @@ parser h = runExceptT do
             b <- lift $ checkF h
             if b then pure $ doF m else skip
         'P' -> pure $ doP m
-        'E' -> throwError $ Just $ "mpg321 error: " ++ P.unpack m
+        'E' -> throwError $ Just $ "mpg123 error: " ++ P.unpack m
         _   -> skip
 

@@ -1,6 +1,6 @@
 -- 
 -- Copyright (c) 2004-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2008, 2019-2022 Galen Huntington
+-- Copyright (c) 2008, 2019-2024 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -169,7 +169,7 @@ history = alt ['H', ';'] `meta`
     handleKey base off cs st =
         (with do
             ph <- getsST playHist
-            whenJust
+            for_
                 do ph Seq.!? (fromEnum (head cs) - (fromEnum base - off))
                 do jump . snd
             hideHist
@@ -191,7 +191,7 @@ confirmQuit = char 'q' `meta`
 -- "Key"s seem to be inscrutable and incomparable.
 -- So, add an orphan instance to help translate to chars.
 
-deriving instance Ord Key
+deriving stock instance Ord Key
 
 charToKey :: Char -> Key
 charToKey = decodeKey . toEnum . fromEnum

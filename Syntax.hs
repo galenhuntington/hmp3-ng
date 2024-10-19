@@ -1,6 +1,6 @@
 -- 
 -- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2019, 2020 Galen Huntington
+-- Copyright (c) 2019-2024 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -21,8 +21,6 @@
 --
 -- abstract syntax for mpg123/321 'remote control' commands, so we get
 -- type safe messaging, and parsing of results
---
--- See 'README.remote' distributed with mpg321.
 --
 
 module Syntax where
@@ -56,7 +54,7 @@ data Pause = Pause
 instance Pretty Pause where
     ppr Pause = "PAUSE"
 
--- Quits mpg321.
+-- Quits mpg123.
 data Quit = Quit
 
 instance Pretty Quit where
@@ -142,7 +140,7 @@ data Status = Stopped
     deriving stock (Eq, Show)
 
 data Mode = Normal | Loop | Random
-    deriving stock (Eq,Bounded,Enum)
+    deriving stock (Eq, Bounded, Enum)
 
 ------------------------------------------------------------------------
 

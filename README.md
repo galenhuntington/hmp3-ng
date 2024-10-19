@@ -20,11 +20,12 @@ port to Git.  I manually added commits for the two later published
 versions, which were only minor changes, mostly the automated
 regeneration of a `configure` file (now gone).
 
-*  The code has been updated to compile under recent GHC (currently
-8.6, 8.8, 8.10, 9.0, and 9.2) and libraries.  This required rewriting
-or entirely replacing large sections, mainly low-level optimizations.
+*  The code has been updated to compile under recent GHC (tested
+up through 9.6) and libraries.  This required rewriting or entirely
+replacing large sections, mainly low-level optimizations.
 
-*  I added support for building with Stack.
+*  I added support for building with Stack.  It can also be installed
+from Nix.
 
 *  There is a public GitHub issue tracker, and a GitHub action to
 continuously test builds.
@@ -55,15 +56,15 @@ This is still a work in progress.  Let me know if there are problems.
 ##  Installation
 
 Either `cabal install` or `stack install` will build a binary.
-You will need to have `mpg321` installed, which is free software
-and widely available in package managers.  Alternatively, `mpg123`
-can be used by compiling with the `-DMPG123` option, but, while your
-mileage may vary, in my experience it doesn’t work as well.
+You will need to have `mpg123` installed, which is free software and
+widely available in package managers.  Alternatively, `mpg321` can
+be used by compiling with the `-DMPG321` option.  In my experience,
+the latter worked better, but it has not been updated since 2012 and
+is no longer available on many systems.
 
 The build depends on the package `hscurses`, which in turn requires
-curses dev files.  In Ubuntu/Debian, for example, these can be
-obtained by installing `libncurses5-dev`.  You probably also need
-`libncursesw5-dev`.
+curses dev files.  In Ubuntu/Debian, for example, these can be obtained
+by installing `libncurses-dev`.
 
 
 ##  Use
@@ -83,9 +84,9 @@ Once running, `hmp3` is controlled by fairly intuitive key commands.
 message with command line options.
 
 A color scheme can be specified by writing out a `Config { .. }`
-value in `~/.config/hmp3/style.conf` or the equivalent in your
-XDG config directory.  See `Style.hs` for the definition.  The `l`
-command hot-reloads this configuration.
+value in `~/.config/hmp3/style.conf` (or wherever your XDG config is).
+See `Style.hs` for the definition.  The `l` command hot-reloads this
+configuration.
 
 
 ##  Original authorship list

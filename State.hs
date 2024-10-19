@@ -1,6 +1,6 @@
 -- 
 -- Copyright (c) 2004-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2019, 2020 Galen Huntington
+-- Copyright (c) 2019-2024 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -72,7 +72,7 @@ data HState = HState {
        ,boottime        :: !TimeSpec
        ,regex           :: !(Maybe (Regex,Bool)) -- most recent search pattern and direction
        ,xterm           :: !Bool
-       ,doNotResuscitate :: !Bool                -- should we just let mpg321 die?
+       ,doNotResuscitate :: !Bool                -- should we just let mpg123 die?
        ,playHist        :: Seq (TimeSpec, Int)  -- limited history of songs played
        ,config          :: !UIStyle             -- config values
 
@@ -113,7 +113,7 @@ emptySt = HState {
        ,exitVisible      = False
        ,miniFocused      = False
        ,xterm            = False
-       ,doNotResuscitate = False    -- mpg321 should be restarted
+       ,doNotResuscitate = False    -- mpg123 should be restarted
 
        ,playHist     = mempty
        ,config       = Config.defaultStyle

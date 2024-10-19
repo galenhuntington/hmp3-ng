@@ -54,7 +54,6 @@ import {-# SOURCE #-} Keymap    (extraTable, keyTable, unkey, charToKey)
 
 import Data.Array               ((!), bounds, Array, listArray)
 import Data.Array.Base          (unsafeAt)
-import Data.List                (intercalate)
 import System.IO                (stderr, hFlush)
 import System.Posix.Signals     (raiseSignal, sigTSTP, installHandler, Handler(..))
 
@@ -262,7 +261,7 @@ instance Element PPlaying where
         PId3 a  = draw dd
         PInfo b = draw dd
         s       = UTF8.toString a
-        line | gap >= 0 = U s : (B $ spaces gap) : right
+        line | gap >= 0 = U s : B (spaces gap) : right
              | True     = U (ellipsize lim s) : right
             where lim = x - 5 - (if showId3 then P.length b else -1)
                   gap = lim - displayWidth s
@@ -308,7 +307,7 @@ instance ModalElement HelpModal where
             f cs ps = UTF8.fromString $ forceWidth wd
                         $ forceWidth clen cmds <> ps where
                 clen = max 4 $ round $ fromIntegral wd * (0.2::Float)
-                cmds = intercalate " " $ "" : map pprIt cs
+                cmds = unwords $ "" : map pprIt cs
                 pprIt c = case c of
                       '\n'            -> "Enter"
                       '\f'            -> "^L"
@@ -346,7 +345,7 @@ instance ModalElement ExitModal where
             blank = Fast (UTF8.fromString $ forceWidth wd "") sty
             padl = replicate ((wd - 9) `div` 2) ' '
             msg = forceWidth wd $ padl ++ "Exit (y)?"
-        pure $ (wd, [blank, Fast (UTF8.fromString msg) sty, blank])
+        pure (wd, [blank, Fast (UTF8.fromString msg) sty, blank])
 
 ------------------------------------------------------------------------
 
@@ -600,7 +599,7 @@ redrawJustClock = Draw $ discardErrors do
 --
 renderModal :: forall me. ModalElement me => HState -> Size -> IO ()
 renderModal st (Size h w) = do
-   whenJust (drawModal @me (modals $ config st) w st) \(mw, modal') -> do
+   for_ (drawModal @me (modals $ config st) w st) \(mw, modal') -> do
        let hoffset = max 0 $ (w - mw) `div` 2
            mlines  = min h $ length modal'
            voffset = (h - mlines) `div` 2

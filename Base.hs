@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP #-}
 
 --
--- Copyright (c) 2020, 2021 Galen Huntington
+-- Copyright (c) 2020-2024 Galen Huntington
 --
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -53,9 +53,6 @@ import System.Clock
 
 discardErrors :: IO () -> IO ()
 discardErrors = X.handle @SomeException (\_ -> pure ())
-
-whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
-whenJust mval f = case mval of Nothing -> pure (); Just v -> f v
 
 getMonoTime :: IO TimeSpec
 getMonoTime = getTime

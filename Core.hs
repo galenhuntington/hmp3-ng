@@ -2,7 +2,7 @@
 
 -- 
 -- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2008, 2019-2022 Galen Huntington
+-- Copyright (c) 2008, 2019-2024 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -77,10 +77,10 @@ type FileListSource = Either SerialT [ByteString]
 
 mp3Tool :: String
 mp3Tool =
-#ifdef MPG123
-    "mpg123"
-#else
+#ifdef MPG321
     "mpg321"
+#else
+    "mpg123"
 #endif
 
 ------------------------------------------------------------------------
@@ -88,7 +88,7 @@ mp3Tool =
 start :: Bool -> FileListSource -> IO ()
 start playNow ms = handle @SomeException (shutdown . Just . show) do
 
-    t0 <- forkIO mpgLoop    -- start this off early, to give mpg321 time to settle
+    t0 <- forkIO mpgLoop    -- start this off early, to give mpg123 time to settle
 
     c <- UI.start -- initialise curses
 
@@ -156,7 +156,7 @@ exitTime e | is @IOException e = False -- ignore
 
 ------------------------------------------------------------------------
 
--- | Process loop, launch mpg321, set the handles in the state
+-- | Process loop, launch mpg123, set the handles in the state
 -- and then wait for the process to die. If it does, restart it.
 --
 -- If we're unable to start at all, we should say something sensible
@@ -167,17 +167,16 @@ mpgLoop = runForever do
     mmpg <- findExecutable mp3Tool
     case mmpg of
       Nothing     -> quit (Just $ "Cannot find " ++ mp3Tool ++ " in path")
-      Just mpg321 -> do
+      Just mppath -> do
 
-        -- if we're never able to start mpg321, do something sensible
+        -- if we're never able to start mpg123, do something sensible
         --   TODO no need for this Maybe unpacking, just catch and rerun loop
-        mv <- catch (pure <$> runInteractiveProcess mpg321 ["-R","-"] Nothing Nothing)
+        mv <- catch (pure <$> runInteractiveProcess mppath ["-R", "-"] Nothing Nothing)
                     (\ (e :: SomeException) ->
                            do warnA ("Unable to start " ++ mp3Tool ++ ": " ++ show e)
                               pure Nothing)
-        case mv of
-            Nothing -> threadDelay (1000 * 500) >> mpgLoop
-            Just (hw, r, e, pid) -> do
+
+        flip (maybe (threadDelay 1_000_000)) mv \ (hw, r, e, pid) -> do
 
             mhw         <- newMVar hw
             mew         <- newMVar =<< newFiltHandle e
@@ -195,7 +194,7 @@ mpgLoop = runForever do
             catch @SomeException (void $ waitForProcess pid) (\_ -> pure ())
             stop <- getsST doNotResuscitate
             when stop exitSuccess
-            warnA $ "Restarting " ++ mpg321 ++ " ..."
+            warnA $ "Restarting " ++ mppath ++ " ..."
 
 ------------------------------------------------------------------------
 
@@ -247,7 +246,7 @@ clockLoop = runForever $ threadDelay delay >> UI.refreshClock
 
 ------------------------------------------------------------------------
 
--- | Handle, and display errors produced by mpg321
+-- | Handle, and display errors produced by mpg123
 errorLoop :: IO ()
 errorLoop = runForever $ do
     s <- getsST errh >>= readMVar >>= hGetLine . filtHandle
@@ -519,14 +518,14 @@ instance Lookup Tree.File where extract = fbase
 
 jumpToMatchFile :: Maybe String -> Bool -> IO ()
 jumpToMatchFile re sw = genericJumpToMatch re sw k sel
-    where k = \st -> (music st, if size st == 0 then -1 else cursor st, size st)
+    where k st = (music st, if size st == 0 then -1 else cursor st, size st)
           sel i _ = i
 
 jumpToMatch  :: Maybe String -> Bool -> IO ()
 jumpToMatch     re sw = genericJumpToMatch re sw k sel
-    where k = \st -> (folders st
-                     ,if size st == 0 then -1 else fdir (music st ! cursor st)
-                     ,1 + (snd . bounds $ folders st))
+    where k st = (folders st
+                     , if size st == 0 then -1 else fdir (music st ! cursor st)
+                     , 1 + (snd . bounds $ folders st))
           sel i st = dlo (folders st ! i)
 
 genericJumpToMatch :: Lookup a
