@@ -21,7 +21,7 @@ versions, which were only minor changes, mostly the automated
 regeneration of a `configure` file (now gone).
 
 *  The code has been updated to compile under recent GHC (tested
-up through 9.6) and libraries.  This required rewriting or entirely
+through 9.10) and libraries.  This required rewriting or entirely
 replacing large sections, mainly low-level optimizations.
 
 *  I added support for building with Stack.  It can also be installed

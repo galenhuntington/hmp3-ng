@@ -33,7 +33,7 @@ import Data.ByteString as X (ByteString)
 import Data.Char as X
 import Data.Fixed as X
 import Data.Foldable as X
-import Data.Functor as X
+import Data.Functor as X hiding (unzip)
 import Data.IORef as X
 import Data.List as X ((\\), group, groupBy, isPrefixOf, sort, sortBy, intersperse)
 import Data.Maybe as X
