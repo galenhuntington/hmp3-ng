@@ -14,7 +14,7 @@ jobs:
           ghc-version: ${{ matrix.ghc }}
       - run: cabal build
   stack:
-    runs-on: 'ubuntu-latest'
+    runs-on: 'ubuntu-22.04'
     name: Stack
     steps:
       - uses: actions/checkout@v4
