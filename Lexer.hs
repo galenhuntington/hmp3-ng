@@ -45,7 +45,9 @@ doP s = S case pSafeHead s of
                 '0' -> Stopped
                 '1' -> Paused
                 '2' -> Playing
-                '3' -> Stopped  -- used by mpg123
+                -- mpg123 outputs this but then @P 0 causing double Plays
+                -- (I think old mpg123 didn't do @P 0 so I added this)
+                -- '3' -> Stopped  -- used by mpg123 for end of song
                 _ -> Playing
                 -- _ -> error "Invalid Status"
 
