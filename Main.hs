@@ -1,7 +1,7 @@
 -- 
 -- Copyright (c) Don Stewart 2004-2008.
 -- Copyright (c) Tuomo Valkonen 2004.
--- Copyright (c) 2019-2024 Galen Huntington
+-- Copyright (c) 2019-2025 Galen Huntington
 --
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -23,8 +23,9 @@ module Main where
 
 import Base
 
-import Core     (start, readSt, shutdown, FileListSource)
+import Core     (start, shutdown)
 import Config   (help, versinfo)
+import Tree     (Tree, buildTree, isEmpty)
 
 import System.IO            (hPrint, stderr)
 import System.Posix.Signals (installHandler, sigTERM, sigPIPE, sigINT, sigHUP
@@ -54,6 +55,7 @@ initSignals = do
             catch (shutdown Nothing) (\ (f :: SomeException) -> hPrint stderr f)
             exitWith (ExitFailure 1) )) Nothing
 
+-- XXX this function is not used
 releaseSignals :: IO ()
 releaseSignals =
     for_ [sigINT, sigPIPE, sigHUP, sigABRT, sigTERM]
@@ -71,25 +73,30 @@ usage = ["Usage: hmp3 [-VhP] [FILE|DIR ...]"
         ]
 
 -- | Parse the args
-doArgs :: [ByteString] -> IO (Bool, FileListSource)
+doArgs :: [ByteString] -> IO (Bool, Tree)
 doArgs = loopArgs True where
 
-    loopArgs playNow []  = do    -- attempt to read db
-        x <- readSt
-        case x of
-            Nothing -> traverse_ putStrLn usage *> exitSuccess
-            Just st -> pure (playNow, Left st)
+    verLine = putStrLn $ unwords [versinfo, help]
+    showUsage = traverse_ putStrLn usage
+
+    loopArgs _ [] = do
+        putStrLn "Specify at least one file or directory."
+        showUsage
+        exitFailure
 
     loopArgs _ (s:xs)
         | s == "-V" || s == "--version"
-        = do verLine *> exitSuccess
+        = verLine *> exitSuccess
         | s == "-h" || s == "--help"
-        = do verLine *> traverse_ putStrLn usage *> exitSuccess
+        = verLine *> showUsage *> exitSuccess
         | s == "-P" || s == "--paused"
         = loopArgs False xs
-        where verLine = putStrLn $ unwords [versinfo, help]
 
-    loopArgs playNow xs = pure (playNow, Right xs)
+    loopArgs playNow xs = do
+        tree <- buildTree xs
+        if isEmpty tree
+            then putStrLn "Error: No music files found." *> exitFailure
+            else pure (playNow, tree)
 
 -- ---------------------------------------------------------------------
 -- | Static main. This is the front end to the statically linked

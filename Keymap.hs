@@ -1,6 +1,6 @@
 -- 
 -- Copyright (c) 2004-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2008, 2019-2024 Galen Huntington
+-- Copyright (c) 2008, 2019-2025 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -103,7 +103,9 @@ searchFiles = searchStart '/' SearchFiles Forwards
         >||< searchStart '?' SearchFiles Backwards
 
 dosearch :: LexerS
-dosearch = search_char >||< search_bs >||< search_up >||< search_down >||< search_esc >||< search_eval
+dosearch = search_char >||< search_bs
+    >||< search_up >||< search_down >||< search_del
+    >||< search_esc >||< search_eval
 
 endSearchWith :: IO () -> [String] -> MetaTarget
 endSearchWith a hist = (with (a *> toggleFocus), SearchState hist undefined, Just allKeys)
@@ -139,6 +141,11 @@ search_down :: LexerS
 search_down = char (unkey KeyDown) `meta` \_ -> updateSearch \case
     Zipper cur back (pv:rest) -> Zipper pv (cur:back) rest
     zipp                      -> zipp
+
+search_del :: LexerS
+search_del = char (unkey KeyDC) `meta` \_ -> updateSearch \case
+    Zipper _ back (pv:rest) -> Zipper pv back rest
+    Zipper _ back _         -> Zipper "" back []
 
 search_esc :: LexerS
 search_esc = char '\ESC' `meta`
@@ -204,7 +211,7 @@ unkey k = fromMaybe '\0' $ M.lookup k keyCharMap
 
 enter', any', digit', delete' :: [Char]
 enter'   = ['\n', '\r']
-delete'  = ['\BS', '\127', unkey KeyBackspace]
+delete'  = ['\BS', '\DEL', unkey KeyBackspace]
 any'     = ['\0' .. '\255']
 digit'   = ['0' .. '9']
 
@@ -262,7 +269,7 @@ keyTable =
         ['N'],   jumpToMatchFile Nothing False)
     ,("Play",
         ['p'],   playCur)
-    ,("Mark for deletion in ~/.hmp3-delete",
+    ,("Mark for deletion in .hmp3-delete",
         ['D'],   blacklist)
     ,("Load config file",
         ['l'],   loadConfig)

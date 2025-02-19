@@ -140,7 +140,7 @@ data Status = Stopped
     deriving stock (Eq, Show)
 
 data Mode = Normal | Loop | Random
-    deriving stock (Eq, Bounded, Enum)
+    deriving stock (Eq, Bounded, Enum, Show, Read)
 
 ------------------------------------------------------------------------
 
