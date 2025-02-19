@@ -406,7 +406,7 @@ instance Element PTime where
 instance Element PMode where
     draw dd = PMode case status $ drawState dd of
                         Stopped -> "◼"
-                        Paused  -> "Ⅱ"
+                        Paused  -> "⏸"
                         Playing -> "▶"
 
 -- | Loop, normal, or random

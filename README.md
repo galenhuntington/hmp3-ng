@@ -3,11 +3,10 @@
 
 ##  hmp3-ng
 
-The `hmp3` music player, written in Haskell, dates to 2005, and has a
-curses interface for use in a text terminal.  However, it has become
-abandonware: the last update was in June 2008, and it no longer builds
-with today’s Haskell and standard libraries.
-
+The original `hmp3` music player, written in Haskell, dates to 2005,
+and has a curses interface for use in a text terminal.  However,
+it has become abandonware: the last update was in June 2008, and
+it no longer builds with today’s Haskell and standard libraries.
 This repository is an effort to resurrect this software.
 
 The original Darcs repo has vanished from the Internet.  However, I
@@ -59,8 +58,8 @@ Either `cabal install` or `stack install` will build a binary.
 You will need to have `mpg123` installed, which is free software and
 widely available in package managers.  Alternatively, `mpg321` can
 be used by compiling with the `-DMPG321` option.  In my experience,
-the latter worked better, but it has not been updated since 2012 and
-is no longer available on many systems.
+the latter worked better, but it too is abandoned, with no update
+since 2012, and is no longer available on many systems.
 
 The build depends on the package `hscurses`, which in turn requires
 curses dev files.  In Ubuntu/Debian, for example, these can be obtained
@@ -70,13 +69,10 @@ by installing `libncurses-dev`.
 ##  Use
 
 The `hmp3` executable is invoked with a list of mp3 files or
-directories of mp3 files.  With no arguments, it will use the
-playlist from the last time it was run, which is stored in an XDG
-cache directory, usually `~/.cache/hmp3/playlist.db`.
+directories of mp3 files.
 
 ```
 $ hmp3 ~/Music ~/Downloads/La-La.mp3
-$ hmp3
 ```
 
 Once running, `hmp3` is controlled by fairly intuitive key commands.
@@ -89,7 +85,7 @@ See `Style.hs` for the definition.  The `l` command hot-reloads this
 configuration.
 
 
-##  Original authorship list
+##  Original authorship
 
 ```
 License:

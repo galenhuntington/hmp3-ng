@@ -2,7 +2,7 @@
 
 -- 
 -- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2008, 2019-2024 Galen Huntington
+-- Copyright (c) 2008, 2019-2025 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -33,12 +33,10 @@ module Core (
         seekStart,
         blacklist,
         showHist, hideHist,
-        writeSt, readSt,
         jumpToMatch, jumpToMatchFile,
         toggleFocus, jumpToNextDir, jumpToPrevDir,
         loadConfig,
         discardErrors,
-        FileListSource,
         toggleExit,
     ) where
 
@@ -67,12 +65,10 @@ import System.IO                (hPutStrLn, hGetLine, stderr, hFlush)
 import System.Process           (runInteractiveProcess, waitForProcess)
 import System.Clock             (TimeSpec(..), diffTimeSpec)
 import System.Random            (randomIO)
-import System.FilePath          ((</>), takeDirectory)
+import System.FilePath          ((</>))
 import Data.List                (isInfixOf, tails)
 
 import System.Posix.Process     (exitImmediately)
-
-type FileListSource = Either SerialT [ByteString]
 
 
 mp3Tool :: String
@@ -85,24 +81,15 @@ mp3Tool =
 
 ------------------------------------------------------------------------
 
-start :: Bool -> FileListSource -> IO ()
-start playNow ms = handle @SomeException (shutdown . Just . show) do
+start :: Bool -> Tree -> IO ()
+start playNow (Tree ds fs) = handle @SomeException (shutdown . Just . show) do
 
     t0 <- forkIO mpgLoop    -- start this off early, to give mpg123 time to settle
 
     c <- UI.start -- initialise curses
 
-    (ds,fs,i,m)   -- construct the state
-        <- case ms of
-           Right roots -> do Tree a b <- buildTree roots
-                             pure (a,b,0,Normal)
-
-           Left st     -> pure (ser_darr st
-                               ,ser_farr st
-                               ,ser_indx st
-                               ,ser_mode st)
-
     now <- getMonoTime
+    mode <- readState
 
     -- fork some threads
     t1 <- forkIO $ mpgInput readf
@@ -117,9 +104,9 @@ start playNow ms = handle @SomeException (shutdown . Just . show) do
         { music        = fs
         , folders      = ds
         , size         = 1 + (snd . bounds $ fs)
-        , cursor       = i
-        , current      = i
-        , mode         = m
+        , cursor       = 0
+        , current      = 0
+        , mode         = mode
         , uptime       = showTimeDiff now now
         , boottime     = now
         , config       = c
@@ -127,7 +114,8 @@ start playNow ms = handle @SomeException (shutdown . Just . show) do
 
     loadConfig
 
-    when (0 <= (snd . bounds $ fs)) play -- start the first song
+    when (0 <= (snd . bounds $ fs)) do
+        if mode == Random then playRandom else playCur
     when (not playNow) pause
 
     run         -- won't restart if this fails!
@@ -238,7 +226,7 @@ showTimeDiff = showTimeDiff_ False
 
 ------------------------------------------------------------------------
 
--- | Once each half second, wake up a and redraw the clock
+-- | Once each half second, wake up and redraw the clock
 clockLoop :: IO ()
 clockLoop = runForever $ threadDelay delay >> UI.refreshClock
   where
@@ -287,7 +275,7 @@ run = runForever $ sequence_ . keymap =<< getKeys
 shutdown :: Maybe String -> IO ()
 shutdown ms =
     do  silentlyModifyST $ \st -> st { doNotResuscitate = True }
-        discardErrors writeSt
+        discardErrors writeState
         withST $ \st -> do
             case mp3pid st of
                 Nothing  -> pure ()
@@ -615,34 +603,27 @@ nextMode = modifyST $ \st -> st { mode = next (mode st) }
 
 ------------------------------------------------------------------------
 
-getCachePath :: IO FilePath
-getCachePath = getXdgDirectory XdgCache $ "hmp3" </> "playlist.db"
+getStatePath :: IO FilePath
+getStatePath = getXdgDirectory XdgState "hmp3"
 
--- | Saving the playlist 
--- Only save if there's something to save. Should prevent dbs being wiped
--- if curses crashes before the state is read.
-writeSt :: IO ()
-writeSt = do
-    f <- getCachePath
-    withST \st -> when (size st > 0) do
-        let arr1 = music st
-            arr2 = folders st
-            idx  = current st
-            mde  = mode st
-        createDirectoryIfMissing True $ takeDirectory f
-        writeTree f $ SerialT {
-            ser_farr = arr1
-           ,ser_darr = arr2
-           ,ser_indx = idx
-           ,ser_mode = mde
-          }
+-- | Save mode state
+writeState :: IO ()
+writeState = do
+    dir <- getStatePath
+    createDirectoryIfMissing True dir
+    mode <- getsST mode
+    writeFile (dir </> "mode") $ show mode ++ "\n"
 
--- | Read the playlist back
-readSt :: IO (Maybe SerialT)
-readSt = do
-    f <- getCachePath
+-- | Read mode state
+readState :: IO Mode
+readState = do
+    dir <- getStatePath
+    let f = dir </> "mode"
     b <- doesFileExist f
-    if b then Just <$!> readTree f else pure Nothing
+    modeM <- if b
+        then readMaybe <$!> readFile f
+        else pure Nothing
+    pure $ fromMaybe (mode emptySt) modeM
 
 ------------------------------------------------------------------------
 -- Read styles from style.conf
@@ -664,11 +645,9 @@ loadConfig = do
                 let (ix, rest) = head $ filter (\ (_, s) -> old `isPrefixOf` s) $ zip [0..] $ tails str'
                 pure $ take ix str' ++ new ++ drop (length old) rest
             else pure str'
-        msty <- catch (fmap Just $ evaluate $ read str)
-                      (\ (_ :: SomeException) ->
-                        warnA "Parse error in style.conf" $> Nothing)
-        case msty of
-            Nothing  -> pure ()
+        case readMaybe str of
+            Nothing  -> do
+                warnA "Parse error in style.conf"
             Just rsty -> do
                 let sty = buildStyle rsty
                 initcolours sty

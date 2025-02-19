@@ -1,7 +1,7 @@
 {-# OPTIONS -fno-warn-orphans #-}
 -- 
 -- Copyright (c) 2005-8 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2019, 2020 Galen Huntington
+-- Copyright (c) 2019-2020, 2025 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -28,12 +28,8 @@ module Tree where
 import Base
 
 import FastIO
-import Syntax           (Mode(..))
 import qualified Data.ByteString.Char8 as P
-import qualified Data.ByteString.Lazy  as L
-import Codec.Compression.GZip
 
-import Data.Binary
 import Data.Array
 import System.IO        (hPrint, stderr)
 
@@ -85,6 +81,10 @@ buildTree fs = do
 
     pure $! Tree dirsArray fileArray
 
+-- | Is the tree empty?
+isEmpty :: Tree -> Bool
+isEmpty (Tree _ files) = null files
+
 -- | Create nodes based on dirname for orphan files on cmdline
 doOrphans :: [FilePathP] -> [(FilePathP, [FilePathP])]
 doOrphans = map \f -> (dirnameP f, [basenameP f])
@@ -118,8 +118,7 @@ make (i,n,acc1,acc2) (d,fs) =
 -- Assumes no evil sym links
 --
 expandDir :: FilePathP -> IO (Maybe (FilePathP, [FilePathP]),  [FilePathP])
-expandDir f | seq f False = undefined -- stricitfy
-expandDir f = do
+expandDir !f = do
     ls_raw <- handle @SomeException (\e -> hPrint stderr e $> [])
                 $ packedGetDirectoryContents f
     let ls = (map \s -> P.intercalate (P.singleton '/') [f,s])
@@ -131,7 +130,7 @@ expandDir f = do
     where
           notEdge    p = p /= dot && p /= dotdot
           validFiles p = notEdge p
-          onlyMp3s   p = mp3 == (P.map toLower . P.drop (P.length p -3) $ p)
+          onlyMp3s   p = mp3 == (P.map toLower . P.drop (P.length p - 3) $ p)
 
           mp3        = "mp3"
           dot        = "."
@@ -164,62 +163,3 @@ partition (a:xs) = do
                  pure if y then (a:fs, ds) else (fs, ds)
          else pure (fs, a:ds)
 
-------------------------------------------------------------------------
---
--- And some more Binary instances
---
-
-instance Binary File where
-    put (File nm i) = put nm >> put i
-    get = do
-        nm <- get
-        i  <- get
-        pure (File nm i)
-
-instance Binary Dir where
-    put (Dir nm sz lo hi) = put nm >> put sz >> put lo >> put hi
-    get = do
-        nm <- get
-        sz <- get
-        lo <- get
-        hi <- get
-        pure (Dir nm sz lo hi)
-
-instance Binary Mode where
-    put = put . fromEnum
-    get = toEnum <$> get
-
--- How we write everything out
-instance Binary SerialT where
-    put st = do
-        put (ser_farr st, ser_darr st)
-        put (ser_indx st)
-        put (ser_mode st)
-
-    get    = do
-        (a,b)<- get
-        i    <- get
-        m    <- get
-        pure $ SerialT {
-                    ser_farr = a
-                   ,ser_darr = b
-                   ,ser_indx = i
-                   ,ser_mode = m
-                 }
-
------------------------------------------------------------------------
-
--- | Wrap up the values we're going to dump to disk
-data SerialT = SerialT {
-        ser_farr :: !FileArray,
-        ser_darr :: !DirArray,
-        ser_indx :: !Int,
-        ser_mode :: !Mode
-     }
-
-writeTree :: FilePath -> SerialT -> IO ()
-writeTree f s = L.writeFile f (compress (encode s))
-
-readTree :: FilePath -> IO SerialT
-readTree f    = do s <- L.readFile f
-                   pure (decode (decompress s))
