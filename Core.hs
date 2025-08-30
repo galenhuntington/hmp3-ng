@@ -131,6 +131,10 @@ runForever fn = catch (forever fn) handler
             unless (exitTime e) $
                 (warnA . show) e >> runForever fn        -- reopen the catch
 
+-- | Standard combinator.
+whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
+whenJust mb f = maybe (pure ()) f mb
+
 -- | Generic handler
 -- I don't know why these are ignored, but preserving old logic.
 -- For profiling, make sure to return True for anything:
@@ -158,31 +162,35 @@ mpgLoop = runForever do
       Just mppath -> do
 
         -- if we're never able to start mpg123, do something sensible
-        --   TODO no need for this Maybe unpacking, just catch and rerun loop
         mv <- catch (pure <$> runInteractiveProcess mppath ["-R", "-"] Nothing Nothing)
                     (\ (e :: SomeException) ->
                            do warnA ("Unable to start " ++ mp3Tool ++ ": " ++ show e)
                               pure Nothing)
 
-        flip (maybe (threadDelay 1_000_000)) mv \ (hw, r, e, pid) -> do
+        whenJust mv \ (hw, r, e, pid) -> do
 
             mhw         <- newMVar hw
             mew         <- newMVar =<< newFiltHandle e
             mfilep      <- newMVar =<< newFiltHandle r
 
             modifyST $ \st ->
-                       st { mp3pid    = Just pid
-                          , writeh    = mhw
-                          , errh      = mew
-                          , readf     = mfilep
-                          , status    = Stopped
-                          , info      = Nothing
-                          , id3       = Nothing }
+               st { mp3pid    = Just pid
+                  , writeh    = mhw
+                  , errh      = mew
+                  , readf     = mfilep
+                  , status    = Stopped
+                  , info      = Nothing
+                  , id3       = Nothing
+                  }
 
             catch @SomeException (void $ waitForProcess pid) (\_ -> pure ())
             stop <- getsST doNotResuscitate
             when stop exitSuccess
             warnA $ "Restarting " ++ mppath ++ " ..."
+
+        -- Delay to slow spawn loops in case of trouble.
+        threadDelay 4_000_000
+
 
 ------------------------------------------------------------------------
 
