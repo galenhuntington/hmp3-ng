@@ -64,7 +64,7 @@ data HState = HState {
        ,status          :: !Status
        ,minibuffer      :: !StringA              -- contents of minibuffer
        ,helpVisible     :: !Bool                 -- is the help window shown?
-       ,histVisible     :: !(Maybe [(String, String)]) -- history pop-up if shown
+       ,histVisible     :: !(Maybe [(String, (Int, String))]) -- history pop-up if shown
        ,exitVisible     :: !Bool                 -- confirm exit modal shown
        ,miniFocused     :: !Bool                 -- is the mini buffer focused?
        ,mode            :: !Mode                 -- random mode

@@ -332,7 +332,7 @@ instance ModalElement HistModal where
         let wd = modalWidth swd
             mtlen = maximum $ map (length . fst) hist
             tlen = min (mtlen + 1) $ wd `div` 3
-        (wd,) $ flip map (zip (['0'..'9']++['a'..'z']) hist) \ (c, (time, song)) ->
+        (wd,) $ flip map (zip (['0'..'9']++['a'..'z']) hist) \ (c, (time, (_, song))) ->
             let tstr = ellipsize tlen $ replicate (tlen - displayWidth time) ' ' ++ time
             in Fast (UTF8.fromString $ forceWidth wd $ ' ' : c : ' ' : tstr ++ ' ' : song) sty
 
