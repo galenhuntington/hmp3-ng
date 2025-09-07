@@ -37,7 +37,7 @@ import Base hiding (all)
 
 import Core
 import Config       (package)
-import State        (getsST, touchST, HState(helpVisible, playHist))
+import State        (getsST, touchST, HState(helpVisible, histVisible))
 import Style        (defaultSty, StringA(Fast))
 import qualified UI (resetui)
 import Lexers       ((>||<),action,meta,execLexer
@@ -47,7 +47,6 @@ import UI.HSCurses.Curses (Key(..), decodeKey)
 
 import qualified Data.ByteString.Char8 as P
 import qualified Data.Map as M
-import qualified Data.Sequence as Seq
 
 data Direction = Forwards | Backwards
 data Zipper = Zipper { cur :: !String, back :: ![String], front :: ![String] }
@@ -120,9 +119,9 @@ printSearch spec = with do
     touchST
 
 updateSearch :: (Zipper -> Zipper) -> SearchState -> MetaTarget
-updateSearch f st@(SearchState _ spec) =
+updateSearch f sst@(SearchState _ spec) =
     let spec' = spec{ schZipper = f $ schZipper spec }
-    in (printSearch spec', st{schSpec=spec'}, Just dosearch)
+    in (printSearch spec', sst{schSpec=spec'}, Just dosearch)
 
 search_char :: LexerS
 search_char = anyNonSpecial `meta` \c -> updateSearch $ zipEdit (++ c)
@@ -168,30 +167,32 @@ search_eval = enter `meta` \_ (SearchState hist spec) -> case cur $ schZipper sp
 
 history :: LexerS
 history = alt ['H', ';'] `meta`
-        \_ st -> (with (showHist *> touchST), st, Just inner) where
+        \_ sst -> (with (showHist *> touchST), sst, Just inner) where
     inner =
-        alt any' `meta` (\_ st -> (with (hideHist *> touchST), st, Just allKeys))
+        alt any' `meta` (\_ sst -> (with (hideHist *> touchST), sst, Just allKeys))
         >||< alt ['0'..'9'] `meta` handleKey '0' 0
         >||< alt ['a'..'z'] `meta` handleKey 'a' 10
-    handleKey base off cs st =
+    handleKey base off cs sst =
         (with do
-            ph <- getsST playHist
+            phm <- getsST histVisible
             for_
-                do ph Seq.!? (fromEnum (head cs) - (fromEnum base - off))
-                do jump . snd
+                do phm >>= (!? (fromEnum (head cs) - (fromEnum base - off)))
+                do jump . fst . snd
             hideHist
             touchST
-        , st
+        , sst
         , Just allKeys
         )
+    -- Compatibility: List.!? only added in GHC 9.8
+    xs !? n = listToMaybe $ drop n xs
 
 ------------------------------------------------------------------------
 
 confirmQuit :: LexerS
 confirmQuit = char 'q' `meta`
-                \_ st -> (with (forcePause *> toggleExit *> touchST), st, Just inner) where
-    inner = alt any' `meta` (\_ st -> (with (toggleExit *> touchST), st, Just allKeys))
-            >||< char 'y' `meta` (\_ st -> (with $ quit Nothing, st, Nothing))
+                \_ sst -> (with (forcePause *> toggleExit *> touchST), sst, Just inner) where
+    inner = alt any' `meta` (\_ sst -> (with (toggleExit *> touchST), sst, Just allKeys))
+            >||< char 'y' `meta` (\_ sst -> (with $ quit Nothing, sst, Nothing))
 
 ------------------------------------------------------------------------
 

@@ -600,7 +600,7 @@ showHist = do
         histVisible = Just $ do
             (tm, ix) <- toList $ playHist st
             pure (UTF8.toString $ showTimeDiff_ True tm now
-                , UTF8.toString $ fbase $ music st ! ix)
+                , (ix, UTF8.toString $ fbase $ music st ! ix))
         }
 
 -- | Toggle the mode flag
