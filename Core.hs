@@ -66,7 +66,6 @@ import System.Process           (runInteractiveProcess, waitForProcess)
 import System.Clock             (TimeSpec(..), diffTimeSpec)
 import System.Random            (randomIO)
 import System.FilePath          ((</>))
-import Data.List                (isInfixOf, tails)
 
 import System.Posix.Process     (exitImmediately)
 
@@ -115,7 +114,7 @@ start playNow (Tree ds fs) = handle @SomeException (shutdown . Just . show) do
     loadConfig
 
     when (0 <= (snd . bounds $ fs)) do
-        if mode == Random then playRandom else playCur
+        if mode == Random then modifySTM jumpToRandom else playCur
     when (not playNow) pause
 
     run         -- won't restart if this fails!
@@ -405,11 +404,6 @@ blacklist = do
     let fe = music st ! cursor st
     in P.intercalate (P.singleton '/') [dname $ folders st ! fdir fe, fbase fe]
 
-
--- | Play a random song
-playRandom :: IO ()
-playRandom = modifySTM jumpToRandom
-
 -- | Jump to a random song
 jumpToRandom :: HState -> IO HState
 jumpToRandom st = do
@@ -421,29 +415,25 @@ jumpToRandom st = do
 -- If we're at the beginning, and loop mode is on, then loop to the end
 -- If we're in random mode, play the next random track
 playPrev :: IO ()
-playPrev = do
-    md <- getsST mode
-    if md == Random then playRandom else
-      modifySTM $ \st -> do
-      let i   = current st
-      if
-        | i > 0             -> playAtN st (subtract 1)      -- just the prev track
-        | mode st == Loop   -> playAtN st (const (size st - 1))  -- maybe loop
-        | otherwise         -> pure    st            -- else stop at end
+playPrev = modifySTM \st -> case mode st of
+    Random -> jumpToRandom st
+    Single -> pure st
+    _ | current st > 0
+           -> playAtN st (subtract 1)
+    Loop   -> playAtN st (const (size st - 1))
+    Once   -> pure st
 
 -- | Play the song following the current song, if we're not at the end
 -- If we're at the end, and loop mode is on, then loop to the start
 -- If we're in random mode, play the next random track
 playNext :: IO ()
-playNext = do
-    md <- getsST mode
-    if md == Random then playRandom else
-      modifySTM $ \st -> do
-      let i   = current st
-      if
-        | i < size st - 1   -> playAtN st (+ 1)      -- just the next track
-        | mode st == Loop   -> playAtN st (const 0)  -- maybe loop
-        | otherwise         -> pure    st            -- else stop at end
+playNext = modifySTM \st -> case mode st of
+    Random -> jumpToRandom st
+    Single -> pure st
+    _ | current st < size st - 1
+           -> playAtN st (+ 1)
+    Loop   -> playAtN st (const 0)
+    Once   -> pure st
 
 -- | Generic next song selection
 -- If the cursor and current are currently the same, continue that.
@@ -647,12 +637,11 @@ loadConfig = do
     if b then do
         str' <- readFile f
         str <- let (old, new) = ("hmp3_helpscreen", "hmp3_modals") in
-            if old `isInfixOf` str'
-            then do
-                warnA $ old ++ " is now " ++ new ++ " in style.conf"
-                let (ix, rest) = head $ filter (\ (_, s) -> old `isPrefixOf` s) $ zip [0..] $ tails str'
-                pure $ take ix str' ++ new ++ drop (length old) rest
-            else pure str'
+            case findIndex (old `isPrefixOf`) $ tails str' of
+                Just ix -> do
+                    warnA $ old ++ " is now " ++ new ++ " in style.conf"
+                    pure $ take ix str' ++ new ++ drop (ix + length old) str'
+                _ -> pure str'
         case readMaybe str of
             Nothing  -> do
                 warnA "Parse error in style.conf"

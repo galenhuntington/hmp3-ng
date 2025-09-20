@@ -25,7 +25,7 @@ module Lexer ( parser ) where
 import Base
 
 import Syntax   (Msg(..),Status(..),Frame(..),Info(..),Id3(..),File(..),Tag(..))
-import FastIO   (FiltHandle(..), checkF, getPacket, dropSpaceEnd)
+import FastIO   (FiltHandle(..), checkF, getPacket, trim)
 
 import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString.UTF8 as UTF8
@@ -93,7 +93,7 @@ doS s = let fs = P.split ' ' s
 -- Track info if ID fields are in the file, otherwise file name.
 -- 30 chars per field?
 doI :: ByteString -> Msg
-doI s = let f = dropSpaceEnd . P.dropWhile isSpace $ s
+doI s = let f = trim s
         in case P.take 4 f of
             cs | cs == "ID3:" -> F . File $
                     let ttl = toId id3 . splitUp . P.drop 4 $ f
@@ -137,7 +137,7 @@ doI s = let f = dropSpaceEnd . P.dropWhile isSpace $ s
         -- strip spaces, and decide if UTF-8 or ISO-8859-1
         normalise :: ByteString -> ByteString
         normalise raw =
-            let bs = P.dropWhile isSpace . dropSpaceEnd $ raw
+            let bs = trim raw
             in if UTF8.replacement_char `elem` UTF8.toString bs
                 then UTF8.fromString $ P.unpack bs
                 else bs

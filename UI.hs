@@ -414,7 +414,8 @@ instance Element PMode2 where
     draw dd = PMode2 case mode $ drawState dd of
                         Random  -> "rand"
                         Loop    -> "loop"
-                        Normal  -> "once"
+                        Once    -> "once"
+                        Single  -> "sing"
 
 ------------------------------------------------------------------------
 

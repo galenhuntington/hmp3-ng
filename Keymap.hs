@@ -33,7 +33,7 @@
 module Keymap where
 
 import Prelude ()
-import Base hiding (all)
+import Base hiding (all, delete)
 
 import Core
 import Config       (package)
