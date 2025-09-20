@@ -139,7 +139,7 @@ data Status = Stopped
             | Playing
     deriving stock (Eq, Show)
 
-data Mode = Normal | Loop | Random
+data Mode = Once | Loop | Random | Single
     deriving stock (Eq, Bounded, Enum, Show, Read)
 
 ------------------------------------------------------------------------
