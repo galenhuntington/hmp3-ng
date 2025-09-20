@@ -25,7 +25,7 @@
 
 module Tree where
 
-import Base
+import Base hiding (partition)
 
 import FastIO
 import qualified Data.ByteString.Char8 as P

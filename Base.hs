@@ -35,7 +35,7 @@ import Data.Fixed as X
 import Data.Foldable as X
 import Data.Functor as X hiding (unzip)
 import Data.IORef as X
-import Data.List as X ((\\), group, groupBy, isPrefixOf, sort, sortBy, tails, intersperse, findIndex)
+import Data.List as X
 import Data.Maybe as X
 import Data.String as X
 import Data.Traversable as X
