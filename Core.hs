@@ -66,7 +66,6 @@ import System.Process           (runInteractiveProcess, waitForProcess)
 import System.Clock             (TimeSpec(..), diffTimeSpec)
 import System.Random            (randomIO)
 import System.FilePath          ((</>))
-import Data.List                (isInfixOf, tails)
 
 import System.Posix.Process     (exitImmediately)
 
@@ -638,12 +637,11 @@ loadConfig = do
     if b then do
         str' <- readFile f
         str <- let (old, new) = ("hmp3_helpscreen", "hmp3_modals") in
-            if old `isInfixOf` str'
-            then do
-                warnA $ old ++ " is now " ++ new ++ " in style.conf"
-                let (ix, rest) = head $ filter (\ (_, s) -> old `isPrefixOf` s) $ zip [0..] $ tails str'
-                pure $ take ix str' ++ new ++ drop (length old) rest
-            else pure str'
+            case findIndex (old `isPrefixOf`) $ tails str' of
+                Just ix -> do
+                    warnA $ old ++ " is now " ++ new ++ " in style.conf"
+                    pure $ take ix str' ++ new ++ drop (ix + length old) str'
+                _ -> pure str'
         case readMaybe str of
             Nothing  -> do
                 warnA "Parse error in style.conf"

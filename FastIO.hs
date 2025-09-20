@@ -26,9 +26,7 @@ import Base
 
 import Syntax                   (Pretty(ppr))
 
-import qualified Data.ByteString.Char8 as P
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Internal as B
+import qualified Data.ByteString.Char8 as B
 
 import System.Posix.Files.ByteString
 import System.Posix.Directory.ByteString
@@ -43,22 +41,22 @@ dropRate = 4   -- used to be 10, but computers are faster
 
 -- | Packed string version of basename
 basenameP :: ByteString -> ByteString
-basenameP fps = case P.elemIndexEnd '/' fps of
+basenameP fps = case B.elemIndexEnd '/' fps of
     Nothing -> fps
-    Just i  -> P.drop (i+1) fps
+    Just i  -> B.drop (i+1) fps
 {-# INLINE basenameP #-}
 
 dirnameP :: ByteString -> ByteString
-dirnameP fps = case P.elemIndexEnd '/' fps of
+dirnameP fps = case B.elemIndexEnd '/' fps of
     Nothing -> "."
-    Just i  -> P.take i fps
+    Just i  -> B.take i fps
 {-# INLINE dirnameP #-}
 
 -- | Packed version of listDirectory
 packedGetDirectoryContents :: ByteString -> IO [ByteString]
 packedGetDirectoryContents fp = bracket (openDirStream fp) closeDirStream
     $ \ds -> fmap (filter (\p -> p/="." && p/=".."))
-        $ sequenceWhile (not . P.null) $ repeat $ readDirStream ds
+        $ sequenceWhile (not . B.null) $ repeat $ readDirStream ds
 
 doesFileExist :: ByteString -> IO Bool
 doesFileExist fp = catch @SomeException
@@ -72,7 +70,7 @@ doesDirectoryExist fp = catch @SomeException
 
 packedFileNameEndClean :: ByteString -> ByteString
 packedFileNameEndClean name =
-  case P.unsnoc name of
+  case B.unsnoc name of
     Just (name', ec) | ec == '\\' || ec == '/'
          -> packedFileNameEndClean name'
     _    -> name
@@ -105,17 +103,12 @@ isReadable fp = fileAccess fp True False False
 -- ---------------------------------------------------------------------
 -- | Send a msg over the channel to the decoder
 send :: Pretty a => Handle -> a -> IO ()
-send h m = P.hPut h (ppr m) >> P.hPut h "\n" >> hFlush h
+send h m = B.hPut h (ppr m) >> B.hPut h "\n" >> hFlush h
 
 ------------------------------------------------------------------------ 
 
--- | 'dropSpaceEnd' efficiently returns the 'ByteString' argument with
--- white space removed from the end. I.e.,
--- 
--- > reverse . (dropWhile isSpace) . reverse == dropSpaceEnd
-dropSpaceEnd :: ByteString -> ByteString
-{-# INLINE dropSpaceEnd #-}
-dropSpaceEnd bs = P.take (P.length bs - count) bs where
-    count = B.foldl' go 0 bs
-    go n c = if B.isSpaceWord8 c then n+1 else 0
+-- ---------------------------------------------------------------------
+trim :: ByteString -> ByteString
+{-# INLINE trim #-}
+trim = B.dropWhileEnd isSpace . B.dropSpace
 
