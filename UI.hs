@@ -59,6 +59,7 @@ import System.Posix.Signals     (raiseSignal, sigTSTP, installHandler, Handler(.
 
 import Foreign.C.String
 import Foreign.C.Types
+import Foreign.C.Error (Errno(..), getErrno)
 
 import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString as B
@@ -133,19 +134,34 @@ screenSize :: IO (Int, Int)
 screenSize = Curses.scrSize
 
 --
+-- | Rewrite of Curses.getCh to avoid looping on terminal crash
+-- | (also no unget support since I don't need it)
+--
+getCh :: IO Curses.Key
+getCh = do
+  threadWaitRead 0
+  v <- Curses.getch
+  case v of
+    -1 -> do
+        Errno e <- getErrno
+        putStrLn $ "Error " ++ show e ++ "; terminal has gone away?  Hard-exiting now."
+        exitFailure
+    k -> pure $ Curses.decodeKey k
+
+--
 -- | Read a key. UIs need to define a method for getting events.
 -- We only need to refresh if we don't have no SIGWINCH support.
 --
 getKey :: IO Char
 getKey = do
-    k <- Curses.getCh
+    k <- getCh
     if k == Curses.KeyResize 
         then do
               when (isNothing Curses.cursesSigWinch) do
                   runDraw $ redraw <> resizeui
               getKey
         else pure $ unkey k
- 
+
 -- | Resize the window
 -- From "Writing Programs with NCURSES", by Eric S. Raymond and Zeyd M. Ben-Halim
 --
