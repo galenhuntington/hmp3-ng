@@ -271,10 +271,8 @@ mpgInput field = runForever $ do
 run :: IO ()
 run = runForever $ sequence_ . keymap =<< getKeys
   where
-    getKeys = unsafeInterleaveIO $ do
-            c  <- UI.getKey
-            cs <- getKeys
-            pure (c:cs) -- A lazy list of curses keys
+    -- A lazy list of curses keys
+    getKeys = unsafeInterleaveIO $ (:) <$> UI.getKey <*> getKeys
 
 ------------------------------------------------------------------------
 
