@@ -48,7 +48,7 @@ import UI.HSCurses.Curses (Key(..), decodeKey)
 import qualified Data.ByteString.Char8 as P
 import qualified Data.Map as M
 
-data Direction = Forwards | Backwards
+data Direction = Forwards | Backwards deriving stock Eq
 data Zipper = Zipper { cur :: !String, back :: ![String], front :: ![String] }
 data SearchWhat = SearchFiles | SearchDirs
 data SearchType = SearchType
@@ -159,8 +159,8 @@ search_eval = enter `meta` \_ (SearchState hist spec) -> case cur $ schZipper sp
               SearchFiles -> jumpToMatchFile
               SearchDirs  -> jumpToMatch
         in endSearchWith
-            do jumpy (Just pat) case schDir typ of Forwards -> True; _ -> False
-            do if take 1 hist == [pat] then hist else pat : hist
+            do jumpy (Just pat) (schDir typ == Forwards)
+            do pat : filter (/= pat) hist
 
 
 ------------------------------------------------------------------------
@@ -260,7 +260,7 @@ keyTable =
         ['t'],   jumpToPlaying)
     ,("Select and play next track",
         ['d'],   playNext *> jumpToPlaying)
-    ,("Cycle through normal, random, and loop modes",
+    ,("Cycle through normal, random, loop, and single modes",
         ['m'],   nextMode)
     ,("Refresh the display",
         ['\^L'], UI.resetui)
