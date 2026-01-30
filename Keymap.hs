@@ -142,9 +142,13 @@ search_down = char (unkey KeyDown) `meta` \_ -> updateSearch \case
     zipp                      -> zipp
 
 search_del :: LexerS
-search_del = char (unkey KeyDC) `meta` \_ -> updateSearch \case
-    Zipper _ back (pv:rest) -> Zipper pv back rest
-    Zipper _ back _         -> Zipper "" back []
+search_del = char (unkey KeyDC) `meta` \_ sst -> let
+    (r, sst', ml) = flip updateSearch sst \case
+        Zipper _ back (pv:rest) -> Zipper pv back rest
+        Zipper _ back _         -> Zipper "" back []
+    newhist = let Zipper cur _ _ = schZipper $ schSpec sst
+              in filter (/=cur) $ schHist sst
+    in (r, sst'{schHist = newhist}, ml)
 
 search_esc :: LexerS
 search_esc = char '\ESC' `meta`
