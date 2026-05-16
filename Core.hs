@@ -406,7 +406,7 @@ blacklist = do
 jumpToRandom :: HState -> IO HState
 jumpToRandom st = do
     n' <- randomIO
-    let n = abs n' `mod` (size st - 1)
+    let n = abs n' `mod` size st
     playAtN st (const n)
 
 -- | Play the song before the current song, if we're not at the beginning
@@ -520,46 +520,22 @@ genericJumpToMatch :: Lookup a
                    -> IO ()
 
 genericJumpToMatch re sw k sel = do
-    found <- modifySTM_ $ \st -> do
+    found <- modifySTM_ $ \st -> pure do
         let mre = case re of
-            -- work out if we have no pattern, a cached pattern, or a new pattern
-                Nothing     -> case regex st of
-                                Nothing     -> Nothing
-                                Just (r,d)  -> Just (r,d==sw)
-                Just s  -> case compileM (P.pack s) [caseless,utf8] of
-                                Left _      -> Nothing
-                                Right v     -> Just (v,sw)
-        case mre of
-            Nothing -> pure (st,False)    -- no pattern
-            Just (p,forwards) -> do
-
-            let (fs,cur,m) = k st
-
-{-
-                loop fn inc n
-                    | fn n      = pure Nothing
-                    | otherwise = do
-                        let s = extract (fs ! n)
-                        case match p s [] of
-                            Nothing -> loop fn inc $! inc n
--}
-
-                check n = let s = extract (fs ! n) in
-                        case match p s [] of
-                            Nothing -> pure Nothing
-                            Just _  -> pure $ Just n
-
-            -- mi <- if forwards then loop (>=m) (+1)         (cur+1)
-                              -- else loop (<0)  (subtract 1) (cur-1)
-            mi <- fmap msum $ traverse check $
-                       if forwards then [cur+1..m-1] ++ [0..cur]
-                                   else [cur-1,cur-2..0] ++ [m-1,m-2..cur]
-
-
-            let st' = st { regex = Just (p,forwards==sw) }
-            pure case mi of
-                Nothing -> (st',False)
-                Just i  -> (st' { cursor = sel i st }, True)
+                Nothing -> case regex st of
+                    Nothing     -> Nothing
+                    Just (r, d) -> Just (r, d==sw)
+                Just s  -> case compileM (P.pack s) [caseless, utf8] of
+                    Left _      -> Nothing
+                    Right v     -> Just (v, sw)
+        flip (maybe (st, False)) mre \ (p, forwards) -> do
+            let (fs, cur, m) = k st
+                l = if forwards then [cur+1..m-1] ++ [0..cur]
+                                else [cur-1,cur-2..0] ++ [m-1,m-2..cur]
+                st' = st { regex = Just (p, forwards==sw) }
+            case [ i | i <- l, isJust $ match p (extract (fs ! i)) [] ] of
+                i:_ -> (st' { cursor = sel i st }, True)
+                _   -> (st', False)
 
     unless found $ putmsg (Fast "No match found." defaultSty) *> touchST
 
@@ -580,6 +556,7 @@ toggleExit = modifyST $ \st -> st { exitVisible = not (exitVisible st) }
 -- | History on or off
 hideHist :: IO ()
 hideHist = modifyST $ \st -> st { histVisible = Nothing }
+
 showHist :: IO ()
 showHist = do
     now <- getMonoTime

@@ -31,6 +31,8 @@ import System.IO            (hPrint, stderr)
 import System.Posix.Signals (installHandler, sigTERM, sigPIPE, sigINT, sigHUP
                             ,sigALRM, sigABRT, Handler(Ignore, Default, Catch))
 
+import qualified Data.ByteString.UTF8 as UTF8
+
 -- ---------------------------------------------------------------------
 -- | Set up the signal handlers
 
@@ -108,7 +110,7 @@ doArgs = loopArgs True where
 --
 main :: IO ()
 main = do
-    (playNow, files) <- doArgs . map fromString =<< getArgs
+    (playNow, files) <- doArgs . map UTF8.fromString =<< getArgs
     initSignals
     start playNow files -- never returns
 

@@ -29,6 +29,7 @@ import Base hiding (partition)
 
 import FastIO
 import qualified Data.ByteString.Char8 as P
+import qualified Data.Map.Strict as M
 
 import Data.Array
 import System.IO        (hPrint, stderr)
@@ -91,15 +92,7 @@ doOrphans = map \f -> (dirnameP f, [basenameP f])
 
 -- | Merge entries with the same root node into a single node
 merge :: [(FilePathP, [FilePathP])] -> [(FilePathP, [FilePathP])]
-merge [] = []
-merge xs =
-    let xs' = sortBy  (\a b -> fst a `compare` fst b) xs
-        xs''= groupBy (\a b -> fst a == fst b) xs'
-    in mapMaybe flatten xs''
-  where
-    flatten :: [(FilePathP,[FilePathP])] -> Maybe (FilePathP, [FilePathP])
-    flatten []     = Nothing    -- can't happen
-    flatten (x:ys) = let d = fst x in Just (d, snd x ++ concatMap snd ys)
+merge = M.assocs . M.fromListWith (++)
 
 -- | fold builder, for generating Dirs and Files
 make :: (Int,Int,[Dir],[File]) -> (FilePathP,[FilePathP]) -> (Int,Int,[Dir],[File])
@@ -127,14 +120,9 @@ expandDir !f = do
     let fs = filter onlyMp3s fs'
         v = if null fs then Nothing else Just (f,fs)
     pure (v,ds)
-    where
-          notEdge    p = p /= dot && p /= dotdot
-          validFiles p = notEdge p
-          onlyMp3s   p = mp3 == (P.map toLower . P.drop (P.length p - 3) $ p)
-
-          mp3        = "mp3"
-          dot        = "."
-          dotdot     = ".."
+  where
+    validFiles = not . P.isPrefixOf "."
+    onlyMp3s   = P.isSuffixOf ".mp3" . P.map toLower
 
 --
 -- | Given an the next index into the files array, a directory name, and
