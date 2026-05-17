@@ -52,7 +52,7 @@ import Config
 import qualified UI.HSCurses.Curses as Curses
 import {-# SOURCE #-} Keymap    (extraTable, keyTable, unkey, charToKey)
 
-import Data.Array               ((!), bounds, Array, listArray)
+import Data.Array               ((!), bounds, Array)
 import Data.Array.Base          (unsafeAt)
 import System.IO                (stderr, hFlush)
 import System.Posix.Signals     (raiseSignal, sigTSTP, installHandler, Handler(..))
@@ -577,18 +577,8 @@ printPlayList (PlayList s) = s
                 
 ------------------------------------------------------------------------
 
--- | Calculate whitespaces, very common, so precompute likely values
 spaces :: Int -> ByteString
-spaces n
-    | n <= 0    = ""
-    | n > 100   = P.replicate n ' ' -- unlikely
-    | otherwise = arr ! n
-  where
-    arr :: Array Int ByteString   -- precompute some whitespace strs
-    arr = listArray (0,100) [ P.take i s100 | i <- [0..100] ]
-
-    s100 :: ByteString
-    s100 = P.replicate 100 ' '  -- seems reasonable
+spaces = flip P.replicate ' '
 
 ------------------------------------------------------------------------
 --
@@ -626,7 +616,6 @@ renderModal st (Size h w) = do
             (y',_) <- Curses.getYX Curses.stdScr
             Curses.wMove Curses.stdScr (y'+1) hoffset
 
--- XXX don't understand what sz is even doing
 renderModals :: HState -> Size -> IO ()
 renderModals s sz = do
    renderModal @HelpModal s sz

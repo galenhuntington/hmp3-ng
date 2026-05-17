@@ -24,7 +24,7 @@ through 9.10) and libraries.  This required rewriting or entirely
 replacing large sections, mainly low-level optimizations.
 
 *  I added support for building with Stack.  It can also be installed
-from Nix.
+with Nix from nixpkgs (`haskellPackages.hmp3-ng`).
 
 *  There is a public GitHub issue tracker, and a GitHub action to
 continuously test builds.
