@@ -38,6 +38,7 @@ module Core (
         loadConfig,
         discardErrors,
         toggleExit,
+        showTimeDiff_,
     ) where
 
 import Base

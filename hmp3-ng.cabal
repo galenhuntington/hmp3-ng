@@ -23,26 +23,8 @@ source-repository head
   type: git
   location: https://github.com/galenhuntington/hmp3-ng
 
-executable hmp3
-  main-is: Main.hs
-  other-modules:
-      Base
-      Config
-      Core
-      FastIO
-      Keymap
-      Lexer
-      Lexers
-      State
-      Style
-      Syntax
-      Tree
-      UI
-      Paths_hmp3_ng
-  autogen-modules:
-      Paths_hmp3_ng
-  hs-source-dirs:
-      ./
+common opts
+  default-language: Haskell2010
   default-extensions:
       BangPatterns
       BlockArguments
@@ -55,7 +37,28 @@ executable hmp3
       MultiWayIf
       StandaloneDeriving
       NumericUnderscores
-  ghc-options: -Wall -funbox-strict-fields -threaded -Wno-unused-do-bind
+  ghc-options: -Wall -funbox-strict-fields -Wno-unused-do-bind
+
+library
+  import: opts
+  hs-source-dirs: ./
+  exposed-modules:
+      Base
+      Config
+      Core
+      FastIO
+      Keymap
+      Lexer
+      Lexers
+      State
+      Style
+      Syntax
+      Tree
+      UI
+  other-modules:
+      Paths_hmp3_ng
+  autogen-modules:
+      Paths_hmp3_ng
   pkgconfig-depends:
       ncursesw
   build-depends:
@@ -73,5 +76,33 @@ executable hmp3
     , random
     , unix >=2.7
     , utf8-string
-  default-language: Haskell2010
 
+executable hmp3
+  import: opts
+  main-is: Main.hs
+  hs-source-dirs: ./
+  ghc-options: -threaded
+  build-depends:
+    , base
+    , bytestring
+    , hmp3-ng
+    , unix
+    , utf8-string
+
+test-suite test
+  import: opts
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  hs-source-dirs: test
+  other-modules:
+      CoreSpec
+      FastIOSpec
+      LexerSpec
+      TreeSpec
+  build-depends:
+    , base
+    , bytestring
+    , clock
+    , hmp3-ng
+    , tasty           >=1.4
+    , tasty-hunit     >=0.10
