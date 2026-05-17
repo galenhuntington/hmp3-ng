@@ -270,10 +270,7 @@ mpgInput field = runForever $ do
 
 -- | The main thread: handle keystrokes fed to us by curses
 run :: IO ()
-run = runForever $ sequence_ . keymap =<< getKeys
-  where
-    -- A lazy list of curses keys
-    getKeys = unsafeInterleaveIO $ (:) <$> UI.getKey <*> getKeys
+run = runForever keymap
 
 ------------------------------------------------------------------------
 

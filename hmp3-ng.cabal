@@ -49,7 +49,6 @@ library
       FastIO
       Keymap
       Lexer
-      Lexers
       State
       Style
       Syntax

@@ -2,7 +2,7 @@ module Keymap where
 
 import UI.HSCurses.Curses (Key)
 
-keymap :: [Char] -> [IO ()]
+keymap :: IO ()
 
 keyTable   :: [(String, [Char], IO ())]
 extraTable :: [(String, [Char])]
