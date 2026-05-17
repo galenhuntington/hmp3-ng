@@ -64,7 +64,7 @@ import System.Directory         (doesFileExist, findExecutable, createDirectoryI
 import System.IO                (hPutStrLn, hGetLine, stderr, hFlush)
 import System.Process           (runInteractiveProcess, waitForProcess)
 import System.Clock             (TimeSpec(..), diffTimeSpec)
-import System.Random            (randomIO)
+import System.Random            (randomRIO)
 import System.FilePath          ((</>))
 
 import System.Posix.Process     (exitImmediately)
@@ -404,10 +404,7 @@ blacklist = do
 
 -- | Jump to a random song
 jumpToRandom :: HState -> IO HState
-jumpToRandom st = do
-    n' <- randomIO
-    let n = abs n' `mod` size st
-    playAtN st (const n)
+jumpToRandom st = playAtN st . const =<< randomRIO (0, size st - 1)
 
 -- | Play the song before the current song, if we're not at the beginning
 -- If we're at the beginning, and loop mode is on, then loop to the end

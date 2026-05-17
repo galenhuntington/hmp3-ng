@@ -92,7 +92,7 @@ doOrphans = map \f -> (dirnameP f, [basenameP f])
 
 -- | Merge entries with the same root node into a single node
 merge :: [(FilePathP, [FilePathP])] -> [(FilePathP, [FilePathP])]
-merge = M.assocs . M.fromListWith (++)
+merge = M.assocs . M.fromListWith (flip (++))
 
 -- | fold builder, for generating Dirs and Files
 make :: (Int,Int,[Dir],[File]) -> (FilePathP,[FilePathP]) -> (Int,Int,[Dir],[File])
