@@ -80,7 +80,7 @@ library
 executable hmp3
   import: opts
   main-is: Main.hs
-  hs-source-dirs: ./
+  hs-source-dirs: app
   ghc-options: -threaded
   build-depends:
     , base
