@@ -66,17 +66,20 @@ instance Pretty Quit where
 
 -- mpg123 tagline. Output at startup.
 data Tag = Tag
+    deriving stock (Eq, Show)
 
 -- Track info if ID fields are in the file, otherwise file name.
 newtype File = File (Either ByteString Id3)
+    deriving stock (Eq, Show)
 
--- ID3 info 
+-- ID3 info
 data Id3 = Id3
         { id3title  :: !ByteString
         , id3artist :: !ByteString
         , id3album  :: !ByteString
         , id3str    :: !ByteString
         }
+    deriving stock (Eq, Show)
 
 --      , year   :: Maybe ByteString
 --      , genre  :: Maybe ByteString }
@@ -111,8 +114,9 @@ newtype Info = Info {
            --   checksummed   :: !Bool,
            --   emphasis      :: !Int,
            --   bitrate       :: !Int,
-           --   extension     :: !Int 
+           --   extension     :: !Int
             }
+    deriving stock (Eq, Show)
 
 -- @F <current-frame> <frames-remaining> <current-time> <time-remaining>
 -- Frame decoding status updates (once per frame).
@@ -128,6 +132,7 @@ data Frame = Frame {
                 currentTime    :: !(Fixed E2),
                 timeLeft       :: !(Fixed E2)
              }
+    deriving stock (Eq, Show)
 
 -- @P {0, 1, 2}
 -- Stop/pause status.
@@ -158,3 +163,4 @@ data Msg = T {-# UNPACK #-} !Tag
          | I {-# UNPACK #-} !Info
          | R {-# UNPACK #-} !Frame
          | S                !Status
+    deriving stock (Eq, Show)

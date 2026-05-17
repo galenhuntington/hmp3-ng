@@ -20,7 +20,7 @@
 
 -- Lexer for mpg123 messages
 
-module Lexer ( parser ) where
+module Lexer ( parser, doP, doF, doS, doI ) where
 
 import Base
 
