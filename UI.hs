@@ -50,7 +50,7 @@ import State
 import Syntax
 import Config
 import qualified UI.HSCurses.Curses as Curses
-import {-# SOURCE #-} Keymap    (extraTable, keyTable, unkey, charToKey)
+import {-# SOURCE #-} Keymap    (keyTable, unkey, charToKey)
 
 import Data.Array               ((!), bounds, Array)
 import Data.Array.Base          (unsafeAt)
@@ -314,9 +314,7 @@ modalWidth w = max (min w 3) $ round $ fromIntegral w * (0.8::Float)
 instance ModalElement HelpModal where
     drawModal sty swd st = do
         guard $ helpVisible st
-        pure $ (wd,) $
-            [ Fast (f cs h) sty | (h,cs,_) <- keyTable ] ++
-            [ Fast (f cs h) sty | (h,cs) <- extraTable ]
+        pure (wd, [ Fast (f cs h) sty | (h, cs, _) <- keyTable ])
         where
             wd = modalWidth swd
             f :: [Char] -> String -> ByteString

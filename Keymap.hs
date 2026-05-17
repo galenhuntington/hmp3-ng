@@ -26,11 +26,7 @@
 -- transitions (entering search, popping up the song-history modal,
 -- confirming a quit) are just "return a different 'KeyMap'."
 --
-module Keymap (
-    keymap,
-    keyTable, extraTable,
-    unkey, charToKey,
-  ) where
+module Keymap (keyLoop, keyTable, unkey, charToKey) where
 
 import Base
 
@@ -56,8 +52,8 @@ newtype KeyMap = KeyMap (Char -> IO KeyMap)
 -- | Read keys forever and dispatch.  Each round clears the minibuffer
 -- between the keystroke and the action so messages from the previous
 -- action remain visible until the user reacts.
-keymap :: IO ()
-keymap = go (mainMode []) where
+keyLoop :: IO ()
+keyLoop = go (mainMode []) where
     go (KeyMap f) = UI.getKey >>= \c -> clrmsg *> f c >>= go
 
 
@@ -73,8 +69,10 @@ mainMode hist = KeyMap dispatch where
     dispatch '\\' = enterSearch SearchDirs  Forwards  '\\'
     dispatch '|'  = enterSearch SearchDirs  Backwards '|'
     dispatch 'q'  = enterConfirmQuit
-    dispatch c | c `elem` ['H', ';'] = enterHistory
-    dispatch c    = stay $ sequence_ (M.lookup c keyMap)
+    dispatch c
+        | c `elem` ['H', ';']  = enterHistory
+        | c >= '1' && c <= '9' = stay $ jumpRel (0.1 * fromIntegral (fromEnum c - 48))
+        | True                 = stay $ sequence_ (M.lookup c keyMap)
 
     stay action = action $> mainMode hist
 
@@ -82,7 +80,7 @@ mainMode hist = KeyMap dispatch where
         toggleFocus
         putmsg $ Fast (P.singleton prefix) defaultSty
         touchST
-        pure $ searchMode hist kind dir prefix (emptyZip hist)
+        pure $ searchMode hist kind dir prefix (Zipper "" hist [])
 
     enterHistory = do
         showHist
@@ -105,10 +103,7 @@ data SearchKind = SearchFiles | SearchDirs
 -- | Zipper over the search-history list, with the currently edited
 -- string in the focus.  'back' holds older entries we can step back
 -- to (Up); 'front' holds entries we've stepped back from (Down).
-data Zipper = Zipper { cur :: !String, back :: ![String], front :: ![String] }
-
-emptyZip :: [String] -> Zipper
-emptyZip h = Zipper "" h []
+data Zipper = Zipper { cur :: !String, _back :: ![String], _front :: ![String] }
 
 searchMode :: [String] -> SearchKind -> Direction -> Char -> Zipper -> KeyMap
 searchMode hist kind dir prefix = step where
@@ -224,7 +219,7 @@ delete' = ['\BS', '\DEL', unkey KeyBackspace]
 
 
 ------------------------------------------------------------------------
--- The default keymap and its descriptions
+-- The keymap with help descriptions and actions.
 
 keyTable :: [(String, [Char], IO ())]
 keyTable =
@@ -234,7 +229,7 @@ keyTable =
     , ("Page up",                                 [unkey KeyPPage],     upPage)
     , ("Jump to start of list",                   [unkey KeyHome,'0'],  jump 0)
     , ("Jump to end of list",                     [unkey KeyEnd,'G'],   jump maxBound)
-    , ("Jump to 10%, 20%, 30%, etc., point",      ['1','2','3'],        nullAction)
+    , ("Jump to 10%, 20%, 30%, etc., point",      ['1','2','3'],        placeholder)
     , ("Seek left within song",                   [unkey KeyLeft],      seekLeft)
     , ("Seek right within song",                  [unkey KeyRight],     seekRight)
     , ("Toggle pause",                            [' '],                pause)
@@ -253,27 +248,16 @@ keyTable =
     , ("Mark for deletion in .hmp3-delete",       ['D'],                blacklist)
     , ("Load config file",                        ['l'],                loadConfig)
     , ("Restart song",                            [unkey KeyBackspace], seekStart)
+    , ("Toggle the song history",                 ['H', ';'],           placeholder)
+    , ("Search for file matching regex",          ['/'],                placeholder)
+    , ("Search backwards for file",               ['?'],                placeholder)
+    , ("Search for directory matching regex",     ['\\'],               placeholder)
+    , ("Search backwards for directory",          ['|'],                placeholder)
+    , ("Quit " ++ package,                        ['q'],                placeholder)
     ]
-  where
-    -- The '1'..'9' entries appear in keyTable for help-screen display
-    -- only; their actual bindings come from 'innerTable' below and
-    -- override these in 'keyMap'.
-    nullAction = pure ()
-
-innerTable :: [(Char, IO ())]
-innerTable = [(c, jumpRel i) | (i, c) <- zip [0.1, 0.2 ..] ['1'..'9']]
-
-extraTable :: [(String, [Char])]
-extraTable =
-    [ ("Toggle the song history",            ['H', ';'])
-    , ("Search for file matching regex",     ['/'])
-    , ("Search backwards for file",          ['?'])
-    , ("Search for directory matching regex", ['\\'])
-    , ("Search backwards for directory",     ['|'])
-    , ("Quit " ++ package,                   ['q'])
-    ]
+  where placeholder = pure () -- handled separately
 
 -- Compiled dispatch table for normal-mode single-key commands.
 keyMap :: M.Map Char (IO ())
-keyMap = M.fromList $
-    [ (c, a) | (_, cs, a) <- keyTable, c <- cs ] ++ innerTable
+keyMap = M.fromList [ (c, a) | (_, cs, a) <- keyTable, c <- cs ]
+

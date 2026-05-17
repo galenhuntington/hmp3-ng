@@ -53,7 +53,7 @@ import qualified Tree (File,Dir)
 import qualified UI
 
 import Text.Regex.PCRE.Light
-import {-# SOURCE #-} Keymap (keymap)
+import {-# SOURCE #-} Keymap (keyLoop)
 
 import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString.UTF8 as UTF8
@@ -270,7 +270,7 @@ mpgInput field = runForever $ do
 
 -- | The main thread: handle keystrokes fed to us by curses
 run :: IO ()
-run = runForever keymap
+run = runForever keyLoop
 
 ------------------------------------------------------------------------
 
