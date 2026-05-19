@@ -28,7 +28,7 @@
 --
 module Keymap (keyLoop, keyTable, unkey, charToKey) where
 
-import Base
+import Base hiding ((!?))
 
 import Core
 import Config       (package)
@@ -62,53 +62,37 @@ keyLoop = go mainMode where
 
 mainMode :: KeyMap
 mainMode = KeyMap dispatch where
-    dispatch '/'  = enterSearch SearchFiles Forwards  '/'
-    dispatch '?'  = enterSearch SearchFiles Backwards '?'
-    dispatch '\\' = enterSearch SearchDirs  Forwards  '\\'
-    dispatch '|'  = enterSearch SearchDirs  Backwards '|'
-    dispatch 'q'  = enterConfirmQuit
+    dispatch 'q'  = forcePause *> toggleExit *> touchST $> confirmQuitMode
     dispatch c
-        | c `elem` ['H', ';']  = enterHistory
+        | c `elem` ['/', '?', '\\', '|']
+                               = enterSearch c
+        | c `elem` ['H', ';']  = showHist *> touchST $> historyMode
         | c >= '1' && c <= '9' =
             jumpRel (0.1 * fromIntegral (fromEnum c - 48)) $> mainMode
         | True                 = sequence_ (M.lookup c keyMap) $> mainMode
 
-    enterSearch kind dir prefix = do
+    enterSearch stype = do
         toggleFocus
-        putmsg $ Fast (P.singleton prefix) defaultSty
+        putmsg $ Fast (P.singleton stype) defaultSty
         touchST
         hist <- getsST searchHist
-        pure $ searchMode hist kind dir prefix $ Zipper "" hist []
-
-    enterHistory = do
-        showHist
-        touchST
-        pure historyMode
-
-    enterConfirmQuit = do
-        forcePause
-        toggleExit
-        touchST
-        pure confirmQuitMode
+        pure $ searchMode stype hist $ Zipper "" hist []
 
 
 ------------------------------------------------------------------------
 -- Search mode
-
-data Direction  = Forwards | Backwards deriving stock Eq
-data SearchKind = SearchFiles | SearchDirs
 
 -- | Zipper over the search-history list, with the currently edited
 -- string in the focus.  'back' holds older entries we can step back
 -- to (Up); 'front' holds entries we've stepped back from (Down).
 data Zipper = Zipper { cur :: !String, _back :: ![String], _front :: ![String] }
 
-searchMode :: [String] -> SearchKind -> Direction -> Char -> Zipper -> KeyMap
-searchMode hist kind dir prefix = step where
+searchMode :: Char -> [String] -> Zipper -> KeyMap
+searchMode stype hist = step where
     step z = KeyMap (`dispatch` z)
 
     dispatch c z
-        | c == '\ESC'      = endSearch (clrmsg *> touchST)
+        | c == '\ESC'      = clrmsg *> touchST *> leave
         | c `elem` enter'  = commit z
         | c `elem` delete' = repaint $ zipEdit dropLast z
         | k == KeyUp       = repaint $ zipUp z
@@ -118,30 +102,26 @@ searchMode hist kind dir prefix = step where
         | otherwise        = repaint $ zipEdit (++ [c]) z
       where k = charToKey c
 
-    repaint z' = renderSearch prefix z' $> step z'
+    repaint z' = renderSearch stype z' $> step z'
 
-    commit (Zipper []  _ _) = endSearch (clrmsg *> touchST)
+    commit (Zipper []  _ _) = clrmsg *> touchST *> leave
     commit (Zipper pat _ _) = do
-        let jumpy = case kind of
-                SearchFiles -> jumpToMatchFile
-                SearchDirs  -> jumpToMatchDir
-        jumpy (Just pat) (dir == Forwards)
+        let jumpy = if stype `elem` ['/', '?']
+                    then jumpToMatchFile else jumpToMatchDir
+        jumpy (Just pat) (stype `elem` ['/', '\\'])
         modifyST \st -> st { searchHist = pat : filter (/= pat) hist }
-        endSearch $ pure ()
+        leave
 
     histDelete z = do
         let newHist = filter (/= cur z) hist
             z' = case z of
                 Zipper _ b (pv:rest) -> Zipper pv b rest
                 Zipper _ b _         -> Zipper "" b []
-        renderSearch prefix z'
+        renderSearch stype z'
         modifyST \st -> st { searchHist = newHist }
-        pure $ searchMode newHist kind dir prefix z'
+        pure $ searchMode stype newHist z'
 
-    endSearch action = do
-        action
-        toggleFocus
-        pure mainMode
+    leave = toggleFocus $> mainMode
 
 renderSearch :: Char -> Zipper -> IO ()
 renderSearch prefix z = do
@@ -169,7 +149,7 @@ historyMode :: KeyMap
 historyMode = KeyMap \c -> do
     for_ (M.lookup c historyKeys) \k -> do
         phm <- getsST histVisible
-        for_ (phm >>= safeIndex k) (jump . fst . snd)
+        for_ (phm >>= (!? k)) (jump . fst . snd)
     hideHist
     touchST
     pure mainMode
@@ -177,8 +157,8 @@ historyMode = KeyMap \c -> do
     historyKeys :: M.Map Char Int
     historyKeys = M.fromList $ zip (['0'..'9'] ++ ['a'..'z']) [0..]
 
-    -- listToMaybe . drop, compatible with GHCs before List.!? (9.8).
-    safeIndex n xs = listToMaybe (drop n xs)
+    -- Compatibility: List.!? only added in GHC 9.8
+    xs !? n = listToMaybe $ drop n xs
 
 
 ------------------------------------------------------------------------
