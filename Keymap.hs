@@ -73,10 +73,8 @@ mainMode = KeyMap dispatch where
 
     enterSearch stype = do
         toggleFocus
-        putmsg $ Fast (P.singleton stype) defaultSty
-        touchST
         hist <- getsST searchHist
-        pure $ searchMode stype hist $ Zipper "" hist []
+        searchMode stype hist $ Zipper "" hist []
 
 
 ------------------------------------------------------------------------
@@ -87,22 +85,20 @@ mainMode = KeyMap dispatch where
 -- to (Up); 'front' holds entries we've stepped back from (Down).
 data Zipper = Zipper { cur :: !String, _back :: ![String], _front :: ![String] }
 
-searchMode :: Char -> [String] -> Zipper -> KeyMap
+searchMode :: Char -> [String] -> Zipper -> IO KeyMap
 searchMode stype hist = step where
-    step z = KeyMap (`dispatch` z)
+    step z = renderSearch stype z $> KeyMap (`dispatch` z)
 
     dispatch c z
         | c == '\ESC'      = clrmsg *> touchST *> leave
         | c `elem` enter'  = commit z
-        | c `elem` delete' = repaint $ zipEdit dropLast z
-        | k == KeyUp       = repaint $ zipUp z
-        | k == KeyDown     = repaint $ zipDown z
+        | c `elem` delete' = step $ zipEdit dropLast z
+        | k == KeyUp       = step $ zipUp z
+        | k == KeyDown     = step $ zipDown z
         | k == KeyDC       = histDelete z
-        | c > '\255'       = pure $ step z         -- ignore other special keys
-        | otherwise        = repaint $ zipEdit (++ [c]) z
+        | c > '\255'       = step z         -- ignore other special keys
+        | otherwise        = step $ zipEdit (++ [c]) z
       where k = charToKey c
-
-    repaint z' = renderSearch stype z' $> step z'
 
     commit (Zipper []  _ _) = clrmsg *> touchST *> leave
     commit (Zipper pat _ _) = do
@@ -117,9 +113,8 @@ searchMode stype hist = step where
             z' = case z of
                 Zipper _ b (pv:rest) -> Zipper pv b rest
                 Zipper _ b _         -> Zipper "" b []
-        renderSearch stype z'
         modifyST \st -> st { searchHist = newHist }
-        pure $ searchMode stype newHist z'
+        searchMode stype newHist z'
 
     leave = toggleFocus $> mainMode
 
