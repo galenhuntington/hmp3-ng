@@ -63,6 +63,7 @@ import Foreign.C.Error (Errno(..), getErrno)
 
 import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Unsafe as B
 import qualified Data.ByteString.UTF8 as UTF8
 
 
@@ -665,8 +666,9 @@ drawLine _ (FancyS ls) = traverse_ (uncurry drawAmbiString) ls
 
 drawAmbiString :: AmbiString -> Style -> IO ()
 drawAmbiString as sty = withStyle sty $ case as of
-    B ps -> void $ B.useAsCString ps \cstr ->
-                waddnstr Curses.stdScr cstr (fromIntegral $ P.length ps)
+    -- Safe because C only reads the string.
+    B ps -> void $ B.unsafeUseAsCStringLen ps \ (cstr, len) ->
+                waddnstr Curses.stdScr cstr (fromIntegral len)
     U s  -> Curses.wAddStr Curses.stdScr s
 {-# INLINE drawAmbiString #-}
 
