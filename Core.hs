@@ -33,7 +33,7 @@ module Core (
         seekStart,
         blacklist,
         showHist, hideHist,
-        jumpToMatch, jumpToMatchFile,
+        jumpToMatchDir, jumpToMatchFile,
         toggleFocus, jumpToNextDir, jumpToPrevDir,
         loadConfig,
         discardErrors,
@@ -500,8 +500,8 @@ jumpToMatchFile re sw = genericJumpToMatch re sw k sel
     where k st = (music st, if size st == 0 then -1 else cursor st, size st)
           sel i _ = i
 
-jumpToMatch  :: Maybe String -> Bool -> IO ()
-jumpToMatch     re sw = genericJumpToMatch re sw k sel
+jumpToMatchDir :: Maybe String -> Bool -> IO ()
+jumpToMatchDir re sw = genericJumpToMatch re sw k sel
     where k st = (folders st
                      , if size st == 0 then -1 else fdir (music st ! cursor st)
                      , 1 + (snd . bounds $ folders st))

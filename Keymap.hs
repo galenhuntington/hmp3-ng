@@ -32,7 +32,7 @@ import Base
 
 import Core
 import Config       (package)
-import State        (getsST, touchST, HState(histVisible))
+import State        (getsST, touchST, modifyST, HState(histVisible, searchHist))
 import Style        (defaultSty, StringA(Fast))
 import qualified UI (getKey, resetui)
 
@@ -53,17 +53,15 @@ newtype KeyMap = KeyMap (Char -> IO KeyMap)
 -- between the keystroke and the action so messages from the previous
 -- action remain visible until the user reacts.
 keyLoop :: IO ()
-keyLoop = go (mainMode []) where
+keyLoop = go mainMode where
     go (KeyMap f) = UI.getKey >>= \c -> clrmsg *> f c >>= go
 
 
 ------------------------------------------------------------------------
 -- Top-level normal mode
 
--- | Normal-mode dispatch.  The argument is the cross-search persistent
--- search history, threaded through every mode.
-mainMode :: [String] -> KeyMap
-mainMode hist = KeyMap dispatch where
+mainMode :: KeyMap
+mainMode = KeyMap dispatch where
     dispatch '/'  = enterSearch SearchFiles Forwards  '/'
     dispatch '?'  = enterSearch SearchFiles Backwards '?'
     dispatch '\\' = enterSearch SearchDirs  Forwards  '\\'
@@ -71,27 +69,27 @@ mainMode hist = KeyMap dispatch where
     dispatch 'q'  = enterConfirmQuit
     dispatch c
         | c `elem` ['H', ';']  = enterHistory
-        | c >= '1' && c <= '9' = stay $ jumpRel (0.1 * fromIntegral (fromEnum c - 48))
-        | True                 = stay $ sequence_ (M.lookup c keyMap)
-
-    stay action = action $> mainMode hist
+        | c >= '1' && c <= '9' =
+            jumpRel (0.1 * fromIntegral (fromEnum c - 48)) $> mainMode
+        | True                 = sequence_ (M.lookup c keyMap) $> mainMode
 
     enterSearch kind dir prefix = do
         toggleFocus
         putmsg $ Fast (P.singleton prefix) defaultSty
         touchST
-        pure $ searchMode hist kind dir prefix (Zipper "" hist [])
+        hist <- getsST searchHist
+        pure $ searchMode hist kind dir prefix $ Zipper "" hist []
 
     enterHistory = do
         showHist
         touchST
-        pure $ historyMode hist
+        pure historyMode
 
     enterConfirmQuit = do
         forcePause
         toggleExit
         touchST
-        pure $ confirmQuitMode hist
+        pure confirmQuitMode
 
 
 ------------------------------------------------------------------------
@@ -110,7 +108,7 @@ searchMode hist kind dir prefix = step where
     step z = KeyMap (`dispatch` z)
 
     dispatch c z
-        | c == '\ESC'      = endSearch (clrmsg *> touchST) hist
+        | c == '\ESC'      = endSearch (clrmsg *> touchST)
         | c `elem` enter'  = commit z
         | c `elem` delete' = repaint (zipEdit dropLast z)
         | c == upChar      = repaint (zipUp z)
@@ -121,38 +119,40 @@ searchMode hist kind dir prefix = step where
 
     repaint z' = renderSearch prefix z' $> step z'
 
-    commit (Zipper []  _ _) = endSearch (clrmsg *> touchST) hist
+    commit (Zipper []  _ _) = endSearch (clrmsg *> touchST)
     commit (Zipper pat _ _) = do
         let jumpy = case kind of
                 SearchFiles -> jumpToMatchFile
-                SearchDirs  -> jumpToMatch
+                SearchDirs  -> jumpToMatchDir
         jumpy (Just pat) (dir == Forwards)
-        endSearch (pure ()) (pat : filter (/= pat) hist)
+        modifyST \st -> st { searchHist = pat : filter (/= pat) hist }
+        endSearch $ pure ()
 
     histDelete z = do
-        let newhist = filter (/= cur z) hist
+        let newHist = filter (/= cur z) hist
             z' = case z of
                 Zipper _ b (pv:rest) -> Zipper pv b rest
                 Zipper _ b _         -> Zipper "" b []
         renderSearch prefix z'
-        pure $ searchMode newhist kind dir prefix z'
+        modifyST \st -> st { searchHist = newHist }
+        pure $ searchMode newHist kind dir prefix z'
 
-    endSearch action hist' = do
+    endSearch action = do
         action
         toggleFocus
-        pure $ mainMode hist'
+        pure mainMode
 
 renderSearch :: Char -> Zipper -> IO ()
 renderSearch prefix z = do
     putmsg $ Fast (P.pack (prefix : cur z)) defaultSty
     touchST
 
-zipEdit :: (String -> String) -> Zipper -> Zipper
-zipEdit f z = z { cur = f (cur z) }
-
 dropLast :: [a] -> [a]
 dropLast [] = []
 dropLast xs = init xs
+
+zipEdit :: (String -> String) -> Zipper -> Zipper
+zipEdit f z = z { cur = f (cur z) }
 
 zipUp, zipDown :: Zipper -> Zipper
 zipUp   (Zipper c (nx:rest) f)  = Zipper nx rest (c:f)
@@ -164,14 +164,14 @@ zipDown z                       = z
 ------------------------------------------------------------------------
 -- Song-history popup
 
-historyMode :: [String] -> KeyMap
-historyMode hist = KeyMap \c -> do
+historyMode :: KeyMap
+historyMode = KeyMap \c -> do
     for_ (M.lookup c historyKeys) \k -> do
         phm <- getsST histVisible
         for_ (phm >>= safeIndex k) (jump . fst . snd)
     hideHist
     touchST
-    pure $ mainMode hist
+    pure mainMode
   where
     historyKeys :: M.Map Char Int
     historyKeys = M.fromList $ zip (['0'..'9'] ++ ['a'..'z']) [0..]
@@ -183,10 +183,10 @@ historyMode hist = KeyMap \c -> do
 ------------------------------------------------------------------------
 -- Confirm-quit modal
 
-confirmQuitMode :: [String] -> KeyMap
-confirmQuitMode hist = KeyMap \case
-    'y' -> quit Nothing $> mainMode hist           -- quit never returns
-    _   -> toggleExit *> touchST $> mainMode hist
+confirmQuitMode :: KeyMap
+confirmQuitMode = KeyMap \case
+    'y' -> quit Nothing $> mainMode -- quit never returns
+    _   -> toggleExit *> touchST $> mainMode
 
 
 ------------------------------------------------------------------------
