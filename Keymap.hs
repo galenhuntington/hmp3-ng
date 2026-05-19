@@ -74,7 +74,7 @@ mainMode = KeyMap dispatch where
     enterSearch stype = do
         toggleFocus
         hist <- getsST searchHist
-        searchMode stype hist $ Zipper "" hist []
+        searchMode stype $ Zipper "" hist []
 
 
 ------------------------------------------------------------------------
@@ -85,8 +85,8 @@ mainMode = KeyMap dispatch where
 -- to (Up); 'front' holds entries we've stepped back from (Down).
 data Zipper = Zipper { cur :: !String, _back :: ![String], _front :: ![String] }
 
-searchMode :: Char -> [String] -> Zipper -> IO KeyMap
-searchMode stype hist = step where
+searchMode :: Char -> Zipper -> IO KeyMap
+searchMode stype = step where
     step z = renderSearch stype z $> KeyMap (`dispatch` z)
 
     dispatch c z
@@ -105,16 +105,15 @@ searchMode stype hist = step where
         let jumpy = if stype `elem` ['/', '?']
                     then jumpToMatchFile else jumpToMatchDir
         jumpy (Just pat) (stype `elem` ['/', '\\'])
-        modifyST \st -> st { searchHist = pat : filter (/= pat) hist }
+        modifyST \st -> st { searchHist = pat : filter (/= pat) (searchHist st) }
         leave
 
     histDelete z = do
-        let newHist = filter (/= cur z) hist
-            z' = case z of
+        let z' = case z of
                 Zipper _ b (pv:rest) -> Zipper pv b rest
                 Zipper _ b _         -> Zipper "" b []
-        modifyST \st -> st { searchHist = newHist }
-        searchMode stype newHist z'
+        modifyST \st -> st { searchHist = filter (/= cur z) (searchHist st) }
+        step z'
 
     leave = toggleFocus $> mainMode
 
