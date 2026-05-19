@@ -110,12 +110,13 @@ searchMode hist kind dir prefix = step where
     dispatch c z
         | c == '\ESC'      = endSearch (clrmsg *> touchST)
         | c `elem` enter'  = commit z
-        | c `elem` delete' = repaint (zipEdit dropLast z)
-        | c == upChar      = repaint (zipUp z)
-        | c == downChar    = repaint (zipDown z)
-        | c == dcChar      = histDelete z
-        | c > '\255'       = pure (step z)         -- ignore other special keys
-        | otherwise        = repaint (zipEdit (++ [c]) z)
+        | c `elem` delete' = repaint $ zipEdit dropLast z
+        | k == KeyUp       = repaint $ zipUp z
+        | k == KeyDown     = repaint $ zipDown z
+        | k == KeyDC       = histDelete z
+        | c > '\255'       = pure $ step z         -- ignore other special keys
+        | otherwise        = repaint $ zipEdit (++ [c]) z
+      where k = charToKey c
 
     repaint z' = renderSearch prefix z' $> step z'
 
@@ -185,7 +186,7 @@ historyMode = KeyMap \c -> do
 
 confirmQuitMode :: KeyMap
 confirmQuitMode = KeyMap \case
-    'y' -> quit Nothing $> mainMode -- quit never returns
+    'y' -> quit Nothing $> undefined -- quit never returns
     _   -> toggleExit *> touchST $> mainMode
 
 
@@ -207,11 +208,6 @@ keyCharMap = M.fromList [(charToKey c, c) | c <- ['\0' .. '\500']]
 
 unkey :: Key -> Char
 unkey k = fromMaybe '\0' $ M.lookup k keyCharMap
-
-upChar, downChar, dcChar :: Char
-upChar   = unkey KeyUp
-downChar = unkey KeyDown
-dcChar   = unkey KeyDC
 
 enter', delete' :: [Char]
 enter'  = ['\n', '\r']
