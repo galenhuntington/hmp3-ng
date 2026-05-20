@@ -10,7 +10,7 @@
 module Core (
         start,
         shutdown,
-        seekLeft, seekRight, up, down, pause, nextMode, playNext, playPrev,
+        seekLeft, seekRight, upOne, downOne, pause, nextMode, playNext, playPrev,
         forcePause, quit, putmsg, clrmsg, toggleHelp, play, playCur,
         jumpToPlaying, jump, jumpRel,
         upPage, downPage,
@@ -228,11 +228,8 @@ clockLoop = runForever $ threadDelay delay >> UI.refreshClock
 
 -- | Handle, and display errors produced by mpg123
 errorLoop :: IO ()
-errorLoop = runForever $ do
-    s <- getsST errh >>= readMVar >>= hGetLine . filtHandle
-    if s == "No default libao driver available."
-        then quit $ Just $ s ++ " Perhaps another instance of hmp3 is running?"
-        else warnA s
+errorLoop = runForever $
+    getsST errh >>= readMVar >>= hGetLine . filtHandle >>= warnA
 
 ------------------------------------------------------------------------
 
@@ -328,42 +325,37 @@ seek fn = do
                 forceNextPacket         -- don't drop the next Frame.
             silentlyModifyST $ \st -> st { clockUpdate = True }
 
+
+------------------------------------------------------------------------
+
+-- | Generic jump
+jumpFn :: (Int -> Int) -> IO ()
+jumpFn fn = modifyST \st ->
+    st { cursor = (fn (cursor st) `min` (size st - 1)) `max` 0 }
+
+-- | Move cursor up or down
+upOne, downOne :: IO ()
+upOne   = jumpFn (subtract 1)
+downOne = jumpFn (+1)
+
 page :: Int -> IO ()
 page dir = do
     (sz, _) <- UI.screenSize
-    modifySTM $ flip jumpTo (+ dir*(sz-5))
+    jumpFn (+ dir*(sz-5))
+
 upPage, downPage :: IO ()
 upPage   = page (-1)
 downPage = page ( 1)
 
-
-------------------------------------------------------------------------
-
--- | Move cursor up or down
-up, down :: IO ()
-up   = modifySTM $ flip jumpTo (subtract 1)
-down = modifySTM $ flip jumpTo (+1)
-
 -- | Move cursor to specified index
 jump :: Int -> IO ()
-jump i = modifySTM $ flip jumpTo (const i)
+jump = jumpFn . const
 
 -- | Jump to relative place, 0 to 1.
 jumpRel :: Float -> IO ()
 jumpRel r | r < 0 || r >= 1 = pure ()
-          | True = modifySTM \st ->
-                pure st { cursor = floor $ fromIntegral (size st) * r }
-
--- | Generic jump
---   TODO why is this in IO?
-jumpTo :: HState -> (Int -> Int) -> IO HState
-jumpTo st fn = do
-    let l = max 0 (size st - 1)
-        i = fn (cursor st)
-        n | i > l = l
-          | i < 0 = 0
-          | True  = i
-    pure st { cursor = n }
+          | True = modifyST $ \st ->
+              st { cursor = floor $ fromIntegral (size st) * r }
 
 ------------------------------------------------------------------------
 
