@@ -179,8 +179,8 @@ delete' = ['\BS', '\DEL', unkey KeyBackspace]
 
 keyTable :: [(String, [Char], IO ())]
 keyTable =
-    [ ("Move up",                                 ['k',unkey KeyUp],    up)
-    , ("Move down",                               ['j',unkey KeyDown],  down)
+    [ ("Move up",                                 ['k',unkey KeyUp],    upOne)
+    , ("Move down",                               ['j',unkey KeyDown],  downOne)
     , ("Page down",                               [unkey KeyNPage],     downPage)
     , ("Page up",                                 [unkey KeyPPage],     upPage)
     , ("Jump to start of list",                   [unkey KeyHome,'0'],  jump 0)
