@@ -2,7 +2,7 @@
 
 -- 
 -- Copyright (C) 2004-5 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2019-2022 Galen Huntington
+-- Copyright (c) 2019-2026 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -50,7 +50,7 @@ import State
 import Syntax
 import Config
 import qualified UI.HSCurses.Curses as Curses
-import {-# SOURCE #-} Keymap    (extraTable, keyTable, unkey, charToKey)
+import {-# SOURCE #-} Keymap    (keyTable, unkey, charToKey)
 
 import Data.Array               ((!), bounds, Array)
 import Data.Array.Base          (unsafeAt)
@@ -63,6 +63,7 @@ import Foreign.C.Error (Errno(..), getErrno)
 
 import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Unsafe as B
 import qualified Data.ByteString.UTF8 as UTF8
 
 
@@ -314,9 +315,7 @@ modalWidth w = max (min w 3) $ round $ fromIntegral w * (0.8::Float)
 instance ModalElement HelpModal where
     drawModal sty swd st = do
         guard $ helpVisible st
-        pure $ (wd,) $
-            [ Fast (f cs h) sty | (h,cs,_) <- keyTable ] ++
-            [ Fast (f cs h) sty | (h,cs) <- extraTable ]
+        pure (wd, [ Fast (f cs h) sty | (h, cs, _) <- keyTable ])
         where
             wd = modalWidth swd
             f :: [Char] -> String -> ByteString
@@ -667,8 +666,9 @@ drawLine _ (FancyS ls) = traverse_ (uncurry drawAmbiString) ls
 
 drawAmbiString :: AmbiString -> Style -> IO ()
 drawAmbiString as sty = withStyle sty $ case as of
-    B ps -> void $ B.useAsCString ps \cstr ->
-                waddnstr Curses.stdScr cstr (fromIntegral $ P.length ps)
+    -- Safe because C only reads the string.
+    B ps -> void $ B.unsafeUseAsCStringLen ps \ (cstr, len) ->
+                waddnstr Curses.stdScr cstr (fromIntegral len)
     U s  -> Curses.wAddStr Curses.stdScr s
 {-# INLINE drawAmbiString #-}
 

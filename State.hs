@@ -1,6 +1,6 @@
 -- 
 -- Copyright (c) 2004-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2019-2024 Galen Huntington
+-- Copyright (c) 2019-2026 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -71,6 +71,7 @@ data HState = HState {
        ,uptime          :: !ByteString
        ,boottime        :: !TimeSpec
        ,regex           :: !(Maybe (Regex,Bool)) -- most recent search pattern and direction
+       ,searchHist      :: [String]              -- history of searches
        ,xterm           :: !Bool
        ,doNotResuscitate :: !Bool                -- should we just let mpg123 die?
        ,playHist        :: Seq (TimeSpec, Int)  -- limited history of songs played
@@ -106,6 +107,7 @@ emptySt = HState {
        ,info         = Nothing
        ,id3          = Nothing
        ,regex        = Nothing
+       ,searchHist   = []
 
        ,clockUpdate      = False
        ,helpVisible      = False

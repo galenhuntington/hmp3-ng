@@ -2,7 +2,7 @@
 
 -- 
 -- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2008, 2019-2025 Galen Huntington
+-- Copyright (c) 2008, 2019-2026 Galen Huntington
 -- 
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
@@ -33,7 +33,7 @@ module Core (
         seekStart,
         blacklist,
         showHist, hideHist,
-        jumpToMatch, jumpToMatchFile,
+        jumpToMatchDir, jumpToMatchFile,
         toggleFocus, jumpToNextDir, jumpToPrevDir,
         loadConfig,
         discardErrors,
@@ -53,7 +53,7 @@ import qualified Tree (File,Dir)
 import qualified UI
 
 import Text.Regex.PCRE.Light
-import {-# SOURCE #-} Keymap (keymap)
+import {-# SOURCE #-} Keymap (keyLoop)
 
 import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString.UTF8 as UTF8
@@ -270,10 +270,7 @@ mpgInput field = runForever $ do
 
 -- | The main thread: handle keystrokes fed to us by curses
 run :: IO ()
-run = runForever $ sequence_ . keymap =<< getKeys
-  where
-    -- A lazy list of curses keys
-    getKeys = unsafeInterleaveIO $ (:) <$> UI.getKey <*> getKeys
+run = runForever keyLoop
 
 ------------------------------------------------------------------------
 
@@ -503,8 +500,8 @@ jumpToMatchFile re sw = genericJumpToMatch re sw k sel
     where k st = (music st, if size st == 0 then -1 else cursor st, size st)
           sel i _ = i
 
-jumpToMatch  :: Maybe String -> Bool -> IO ()
-jumpToMatch     re sw = genericJumpToMatch re sw k sel
+jumpToMatchDir :: Maybe String -> Bool -> IO ()
+jumpToMatchDir re sw = genericJumpToMatch re sw k sel
     where k st = (folders st
                      , if size st == 0 then -1 else fdir (music st ! cursor st)
                      , 1 + (snd . bounds $ folders st))

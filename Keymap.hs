@@ -1,207 +1,176 @@
--- 
+--
 -- Copyright (c) 2004-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2008, 2019-2025 Galen Huntington
--- 
+-- Copyright (c) 2008, 2019-2026 Galen Huntington
+--
 -- This program is free software; you can redistribute it and/or
 -- modify it under the terms of the GNU General Public License as
 -- published by the Free Software Foundation; either version 2 of
 -- the License, or (at your option) any later version.
--- 
+--
 -- This program is distributed in the hope that it will be useful,
 -- but WITHOUT ANY WARRANTY; without even the implied warranty of
 -- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 -- General Public License for more details.
--- 
+--
 -- You should have received a copy of the GNU General Public License
 -- along with this program; if not, write to the Free Software
 -- Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 -- 02111-1307, USA.
--- 
+--
 
 --
--- | Keymap manipulation
+-- | Keymap manipulation.
 --
--- The idea of using lazy lexers to implement keymaps is described in
--- the paper:
+-- Each "mode" of the keymap is a 'KeyMap': a closure that consumes one
+-- keystroke and returns the 'KeyMap' to use for the next one.  Modal
+-- transitions (entering search, popping up the song-history modal,
+-- confirming a quit) are just "return a different 'KeyMap'."
 --
--- >  Dynamic Applications From the Ground Up. Don Stewart and Manuel M.
--- >  T. Chakravarty. In Proceedings of the ACM SIGPLAN Workshop on
--- >  Haskell, pages 27-38. ACM Press, 2005.
--- 
--- See that for more info.
---
-module Keymap where
+module Keymap (keyLoop, keyTable, unkey, charToKey) where
 
-import Prelude ()
-import Base hiding (all, delete, (!?))
+import Base hiding ((!?))
 
 import Core
 import Config       (package)
-import State        (getsST, touchST, HState(helpVisible, histVisible))
+import State        (getsST, touchST, modifyST, HState(histVisible, searchHist))
 import Style        (defaultSty, StringA(Fast))
-import qualified UI (resetui)
-import Lexers       ((>||<),action,meta,execLexer
-                    ,alt,with,char,Regexp,Lexer)
+import qualified UI (getKey, resetui)
 
 import UI.HSCurses.Curses (Key(..), decodeKey)
 
 import qualified Data.ByteString.Char8 as P
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 
-data Direction = Forwards | Backwards deriving stock Eq
-data Zipper = Zipper { cur :: !String, back :: ![String], front :: ![String] }
-data SearchWhat = SearchFiles | SearchDirs
-data SearchType = SearchType
-    { schChar :: !Char
-    , schWhat :: !SearchWhat
-    , schDir  :: !Direction
-    }
-data SearchSpec = SearchSpec
-    { schType   :: !SearchType
-    , schZipper :: !Zipper
-    }
-data SearchState = SearchState
-    { schHist :: ![String]
-    , schSpec :: SearchSpec
-    }
-
-type LexerS = Lexer SearchState (IO ())
-type Result = Maybe (Either String (IO ()))
-type MetaTarget = (Result, SearchState, Maybe LexerS)
-
---
--- The keymap
---
-keymap :: [Char] -> [IO ()]
-keymap cs = map (clrmsg *>) actions
-    where (actions,_,_) = execLexer allKeys (cs, SearchState [] undefined)
-
-allKeys :: LexerS
-allKeys = commands >||< search >||< history >||< confirmQuit
-
-commands :: LexerS
-commands = alt keys `action` \[c] -> Just $ fromMaybe (pure ()) $ M.lookup c keyMap
 
 ------------------------------------------------------------------------
+-- The keymap driver
 
-search :: LexerS
-search = searchDirs >||< searchFiles
+-- | A 'KeyMap' handles the next keystroke and produces the 'KeyMap' to
+-- use thereafter.
+newtype KeyMap = KeyMap (Char -> IO KeyMap)
 
-searchStart :: Char -> SearchWhat -> Direction -> LexerS
-searchStart c typ dir = char c `meta` \_ (SearchState hist _) ->
-    (with (toggleFocus *> putmsg (Fast (P.singleton c) defaultSty) *> touchST)
-    , SearchState hist $ SearchSpec (SearchType c typ dir) (Zipper "" hist [])
-    , Just dosearch)
+-- | Read keys forever and dispatch.  Each round clears the minibuffer
+-- between the keystroke and the action so messages from the previous
+-- action remain visible until the user reacts.
+keyLoop :: IO ()
+keyLoop = go mainMode where
+    go (KeyMap f) = UI.getKey >>= \c -> clrmsg *> f c >>= go
 
-searchDirs :: LexerS
-searchDirs =  searchStart '\\' SearchDirs Forwards
-        >||< searchStart '|' SearchDirs Backwards
 
-searchFiles :: LexerS
-searchFiles = searchStart '/' SearchFiles Forwards
-        >||< searchStart '?' SearchFiles Backwards
+------------------------------------------------------------------------
+-- Top-level normal mode
 
-dosearch :: LexerS
-dosearch = search_char >||< search_bs
-    >||< search_up >||< search_down >||< search_del
-    >||< search_esc >||< search_eval
+mainMode :: KeyMap
+mainMode = KeyMap dispatch where
+    dispatch 'q'  = forcePause *> toggleExit *> touchST $> confirmQuitMode
+    dispatch c
+        | c `elem` ['/', '?', '\\', '|']
+                               = enterSearch c
+        | c `elem` ['H', ';']  = showHist *> touchST $> historyMode
+        | c >= '1' && c <= '9' =
+            jumpRel (0.1 * fromIntegral (fromEnum c - 48)) $> mainMode
+        | True                 = sequence_ (M.lookup c keyMap) $> mainMode
 
-endSearchWith :: IO () -> [String] -> MetaTarget
-endSearchWith a hist = (with (a *> toggleFocus), SearchState hist undefined, Just allKeys)
+    enterSearch stype = do
+        toggleFocus
+        hist <- getsST searchHist
+        searchMode stype $ Zipper "" hist []
 
--- "lens"
-zipEdit :: (String -> String) -> Zipper -> Zipper
-zipEdit f zipp = zipp{cur = f $ cur zipp}
 
-printSearch :: SearchSpec -> Maybe (Either a (IO ()))
-printSearch spec = with do
-    putmsg $ Fast (P.pack $ schChar (schType spec) : cur (schZipper spec)) defaultSty
+------------------------------------------------------------------------
+-- Search mode
+
+-- | Zipper over the search-history list, with the currently edited
+-- string in the focus.  'back' holds older entries we can step back
+-- to (Up); 'front' holds entries we've stepped back from (Down).
+data Zipper = Zipper { cur :: !String, _back :: ![String], _front :: ![String] }
+
+searchMode :: Char -> Zipper -> IO KeyMap
+searchMode stype = step where
+    step z = renderSearch stype z $> KeyMap (`dispatch` z)
+
+    dispatch c z
+        | c == '\ESC'      = clrmsg *> touchST *> leave
+        | c `elem` enter'  = commit z
+        | c `elem` delete' = step $ zipEdit dropLast z
+        | k == KeyUp       = step $ zipUp z
+        | k == KeyDown     = step $ zipDown z
+        | k == KeyDC       = histDelete z
+        | c > '\255'       = step z         -- ignore other special keys
+        | otherwise        = step $ zipEdit (++ [c]) z
+      where k = charToKey c
+
+    commit (Zipper []  _ _) = clrmsg *> touchST *> leave
+    commit (Zipper pat _ _) = do
+        let jumpy = if stype `elem` ['/', '?']
+                    then jumpToMatchFile else jumpToMatchDir
+        jumpy (Just pat) (stype `elem` ['/', '\\'])
+        modifyST \st -> st { searchHist = pat : filter (/= pat) (searchHist st) }
+        leave
+
+    histDelete z = do
+        let z' = case z of
+                Zipper _ b (pv:rest) -> Zipper pv b rest
+                Zipper _ b _         -> Zipper "" b []
+        modifyST \st -> st { searchHist = filter (/= cur z) (searchHist st) }
+        step z'
+
+    leave = toggleFocus $> mainMode
+
+renderSearch :: Char -> Zipper -> IO ()
+renderSearch prefix z = do
+    putmsg $ Fast (P.pack (prefix : cur z)) defaultSty
     touchST
 
-updateSearch :: (Zipper -> Zipper) -> SearchState -> MetaTarget
-updateSearch f sst@(SearchState _ spec) =
-    let spec' = spec{ schZipper = f $ schZipper spec }
-    in (printSearch spec', sst{schSpec=spec'}, Just dosearch)
+dropLast :: [a] -> [a]
+dropLast [] = []
+dropLast xs = init xs
 
-search_char :: LexerS
-search_char = anyNonSpecial `meta` \c -> updateSearch $ zipEdit (++ c)
-    where anyNonSpecial = alt $ any' \\ (enter' ++ delete' ++ ['\ESC'])
+zipEdit :: (String -> String) -> Zipper -> Zipper
+zipEdit f z = z { cur = f (cur z) }
 
-search_bs :: LexerS
-search_bs = delete `meta`
-    \_ -> updateSearch $ zipEdit \case [] -> []; xs -> init xs
-
-search_up :: LexerS
-search_up = char (unkey KeyUp) `meta` \_ -> updateSearch \case
-    Zipper cur (nx:rest) front -> Zipper nx rest (cur:front)
-    zipp                       -> zipp
-
-search_down :: LexerS
-search_down = char (unkey KeyDown) `meta` \_ -> updateSearch \case
-    Zipper cur back (pv:rest) -> Zipper pv (cur:back) rest
-    zipp                      -> zipp
-
-search_del :: LexerS
-search_del = char (unkey KeyDC) `meta` \_ sst -> let
-    (r, sst', ml) = flip updateSearch sst \case
-        Zipper _ back (pv:rest) -> Zipper pv back rest
-        Zipper _ back _         -> Zipper "" back []
-    newhist = let Zipper cur _ _ = schZipper $ schSpec sst
-              in filter (/=cur) $ schHist sst
-    in (r, sst'{schHist = newhist}, ml)
-
-search_esc :: LexerS
-search_esc = char '\ESC' `meta`
-    \_ (SearchState hist _) -> endSearchWith (clrmsg *> touchST) hist
-
-search_eval :: LexerS
-search_eval = enter `meta` \_ (SearchState hist spec) -> case cur $ schZipper spec of
-    []  -> endSearchWith (clrmsg *> touchST) hist
-    pat ->
-        let typ = schType spec
-            jumpy = case schWhat typ of
-              SearchFiles -> jumpToMatchFile
-              SearchDirs  -> jumpToMatch
-        in endSearchWith
-            do jumpy (Just pat) (schDir typ == Forwards)
-            do pat : filter (/= pat) hist
+zipUp, zipDown :: Zipper -> Zipper
+zipUp   (Zipper c (nx:rest) f)  = Zipper nx rest (c:f)
+zipUp   z                       = z
+zipDown (Zipper c b (pv:rest))  = Zipper pv (c:b) rest
+zipDown z                       = z
 
 
 ------------------------------------------------------------------------
+-- Song-history popup
 
-history :: LexerS
-history = alt ['H', ';'] `meta`
-        \_ sst -> (with (showHist *> touchST), sst, Just inner) where
-    inner =
-        alt any' `meta` (\_ sst -> (with (hideHist *> touchST), sst, Just allKeys))
-        >||< alt ['0'..'9'] `meta` handleKey '0' 0
-        >||< alt ['a'..'z'] `meta` handleKey 'a' 10
-    handleKey base off cs sst =
-        (with do
-            phm <- getsST histVisible
-            for_
-                do phm >>= (!? (fromEnum (head cs) - (fromEnum base - off)))
-                do jump . fst . snd
-            hideHist
-            touchST
-        , sst
-        , Just allKeys
-        )
+historyMode :: KeyMap
+historyMode = KeyMap \c -> do
+    for_ (M.lookup c historyKeys) \k -> do
+        phm <- getsST histVisible
+        for_ (phm >>= (!? k)) (jump . fst . snd)
+    hideHist
+    touchST
+    pure mainMode
+  where
+    historyKeys :: M.Map Char Int
+    historyKeys = M.fromList $ zip (['0'..'9'] ++ ['a'..'z']) [0..]
+
     -- Compatibility: List.!? only added in GHC 9.8
     xs !? n = listToMaybe $ drop n xs
 
-------------------------------------------------------------------------
-
-confirmQuit :: LexerS
-confirmQuit = char 'q' `meta`
-                \_ sst -> (with (forcePause *> toggleExit *> touchST), sst, Just inner) where
-    inner = alt any' `meta` (\_ sst -> (with (toggleExit *> touchST), sst, Just allKeys))
-            >||< char 'y' `meta` (\_ sst -> (with $ quit Nothing, sst, Nothing))
 
 ------------------------------------------------------------------------
+-- Confirm-quit modal
 
--- "Key"s seem to be inscrutable and incomparable.
--- So, add an orphan instance to help translate to chars.
+confirmQuitMode :: KeyMap
+confirmQuitMode = KeyMap \case
+    'y' -> quit Nothing $> undefined -- quit never returns
+    _   -> toggleExit *> touchST $> mainMode
+
+
+------------------------------------------------------------------------
+-- Char ↔ Key translation
+--
+-- ncurses delivers special keys as integer codes ≥ 256; for everything
+-- in 0..255 'decodeKey' returns 'KeyChar (chr n)'.  We keep working in
+-- 'Char' (UI.getKey's type), so we extend the range up to '\500' to
+-- cover the named keys we actually use (KEY_RESIZE is around 410).
 
 deriving stock instance Ord Key
 
@@ -209,97 +178,56 @@ charToKey :: Char -> Key
 charToKey = decodeKey . toEnum . fromEnum
 
 keyCharMap :: M.Map Key Char
-keyCharMap = M.fromList [(charToKey c, c) | c <- ['\0' .. '\377']]
+keyCharMap = M.fromList [(charToKey c, c) | c <- ['\0' .. '\500']]
 
 unkey :: Key -> Char
 unkey k = fromMaybe '\0' $ M.lookup k keyCharMap
 
-enter', any', digit', delete' :: [Char]
-enter'   = ['\n', '\r']
-delete'  = ['\BS', '\DEL', unkey KeyBackspace]
-any'     = ['\0' .. '\255']
-digit'   = ['0' .. '9']
+enter', delete' :: [Char]
+enter'  = ['\n', '\r']
+delete' = ['\BS', '\DEL', unkey KeyBackspace]
 
-delete, enter :: Regexp SearchState (IO ())
-delete  = alt delete'
-enter   = alt enter'
 
 ------------------------------------------------------------------------
+-- The keymap with help descriptions and actions.
 
---
--- The default keymap, and its description
---
 keyTable :: [(String, [Char], IO ())]
 keyTable =
-    [
-     ("Move up",
-        ['k',unkey KeyUp],    up)
-    ,("Move down",
-        ['j',unkey KeyDown],  down)
-    ,("Page down",
-        [unkey KeyNPage], downPage)
-    ,("Page up",
-        [unkey KeyPPage], upPage)
-    ,("Jump to start of list",
-        [unkey KeyHome,'0'],  jump 0)
-    ,("Jump to end of list",
-        [unkey KeyEnd,'G'],   jump maxBound)
-    ,("Jump to 10%, 20%, 30%, etc., point",
-        ['1','2','3'], undefined) -- overridden below
-    ,("Seek left within song",
-        [unkey KeyLeft],  seekLeft)
-    ,("Seek right within song",
-        [unkey KeyRight], seekRight)
-    ,("Toggle pause",
-        [' '],   pause)
-    ,("Play song under cursor",
-        ['\n'],  play)
-    ,("Play previous track",
-        ['K'],   playPrev)
-    ,("Play next track",
-        ['J'],   playNext)
-    ,("Toggle the help screen",
-        ['h'],   toggleHelp)
-    ,("Jump to currently playing song",
-        ['t'],   jumpToPlaying)
-    ,("Select and play next track",
-        ['d'],   playNext *> jumpToPlaying)
-    ,("Cycle through normal, random, loop, and single modes",
-        ['m'],   nextMode)
-    ,("Refresh the display",
-        ['\^L'], UI.resetui)
-    ,("Repeat last regex search",
-        ['n'],   jumpToMatchFile Nothing True)
-    ,("Repeat last regex search backwards",
-        ['N'],   jumpToMatchFile Nothing False)
-    ,("Play",
-        ['p'],   playCur)
-    ,("Mark for deletion in .hmp3-delete",
-        ['D'],   blacklist)
-    ,("Load config file",
-        ['l'],   loadConfig)
-    ,("Restart song",
-        [unkey KeyBackspace],   seekStart)
+    [ ("Move up",                                 ['k',unkey KeyUp],    up)
+    , ("Move down",                               ['j',unkey KeyDown],  down)
+    , ("Page down",                               [unkey KeyNPage],     downPage)
+    , ("Page up",                                 [unkey KeyPPage],     upPage)
+    , ("Jump to start of list",                   [unkey KeyHome,'0'],  jump 0)
+    , ("Jump to end of list",                     [unkey KeyEnd,'G'],   jump maxBound)
+    , ("Jump to 10%, 20%, 30%, etc., point",      ['1','2','3'],        placeholder)
+    , ("Seek left within song",                   [unkey KeyLeft],      seekLeft)
+    , ("Seek right within song",                  [unkey KeyRight],     seekRight)
+    , ("Toggle pause",                            [' '],                pause)
+    , ("Play song under cursor",                  ['\n'],               play)
+    , ("Play previous track",                     ['K'],                playPrev)
+    , ("Play next track",                         ['J'],                playNext)
+    , ("Toggle the help screen",                  ['h'],                toggleHelp)
+    , ("Jump to currently playing song",          ['t'],                jumpToPlaying)
+    , ("Select and play next track",              ['d'],                playNext *> jumpToPlaying)
+    , ("Cycle through normal, random, loop, and single modes",
+                                                  ['m'],                nextMode)
+    , ("Refresh the display",                     ['\^L'],              UI.resetui)
+    , ("Repeat last regex search",                ['n'],                jumpToMatchFile Nothing True)
+    , ("Repeat last regex search backwards",      ['N'],                jumpToMatchFile Nothing False)
+    , ("Play",                                    ['p'],                playCur)
+    , ("Mark for deletion in .hmp3-delete",       ['D'],                blacklist)
+    , ("Load config file",                        ['l'],                loadConfig)
+    , ("Restart song",                            [unkey KeyBackspace], seekStart)
+    , ("Toggle the song history",                 ['H', ';'],           placeholder)
+    , ("Search for file matching regex",          ['/'],                placeholder)
+    , ("Search backwards for file",               ['?'],                placeholder)
+    , ("Search for directory matching regex",     ['\\'],               placeholder)
+    , ("Search backwards for directory",          ['|'],                placeholder)
+    , ("Quit " ++ package,                        ['q'],                placeholder)
     ]
+  where placeholder = pure () -- handled separately
 
-innerTable :: [(Char, IO ())]
-innerTable = [(c, jumpRel i) | (i, c) <- zip [0.1, 0.2 ..] ['1'..'9']]
-
-extraTable :: [(String, [Char])]
-extraTable = [("Toggle the song history", ['H', ';'])
-             ,("Search for file matching regex", ['/'])
-             ,("Search backwards for file", ['?'])
-             ,("Search for directory matching regex", ['\\'])
-             ,("Search backwards for directory", ['|'])
-             -- ,("Quit (or close help screen)", ['q'])
-             ,("Quit " ++ package, ['q'])
-             ]
-
-helpIsVisible :: IO Bool
-helpIsVisible = getsST helpVisible
-
+-- Compiled dispatch table for normal-mode single-key commands.
 keyMap :: M.Map Char (IO ())
-keyMap = M.fromList $ [ (c,a) | (_,cs,a) <- keyTable, c <- cs ] ++ innerTable
+keyMap = M.fromList [ (c, a) | (_, cs, a) <- keyTable, c <- cs ]
 
-keys :: [Char]
-keys = concat [ cs | (_,cs,_) <- keyTable ] ++ map fst innerTable
