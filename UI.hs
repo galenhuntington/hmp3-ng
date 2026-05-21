@@ -44,7 +44,6 @@ import Foreign.C.Types
 import Foreign.C.Error (Errno(..), getErrno)
 
 import qualified Data.ByteString.Char8 as P
-import qualified Data.ByteString as B
 import qualified Data.ByteString.Unsafe as B
 import qualified Data.ByteString.UTF8 as UTF8
 
@@ -259,13 +258,12 @@ instance Element PPlaying where
         x       = sizeW $ drawSize dd
         PId3 a  = draw dd
         PInfo b = draw dd
-        s       = UTF8.toString a
-        line | gap >= 0 = U s : B (spaces gap) : right
-             | True     = U (ellipsize lim s) : right
+        line | gap >= 0 = a : spaces gap : right
+             | True     = ellipsize lim a : right
             where lim = x - 5 - (if showId3 then P.length b else -1)
-                  gap = lim - displayWidth s
+                  gap = lim - displayWidth a
                   showId3 = x > 59
-                  right = if showId3 then [B " ", B b] else []
+                  right = if showId3 then [" ", b] else []
 
 -- | Id3 Info
 instance Element PId3 where
@@ -284,8 +282,8 @@ instance Element PInfo where
 emptyVal :: ByteString
 emptyVal = "(empty)"
 
-spc2 :: AmbiString
-spc2 = B $ spaces 2
+spc2 :: ByteString
+spc2 = spaces 2
 
 modalWidth :: Int -> Int
 modalWidth w = max (min w 3) $ round $ fromIntegral w * (0.8::Float)
@@ -301,37 +299,37 @@ instance ModalElement HelpModal where
         where
             wd = modalWidth swd
             f :: [Char] -> String -> ByteString
-            f cs ps = UTF8.fromString $ forceWidth wd
-                        $ forceWidth clen cmds <> ps where
+            f cs ps = forceWidth wd
+                        $ forceWidth clen cmds <> UTF8.fromString ps where
                 clen = max 4 $ round $ fromIntegral wd * (0.2::Float)
-                cmds = unwords $ "" : map pprIt cs
+                cmds = P.unwords ("" : map pprIt cs)
                 pprIt c = case c of
-                      '\n'            -> "Enter"
-                      '\f'            -> "^L"
-                      '\\'            -> "\\"
-                      ' '             -> "Space"
+                      '\n' -> "Enter"
+                      '\f' -> "^L"
+                      '\\' -> "\\"
+                      ' '  -> "Space"
                       _ -> case charToKey c of
-                        Curses.KeyUp    -> "↑"
-                        Curses.KeyDown  -> "↓"
-                        Curses.KeyPPage -> "PgUp"
-                        Curses.KeyNPage -> "PgDn"
-                        Curses.KeyLeft  -> "←"
-                        Curses.KeyRight -> "→"
-                        Curses.KeyEnd   -> "End"
-                        Curses.KeyHome  -> "Home"
+                        Curses.KeyUp        -> UTF8.fromString "↑"
+                        Curses.KeyDown      -> UTF8.fromString "↓"
+                        Curses.KeyPPage     -> "PgUp"
+                        Curses.KeyNPage     -> "PgDn"
+                        Curses.KeyLeft      -> UTF8.fromString "←"
+                        Curses.KeyRight     -> UTF8.fromString "→"
+                        Curses.KeyEnd       -> "End"
+                        Curses.KeyHome      -> "Home"
                         Curses.KeyBackspace -> "Backspace"
-                        _ -> [c]
+                        _ -> UTF8.fromString [c]
 
 ------------------------------------------------------------------------
 
 instance ModalElement HistModal where
     drawModal sty swd st = flip fmap (histVisible st) \hist -> do
         let wd = modalWidth swd
-            mtlen = maximum $ map (length . fst) hist
+            mtlen = maximum $ map (displayWidth . fst) hist
             tlen = min (mtlen + 1) $ wd `div` 3
         (wd,) $ flip map (zip (['0'..'9']++['a'..'z']) hist) \ (c, (time, (_, song))) ->
-            let tstr = ellipsize tlen $ replicate (tlen - displayWidth time) ' ' ++ time
-            in Fast (UTF8.fromString $ forceWidth wd $ ' ' : c : ' ' : tstr ++ ' ' : song) sty
+            let tstr = ellipsize tlen $ P.replicate (tlen - displayWidth time) ' ' <> time
+            in Fast (forceWidth wd $ " " <> P.singleton c <> " " <> tstr <> " " <> song) sty
 
 ------------------------------------------------------------------------
 
@@ -339,10 +337,10 @@ instance ModalElement ExitModal where
     drawModal sty swd st = do
         guard $ exitVisible st
         let wd = modalWidth swd `min` 19
-            blank = Fast (UTF8.fromString $ forceWidth wd "") sty
-            padl = replicate ((wd - 9) `div` 2) ' '
-            msg = forceWidth wd $ padl ++ "Exit (y)?"
-        pure (wd, [blank, Fast (UTF8.fromString msg) sty, blank])
+            blank = Fast (forceWidth wd "") sty
+            padl = P.replicate ((wd - 9) `div` 2) ' '
+            msg = forceWidth wd $ padl <> "Exit (y)?"
+        pure (wd, [blank, Fast msg sty, blank])
 
 ------------------------------------------------------------------------
 
@@ -351,9 +349,9 @@ instance Element PTimes where
     draw DD { drawFrame=Just Frame {..}, drawSize=Size{sizeW=x} } =
         PTimes $ FancyS $ map (, defaultSty)
             if x - 4 < P.length elapsed
-            then [B " "]
-            else [spc2, B elapsed]
-                    ++ (guard (distance > 0) *> [B gap, B remaining])
+            then [" "]
+            else [spc2, elapsed]
+                    ++ (guard (distance > 0) *> [gap, remaining])
       where
         elapsed   = P.pack $ printf "%d:%02d" l_m l_s
         remaining = P.pack $ printf "-%d:%02d" r_m r_s
@@ -371,15 +369,15 @@ instance Element PTimes where
 instance Element ProgressBar where
     draw dd@DD{drawSize=Size{sizeW=w}, drawState=st} = case drawFrame dd of
       Nothing -> ProgressBar . FancyS $
-              [(spc2,defaultSty) ,(B $ spaces (w-4), bgs)]
-        where 
+              [(spc2, defaultSty), (spaces (w-4), bgs)]
+        where
           (Style _ bg) = progress (config st)
           bgs          = Style bg bg
       Just Frame {..} -> ProgressBar . FancyS $
           [(spc2, defaultSty)
-          ,(B $ spaces distance, fgs)
-          ,(B $ spaces (width - distance), bgs)]
-        where 
+          ,(spaces distance, fgs)
+          ,(spaces (width - distance), bgs)]
+        where
           width    = w - 4
           total    = curr + left
           distance = round ((curr / total) * fromIntegral width)
@@ -452,17 +450,18 @@ instance Element PlayTitle where
     draw dd =
         PlayTitle $ FancyS $ map (,hl)
             if gap >= 2
-            then [B $ mconcat [space,inf,spaces gapl], U modes,
-                    B $ mconcat [spaces gapr,time,space,ver,space]]
+            then [mconcat [space,inf,spaces gapl], modesBS,
+                    mconcat [spaces gapr,time,space,ver,space]]
             else let gap' = x - modlen; gapl' = gap' `div` 2
                  in if gap' >= 2
-                    then [B $ spaces gapl', U modes, B $ spaces $ gap' - gapl']
-                    else [B space, U $ take (x-2) modes, B space]
+                    then [spaces gapl', modesBS, spaces $ gap' - gapl']
+                    else [space, UTF8.fromString (take (x-2) modes), space]
       where
         PlayInfo inf    = draw dd
         PTime time      = draw dd
         PlayModes modes = draw dd
         PVersion ver    = draw dd
+        modesBS         = UTF8.fromString modes
 
         x       = sizeW $ drawSize dd
         lsize   = 1 + P.length inf
@@ -506,45 +505,44 @@ instance Element PlayList where
                 where off = screens * buflen
 
             -- TODO rewrite as fold
-            visible' :: [(Maybe Int, String)]
+            visible' :: [(Maybe Int, ByteString)]
             visible' = loop (-1) visible where
                 loop _ []     = []
                 loop n (v:vs) =
                     let r = if fdir v > n then Just (fdir v) else Nothing
-                    in (r, ellipsize (x - indent - 1) $ UTF8.toString $ fbase v)
+                    in (r, ellipsize (x - indent - 1) (fbase v))
                             : loop (fdir v) vs
 
             list   = [ drawIt . color $ n | n <- zip visible' [0..] ]
 
             indent = (round $ (0.334 :: Float) * fromIntegral x) :: Int
-                
-            color :: ((Maybe Int, String), Int)
-                        -> (Maybe Int, Style, [AmbiString])
-            color ((m,s),i) 
+
+            color :: ((Maybe Int, ByteString), Int)
+                        -> (Maybe Int, Style, [ByteString])
+            color ((m,s),i)
                 | i == select && i == playing = f sty3
                 | i == select                 = f sty2
                 | i == playing                = f sty1
-                | otherwise                   = (m, defaultSty, [U s])
+                | otherwise                   = (m, defaultSty, [s])
                 where
-                    f sty = (m, sty, [
-                        U s,
-                        B $ spaces (x - indent - 1 - displayWidth s)])
-            
+                    f sty = (m, sty,
+                        [s, spaces (x - indent - 1 - displayWidth s)])
+
             sty1 = selected . config $ st
             sty2 = cursors  . config $ st
             sty3 = combined . config $ st
 
-            drawIt :: (Maybe Int, Style, [AmbiString]) -> StringA
+            drawIt :: (Maybe Int, Style, [ByteString]) -> StringA
             drawIt (Nothing, sty, v) =
-                FancyS $ map (, sty) $ B (spaces (1 + indent)) : v
+                FancyS $ map (, sty) $ spaces (1 + indent) : v
 
             drawIt (Just i, sty, v) = FancyS
-                $ (U d, sty')
-                : (B $ spaces (indent + 1 - displayWidth d), sty')
+                $ (d, sty')
+                : (spaces (indent + 1 - displayWidth d), sty')
                 : map (, sty) v
               where
                 sty' = if sty == sty2 || sty == sty3 then sty2 else sty1
-                d = ellipsize (indent - 1) $ UTF8.toString $ basenameP
+                d = ellipsize (indent - 1) $ basenameP
                         $ case size st of
                             0 -> "(empty)"
                             _ -> dname $ folders st ! i
@@ -643,16 +641,15 @@ redraw = Draw $ discardErrors do
 -- | Draw a coloured (or not) string to the screen
 --
 drawLine :: Int -> StringA -> IO ()
-drawLine _ (Fast ps sty) = drawAmbiString (B ps) sty
-drawLine _ (FancyS ls) = traverse_ (uncurry drawAmbiString) ls
+drawLine _ (Fast ps sty) = drawSegment ps sty
+drawLine _ (FancyS ls)   = traverse_ (uncurry drawSegment) ls
 
-drawAmbiString :: AmbiString -> Style -> IO ()
-drawAmbiString as sty = withStyle sty $ case as of
-    -- Safe because C only reads the string.
-    B ps -> void $ B.unsafeUseAsCStringLen ps \ (cstr, len) ->
-                waddnstr Curses.stdScr cstr (fromIntegral len)
-    U s  -> Curses.wAddStr Curses.stdScr s
-{-# INLINE drawAmbiString #-}
+-- | Write a single styled UTF-8 segment.  Safe because C only reads the bytes.
+drawSegment :: ByteString -> Style -> IO ()
+drawSegment bs sty = withStyle sty $ void $
+    B.unsafeUseAsCStringLen bs \(cstr, len) ->
+        waddnstr Curses.stdScr cstr (fromIntegral len)
+{-# INLINE drawSegment #-}
 
 
 ------------------------------------------------------------------------
@@ -721,23 +718,37 @@ setXterm s = setXtermTitle $ case status s of
     Paused  -> ["paused"]
     Stopped -> ["stopped"]
 
-displayWidth :: String -> Int
-displayWidth = sum . map charWidth
+-- | Sum of the column widths of every codepoint in a UTF-8 ByteString.
+displayWidth :: ByteString -> Int
+displayWidth = UTF8.foldr (\c acc -> charWidth c + acc) 0
 
-sizer :: Bool -> Int -> String -> String
-sizer pad w s
-  | dw <= w = if pad then s ++ replicate (w - dw) ' ' else s
-  | True    = go 0 0 s where
-    go !i !l (c:s') =
-        if l' > w-1
-            then take i s ++ replicate (w-l) '…'
-            else go (i+1) l' s'
-      where l' = l + charWidth c
-    go _  _ _ = error "Should've been in first case!"
-    dw = displayWidth s
+-- | UTF-8-aware ellipsize/forceWidth.  If 'pad' is True the result is padded
+-- with trailing spaces to exactly 'w' columns; otherwise the input is
+-- returned unchanged when it already fits.  When it does not fit, the
+-- largest UTF-8 prefix whose total column width is < w is taken, and the
+-- remaining columns are filled with ellipsis characters.
+sizer :: Bool -> Int -> ByteString -> ByteString
+sizer pad w bs
+    | dw <= w   = if pad then bs <> P.replicate (w - dw) ' ' else bs
+    | otherwise = walk 0 bs
+  where
+    dw = displayWidth bs
+    walk !l rest = case UTF8.uncons rest of
+        Nothing -> bs <> ellipses (w - l)   -- unreachable: dw > w
+        Just (c, rest') ->
+            let l' = l + charWidth c
+            in if l' > w - 1
+                then P.take (P.length bs - P.length rest) bs
+                        <> ellipses (w - l)
+                else walk l' rest'
 
-ellipsize, forceWidth :: Int -> String -> String
-ellipsize = sizer False
+    ellipses k = mconcat (replicate k ellipsis)
+
+ellipsis :: ByteString
+ellipsis = UTF8.fromString "…"
+
+ellipsize, forceWidth :: Int -> ByteString -> ByteString
+ellipsize  = sizer False
 forceWidth = sizer True
 
 charWidth :: Char -> Int

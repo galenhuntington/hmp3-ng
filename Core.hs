@@ -40,7 +40,6 @@ import Text.Regex.PCRE.Light
 import {-# SOURCE #-} Keymap (keyLoop)
 
 import qualified Data.ByteString.Char8 as P
-import qualified Data.ByteString.UTF8 as UTF8
 import qualified Data.Sequence as Seq
 
 import Data.Array               ((!), bounds, Array)
@@ -535,8 +534,7 @@ showHist = do
         helpVisible = False,
         histVisible = Just $ do
             (tm, ix) <- toList $ playHist st
-            pure (UTF8.toString $ showTimeDiff_ True tm now
-                , (ix, UTF8.toString $ fbase $ music st ! ix))
+            pure (showTimeDiff_ True tm now, (ix, fbase $ music st ! ix))
         }
 
 -- | Toggle the mode flag
