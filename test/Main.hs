@@ -6,6 +6,7 @@ import qualified CoreSpec
 import qualified FastIOSpec
 import qualified LexerSpec
 import qualified TreeSpec
+import qualified WidthSpec
 
 main :: IO ()
 main = defaultMain $ testGroup "hmp3-ng"
@@ -13,4 +14,5 @@ main = defaultMain $ testGroup "hmp3-ng"
     , FastIOSpec.tests
     , LexerSpec.tests
     , TreeSpec.tests
+    , WidthSpec.tests
     ]

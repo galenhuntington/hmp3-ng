@@ -31,6 +31,7 @@ import Tree                     (File(fdir, fbase), Dir(dname))
 import State
 import Syntax
 import Config
+import Width                    (displayWidth, ellipsize, forceWidth)
 import qualified UI.HSCurses.Curses as Curses
 import {-# SOURCE #-} Keymap    (keyTable, unkey, charToKey)
 
@@ -510,7 +511,7 @@ instance Element PlayList where
                 loop _ []     = []
                 loop n (v:vs) =
                     let r = if fdir v > n then Just (fdir v) else Nothing
-                    in (r, ellipsize (x - indent - 1) (fbase v))
+                    in (r, ellipsize (x - indent - 1) $ fbase v)
                             : loop (fdir v) vs
 
             list   = [ drawIt . color $ n | n <- zip visible' [0..] ]
@@ -717,45 +718,6 @@ setXterm s = setXtermTitle $ case status s of
                         else [": ", id3title ti]
     Paused  -> ["paused"]
     Stopped -> ["stopped"]
-
--- | Sum of the column widths of every codepoint in a UTF-8 ByteString.
-displayWidth :: ByteString -> Int
-displayWidth = UTF8.foldr (\c acc -> charWidth c + acc) 0
-
--- | UTF-8-aware ellipsize/forceWidth.  If 'pad' is True the result is padded
--- with trailing spaces to exactly 'w' columns; otherwise the input is
--- returned unchanged when it already fits.  When it does not fit, the
--- largest UTF-8 prefix whose total column width is < w is taken, and the
--- remaining columns are filled with ellipsis characters.
-sizer :: Bool -> Int -> ByteString -> ByteString
-sizer pad w bs
-    | dw <= w   = if pad then bs <> P.replicate (w - dw) ' ' else bs
-    | otherwise = walk 0 bs
-  where
-    dw = displayWidth bs
-    walk !l rest = case UTF8.uncons rest of
-        Nothing -> bs <> ellipses (w - l)   -- unreachable: dw > w
-        Just (c, rest') ->
-            let l' = l + charWidth c
-            in if l' > w - 1
-                then P.take (P.length bs - P.length rest) bs
-                        <> ellipses (w - l)
-                else walk l' rest'
-
-    ellipses k = mconcat (replicate k ellipsis)
-
-ellipsis :: ByteString
-ellipsis = UTF8.fromString "…"
-
-ellipsize, forceWidth :: Int -> ByteString -> ByteString
-ellipsize  = sizer False
-forceWidth = sizer True
-
-charWidth :: Char -> Int
-charWidth = fromIntegral . wcwidth . toEnum . fromEnum
-
-foreign import ccall safe
-    wcwidth :: CWchar -> CInt
 
 --  Not exported by hscurses.
 foreign import ccall safe
