@@ -19,33 +19,33 @@ import Width (displayWidth, toMaxWidth, toWidth)
 tests :: TestTree
 tests = testGroup "Width"
     [ testGroup "displayWidth"
-        [ testCase "empty"             $ displayWidth ""                  @?= 0
-        , testCase "ascii"             $ displayWidth "hello"             @?= 5
-        , testCase "latin-extended"    $ displayWidth (utf8 "café")       @?= 4
-        , testCase "cjk doubles each"  $ displayWidth (utf8 "中文")       @?= 4
-        , testCase "mixed"             $ displayWidth (utf8 "中a文b")     @?= 6
+        [ testCase "empty"             $ displayWidth ""              @?= 0
+        , testCase "ascii"             $ displayWidth "hello"         @?= 5
+        , testCase "latin-extended"    $ displayWidth (u"café")       @?= 4
+        , testCase "cjk doubles each"  $ displayWidth (u"中文")       @?= 4
+        , testCase "mixed"             $ displayWidth (u"中a文b")     @?= 6
         ]
     , testGroup "toMaxWidth"
         [ testCase "wider than input passes through"
-            $ toMaxWidth 10 "hello"        @?= "hello"
+            $ toMaxWidth 10 "hello"    @?= "hello"
         , testCase "exactly the width passes through"
-            $ toMaxWidth 5 "hello"         @?= "hello"
+            $ toMaxWidth 5 "hello"     @?= "hello"
         , testCase "truncate ascii with ellipsis"
-            $ toMaxWidth 4 "hello"         @?= "hel" <> utf8 "…"
+            $ toMaxWidth 4 "hello"     @?= "hel" <> u"…"
         , testCase "narrower truncate"
-            $ toMaxWidth 2 "hello"         @?= "h"   <> utf8 "…"
+            $ toMaxWidth 2 "hello"     @?= "h"   <> u"…"
         , testCase "width one becomes a lone ellipsis"
-            $ toMaxWidth 1 "hello"         @?= utf8 "…"
+            $ toMaxWidth 1 "hello"     @?= u"…"
         , testCase "width zero becomes empty"
-            $ toMaxWidth 0 "hello"         @?= ""
+            $ toMaxWidth 0 "hello"     @?= ""
         , testCase "wide char truncation respects boundaries"
             -- "中文hi" is 6 columns (2+2+1+1); toMaxWidth 4 keeps the first
             -- wide char plus two ellipses to fill the remaining columns.
-            $ toMaxWidth 4 (utf8 "中文hi") @?= utf8 "中……"
+            $ toMaxWidth 4 (u"中文hi") @?= u"中……"
         , testCase "wide char gives way to single ellipsis at the boundary"
             -- "中文" is 4 columns; toMaxWidth 3 keeps the first wide char
             -- (2 columns) plus one ellipsis (1 column).
-            $ toMaxWidth 3 (utf8 "中文")   @?= utf8 "中…"
+            $ toMaxWidth 3 (u"中文")   @?= u"中…"
         ]
     , testGroup "toWidth"
         [ testCase "pads short ascii"
@@ -55,11 +55,11 @@ tests = testGroup "Width"
         , testCase "exact width unchanged"
             $ toWidth 5 "hello"        @?= "hello"
         , testCase "truncate matches toMaxWidth when over-width"
-            $ toWidth 4 "hello"        @?= "hel" <> utf8 "…"
+            $ toWidth 4 "hello"        @?= "hel" <> u"…"
         , testCase "pads after a wide-char content too"
-            $ toWidth 5 (utf8 "中a")   @?= utf8 "中a" <> "  "
+            $ toWidth 5 (u "中a")      @?= u"中a" <> "  "
         ]
     ]
 
-utf8 :: String -> ByteString
-utf8 = UTF8.fromString
+u :: String -> ByteString
+u = UTF8.fromString

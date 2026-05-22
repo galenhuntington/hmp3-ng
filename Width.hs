@@ -1,9 +1,8 @@
 -- Copyright (c) 2019-2026 Galen Huntington
 -- SPDX-License-Identifier: GPL-2.0-or-later
 
--- | Width-aware operations on UTF-8 'ByteString's, using libc 'wcwidth' to
--- determine column widths.  Column counts therefore depend on the runtime
--- locale; expect deterministic results only under a UTF-8 locale.
+-- | Width-aware operations on UTF-8 'ByteString's, using libc 'wcwidth'.
+-- A UTF-8 runtime locale is presumed; counts may differ otherwise.
 module Width (displayWidth, toMaxWidth, toWidth) where
 
 import Base
@@ -25,15 +24,18 @@ toMaxWidth = sizer False
 toWidth = sizer True
 
 sizer :: Bool -> Int -> ByteString -> ByteString
-sizer pad w bs | dw <= w = if pad then bs <> P.replicate (w-dw) ' ' else bs
-               | True    = walk 0 bs
+sizer pad w bs
+    | dw <= w = if pad then bs <> P.replicate (w-dw) ' ' else bs
+    | True    = walk 0 bs
   where
     dw = displayWidth bs
-    walk !l rest | l' >= w = P.take (P.length bs - P.length rest) bs
-                                <> mconcat (replicate (w-l) $ UTF8.fromString "…")
-                 | True    = walk l' rest'
-      where (c, rest') = fromJust $ UTF8.uncons rest -- can't be at end since dw>w
-            l' = l + charWidth c
+    walk !l rest
+        | l' >= w = P.take (P.length bs - P.length rest) bs
+                        <> mconcat (replicate (w-l) $ UTF8.fromString "…")
+        | True    = walk l' rest'
+      where
+        (c, rest') = fromJust $ UTF8.uncons rest -- can't be at end since dw>w
+        l'         = l + charWidth c
 
 charWidth :: Char -> Int
 charWidth = fromIntegral . wcwidth . toEnum . fromEnum

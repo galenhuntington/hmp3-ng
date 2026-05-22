@@ -1,5 +1,5 @@
 -- Copyright (c) 2004-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2019-2022 Galen Huntington
+-- Copyright (c) 2019-2022, 2026 Galen Huntington
 -- SPDX-License-Identifier: GPL-2.0-or-later
 
 --

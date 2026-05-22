@@ -13,12 +13,12 @@
 --
 
 module UI (
-        runDraw,
-        -- * Construction, destruction
-        start, end, suspend, screenSize, refresh, refreshClock, resetui,
-        -- * Input
-        getKey
-  )   where
+    runDraw,
+    -- * Construction, destruction
+    start, end, suspend, screenSize, refresh, refreshClock, resetui,
+    -- * Input
+    getKey
+  ) where
 
 import Base
 
@@ -42,12 +42,13 @@ import Foreign.C.Types
 import Foreign.C.Error (Errno(..), getErrno)
 
 import qualified Data.ByteString.Char8 as P
-import qualified Data.ByteString.Unsafe as B
+import qualified Data.ByteString.Unsafe as P
 import qualified Data.ByteString.UTF8 as UTF8
 
 
+-- Write u-strings like it's Python 2.
 u :: String -> ByteString
-u = UTF8.fromString -- write u-strings like it's Python 2
+u = UTF8.fromString
 
 
 newtype Draw = Draw (IO ())
@@ -59,9 +60,7 @@ runDraw (Draw d) = withDrawLock d
 
 ------------------------------------------------------------------------
 
---
--- | how to initialise the ui
---
+-- | Initialize the UI
 start :: IO UIStyle
 start = do
     discardErrors do
@@ -247,7 +246,7 @@ printPlayScreen (PlayScreen (PPlaying a)
 
 ------------------------------------------------------------------------
 
-instance (Element a, Element b) => Element (a,b) where
+instance (Element a, Element b) => Element (a, b) where
     draw dd = (draw dd, draw dd)
 
 ------------------------------------------------------------------------
@@ -369,9 +368,9 @@ instance Element ProgressBar where
           (Style _ bg) = progress (config st)
           bgs          = Style bg bg
       Just Frame {..} -> ProgressBar . FancyS $
-          [("  ", defaultSty)
-          ,(spaces distance, fgs)
-          ,(spaces (width - distance), bgs)]
+          [ ("  ", defaultSty)
+          , (spaces distance, fgs)
+          , (spaces (width - distance), bgs)]
         where
           width    = w - 4
           total    = curr + left
@@ -445,8 +444,8 @@ instance Element PlayTitle where
     draw dd =
         PlayTitle $ FancyS $ map (,hl)
             if gap >= 2
-            then [mconcat [" ",inf,spaces gapl], modesBS,
-                    mconcat [spaces gapr,time," ",ver," "]]
+            then [mconcat [" ", inf, spaces gapl], modesBS,
+                    mconcat [spaces gapr, time, " ", ver, " "]]
             else let gap' = x - modlen; gapl' = gap' `div` 2
                  in if gap' >= 2
                     then [spaces gapl', modesBS, spaces $ gap' - gapl']
@@ -486,7 +485,7 @@ instance Element PlayList where
 
             -- number of screens down, and then offset
             buflen   = height - 2
-            (screens,select) = quotRem curr buflen -- keep cursor in screen
+            (screens, select) = quotRem curr buflen -- keep cursor in screen
 
             playing  = let top = screens * buflen
                            bot = (screens + 1) * buflen
@@ -586,7 +585,7 @@ renderModal st (Size h w) = do
        Curses.wMove Curses.stdScr voffset hoffset
        for_ (take mlines modal') \t -> do
             drawLine w t
-            (y',_) <- Curses.getYX Curses.stdScr
+            (y', _) <- Curses.getYX Curses.stdScr
             Curses.wMove Curses.stdScr (y'+1) hoffset
 
 renderModals :: HState -> Size -> IO ()
@@ -641,7 +640,7 @@ drawLine _ (FancyS ls)   = traverse_ (uncurry drawSegment) ls
 -- | Write a single styled UTF-8 segment.  Safe because C only reads the bytes.
 drawSegment :: ByteString -> Style -> IO ()
 drawSegment bs sty = withStyle sty $ void $
-    B.unsafeUseAsCStringLen bs \(cstr, len) ->
+    P.unsafeUseAsCStringLen bs \(cstr, len) ->
         waddnstr Curses.stdScr cstr (fromIntegral len)
 
 
@@ -674,7 +673,7 @@ gotoTop = Curses.wMove Curses.stdScr 0 0
 -- | Take a slice of an array efficiently
 slice :: Int -> Int -> Array Int e -> [e]
 slice i j arr = 
-    let (a,b) = bounds arr
+    let (a, b) = bounds arr
     in [unsafeAt arr n | n <- [max a i .. min b j] ]
 {-# INLINE slice #-}
 
@@ -710,6 +709,7 @@ setXterm s = setXtermTitle $ case status s of
                         else [": ", id3title ti]
     Paused  -> ["paused"]
     Stopped -> ["stopped"]
+
 
 foreign import ccall safe
     waddnstr :: Curses.Window -> CString -> CInt -> IO CInt
