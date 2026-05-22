@@ -1,5 +1,5 @@
 -- Copyright (c) 2004-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
--- Copyright (c) 2019-2022 Galen Huntington
+-- Copyright (c) 2019-2022, 2026 Galen Huntington
 -- SPDX-License-Identifier: GPL-2.0-or-later
 
 --
@@ -39,16 +39,14 @@ data Color
     deriving stock (Eq,Ord)
 
 -- | Foreground and background color pairs
-data Style = Style !Color !Color 
+data Style = Style !Color !Color
     deriving stock (Eq,Ord)
 
--- | Can hold an optimized ByteString or a Unicode String.
-data AmbiString = B !ByteString | U !String
-
--- | A list of such values (the representation is optimised)
-data StringA 
+-- | A list of styled UTF-8 ByteString segments making up one line.
+-- 'Fast' is the single-segment fast path; 'FancyS' is a multi-segment line.
+data StringA
     = Fast   {-# UNPACK #-} !ByteString {-# UNPACK #-} !Style
-    | FancyS ![(AmbiString,Style)]  -- one line made up of segments
+    | FancyS ![(ByteString, Style)]
 
 ------------------------------------------------------------------------
 --

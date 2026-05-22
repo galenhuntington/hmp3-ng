@@ -54,6 +54,7 @@ library
       Syntax
       Tree
       UI
+      Width
   other-modules:
       Paths_hmp3_ng
   autogen-modules:
@@ -98,6 +99,7 @@ test-suite test
       FastIOSpec
       LexerSpec
       TreeSpec
+      WidthSpec
   build-depends:
     , base
     , bytestring
@@ -105,4 +107,5 @@ test-suite test
     , hmp3-ng
     , tasty           >=1.4
     , tasty-hunit     >=0.10
+    , utf8-string
 
