@@ -6,8 +6,8 @@
 -- locale; expect deterministic results only under a UTF-8 locale.
 module Width (
     displayWidth,
-    ellipsize,
-    forceWidth,
+    toMaxWidth,
+    toWidth,
     charWidth,
   ) where
 
@@ -24,10 +24,10 @@ displayWidth :: ByteString -> Int
 displayWidth = UTF8.foldl (\acc c -> acc + charWidth c) 0
 
 -- | These functions truncate with ellipses if needed to get width ≤'w'.
--- 'forceWidth' adds padding as needed so the width is exactly 'w'.
-ellipsize, forceWidth :: Int -> ByteString -> ByteString
-ellipsize = sizer False
-forceWidth = sizer True
+-- 'toWidth' adds padding as needed so the width is exactly 'w'.
+toMaxWidth, toWidth :: Int -> ByteString -> ByteString
+toMaxWidth = sizer False
+toWidth = sizer True
 
 sizer :: Bool -> Int -> ByteString -> ByteString
 sizer pad w bs | dw <= w = if pad then bs <> P.replicate (w-dw) ' ' else bs

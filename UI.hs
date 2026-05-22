@@ -28,7 +28,7 @@ import Tree                     (File(fdir, fbase), Dir(dname))
 import State
 import Syntax
 import Config
-import Width                    (displayWidth, ellipsize, forceWidth)
+import Width                    (displayWidth, toMaxWidth, toWidth)
 import qualified UI.HSCurses.Curses as Curses
 import {-# SOURCE #-} Keymap    (keyTable, unkey, charToKey)
 
@@ -261,7 +261,7 @@ instance Element PPlaying where
         PId3 a  = draw dd
         PInfo b = draw dd
         line | gap >= 0 = a : spaces gap : right
-             | True     = ellipsize lim a : right
+             | True     = toMaxWidth lim a : right
             where lim = x - 5 - (if showId3 then P.length b else -1)
                   gap = lim - displayWidth a
                   showId3 = x > 59
@@ -292,29 +292,28 @@ instance ModalElement HelpModal where
     drawModal sty swd st = do
         guard $ helpVisible st
         pure (wd, [ Fast (f cs h) sty | (h, cs, _) <- keyTable ])
-        where
-            wd = modalWidth swd
-            f :: [Char] -> String -> ByteString
-            f cs ps = forceWidth wd
-                        $ forceWidth clen cmds <> u ps where
-                clen = max 4 $ round $ fromIntegral wd * (0.2::Float)
-                cmds = P.unwords ("" : map pprIt cs)
-                pprIt c = case c of
-                      '\n' -> "Enter"
-                      '\f' -> "^L"
-                      '\\' -> "\\"
-                      ' '  -> "Space"
-                      _ -> case charToKey c of
-                        Curses.KeyUp        -> u"↑"
-                        Curses.KeyDown      -> u"↓"
-                        Curses.KeyPPage     -> "PgUp"
-                        Curses.KeyNPage     -> "PgDn"
-                        Curses.KeyLeft      -> u"←"
-                        Curses.KeyRight     -> u"→"
-                        Curses.KeyEnd       -> "End"
-                        Curses.KeyHome      -> "Home"
-                        Curses.KeyBackspace -> "Backspace"
-                        _ -> u[c]
+      where
+        wd = modalWidth swd
+        f :: [Char] -> String -> ByteString
+        f cs ps = toWidth wd $ toWidth clen cmds <> u ps where
+            clen = max 4 $ round $ fromIntegral wd * (0.2::Float)
+            cmds = P.unwords ("" : map pprIt cs)
+            pprIt c = case c of
+                  '\n' -> "Enter"
+                  '\f' -> "^L"
+                  '\\' -> "\\"
+                  ' '  -> "Space"
+                  _ -> case charToKey c of
+                    Curses.KeyUp        -> u"↑"
+                    Curses.KeyDown      -> u"↓"
+                    Curses.KeyPPage     -> "PgUp"
+                    Curses.KeyNPage     -> "PgDn"
+                    Curses.KeyLeft      -> u"←"
+                    Curses.KeyRight     -> u"→"
+                    Curses.KeyEnd       -> "End"
+                    Curses.KeyHome      -> "Home"
+                    Curses.KeyBackspace -> "Backspace"
+                    _ -> u[c]
 
 ------------------------------------------------------------------------
 
@@ -324,8 +323,8 @@ instance ModalElement HistModal where
             mtlen = maximum $ map (displayWidth . fst) hist
             tlen = min (mtlen + 1) $ wd `div` 3
         (wd,) $ flip map (zip (['0'..'9']++['a'..'z']) hist) \ (c, (time, (_, song))) ->
-            let tstr = ellipsize tlen $ P.replicate (tlen - displayWidth time) ' ' <> time
-            in Fast (forceWidth wd $ " " <> P.singleton c <> " " <> tstr <> " " <> song) sty
+            let tstr = toMaxWidth tlen $ P.replicate (tlen - displayWidth time) ' ' <> time
+            in Fast (toWidth wd $ " " <> P.singleton c <> " " <> tstr <> " " <> song) sty
 
 ------------------------------------------------------------------------
 
@@ -333,9 +332,9 @@ instance ModalElement ExitModal where
     drawModal sty swd st = do
         guard $ exitVisible st
         let wd = modalWidth swd `min` 19
-            blank = Fast (forceWidth wd "") sty
+            blank = Fast (toWidth wd "") sty
             padl = P.replicate ((wd - 9) `div` 2) ' '
-            msg = forceWidth wd $ padl <> "Exit (y)?"
+            msg = toWidth wd $ padl <> "Exit (y)?"
         pure (wd, [blank, Fast msg sty, blank])
 
 ------------------------------------------------------------------------
@@ -505,7 +504,7 @@ instance Element PlayList where
                 loop _ []     = []
                 loop n (v:vs) =
                     let r = if fdir v > n then Just (fdir v) else Nothing
-                    in (r, ellipsize (x - indent - 1) $ fbase v)
+                    in (r, toMaxWidth (x - indent - 1) $ fbase v)
                             : loop (fdir v) vs
 
             list   = [ drawIt . color $ n | n <- zip visible' [0..] ]
@@ -537,7 +536,7 @@ instance Element PlayList where
                 : map (, sty) v
               where
                 sty' = if sty == sty2 || sty == sty3 then sty2 else sty1
-                d = ellipsize (indent - 1) $ basenameP
+                d = toMaxWidth (indent - 1) $ basenameP
                         $ case size st of
                             0 -> "(empty)"
                             _ -> dname $ folders st ! i

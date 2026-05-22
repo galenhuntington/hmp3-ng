@@ -6,7 +6,7 @@ import Test.Tasty.HUnit
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.UTF8 as UTF8
 
-import Width (displayWidth, ellipsize, forceWidth)
+import Width (displayWidth, toMaxWidth, toWidth)
 
 -- These tests depend on wcwidth's behaviour under a UTF-8 locale and on a
 -- handful of codepoints whose canonical widths are well-known:
@@ -22,42 +22,42 @@ tests = testGroup "Width"
         [ testCase "empty"             $ displayWidth ""                  @?= 0
         , testCase "ascii"             $ displayWidth "hello"             @?= 5
         , testCase "latin-extended"    $ displayWidth (utf8 "café")       @?= 4
-        , testCase "cjk doubles each"  $ displayWidth (utf8 "中文")        @?= 4
-        , testCase "mixed"             $ displayWidth (utf8 "中a文b")      @?= 6
+        , testCase "cjk doubles each"  $ displayWidth (utf8 "中文")       @?= 4
+        , testCase "mixed"             $ displayWidth (utf8 "中a文b")     @?= 6
         ]
-    , testGroup "ellipsize"
+    , testGroup "toMaxWidth"
         [ testCase "wider than input passes through"
-            $ ellipsize 10 "hello"        @?= "hello"
+            $ toMaxWidth 10 "hello"        @?= "hello"
         , testCase "exactly the width passes through"
-            $ ellipsize 5 "hello"         @?= "hello"
+            $ toMaxWidth 5 "hello"         @?= "hello"
         , testCase "truncate ascii with ellipsis"
-            $ ellipsize 4 "hello"         @?= "hel" <> utf8 "…"
+            $ toMaxWidth 4 "hello"         @?= "hel" <> utf8 "…"
         , testCase "narrower truncate"
-            $ ellipsize 2 "hello"         @?= "h"   <> utf8 "…"
+            $ toMaxWidth 2 "hello"         @?= "h"   <> utf8 "…"
         , testCase "width one becomes a lone ellipsis"
-            $ ellipsize 1 "hello"         @?= utf8 "…"
+            $ toMaxWidth 1 "hello"         @?= utf8 "…"
         , testCase "width zero becomes empty"
-            $ ellipsize 0 "hello"         @?= ""
+            $ toMaxWidth 0 "hello"         @?= ""
         , testCase "wide char truncation respects boundaries"
-            -- "中文hi" is 6 columns (2+2+1+1); ellipsize 4 keeps the first
+            -- "中文hi" is 6 columns (2+2+1+1); toMaxWidth 4 keeps the first
             -- wide char plus two ellipses to fill the remaining columns.
-            $ ellipsize 4 (utf8 "中文hi")  @?= utf8 "中……"
+            $ toMaxWidth 4 (utf8 "中文hi") @?= utf8 "中……"
         , testCase "wide char gives way to single ellipsis at the boundary"
-            -- "中文" is 4 columns; ellipsize 3 keeps the first wide char
+            -- "中文" is 4 columns; toMaxWidth 3 keeps the first wide char
             -- (2 columns) plus one ellipsis (1 column).
-            $ ellipsize 3 (utf8 "中文")    @?= utf8 "中…"
+            $ toMaxWidth 3 (utf8 "中文")   @?= utf8 "中…"
         ]
-    , testGroup "forceWidth"
+    , testGroup "toWidth"
         [ testCase "pads short ascii"
-            $ forceWidth 10 "hello"       @?= "hello     "
+            $ toWidth 10 "hello"       @?= "hello     "
         , testCase "pad with empty input"
-            $ forceWidth 4 ""             @?= "    "
+            $ toWidth 4 ""             @?= "    "
         , testCase "exact width unchanged"
-            $ forceWidth 5 "hello"        @?= "hello"
-        , testCase "truncate matches ellipsize when over-width"
-            $ forceWidth 4 "hello"        @?= "hel" <> utf8 "…"
+            $ toWidth 5 "hello"        @?= "hello"
+        , testCase "truncate matches toMaxWidth when over-width"
+            $ toWidth 4 "hello"        @?= "hel" <> utf8 "…"
         , testCase "pads after a wide-char content too"
-            $ forceWidth 5 (utf8 "中a")   @?= utf8 "中a" <> "  "
+            $ toWidth 5 (utf8 "中a")   @?= utf8 "中a" <> "  "
         ]
     ]
 
