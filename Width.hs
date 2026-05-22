@@ -4,12 +4,7 @@
 -- | Width-aware operations on UTF-8 'ByteString's, using libc 'wcwidth' to
 -- determine column widths.  Column counts therefore depend on the runtime
 -- locale; expect deterministic results only under a UTF-8 locale.
-module Width (
-    displayWidth,
-    toMaxWidth,
-    toWidth,
-    charWidth,
-  ) where
+module Width (displayWidth, toMaxWidth, toWidth) where
 
 import Base
 
@@ -35,13 +30,10 @@ sizer pad w bs | dw <= w = if pad then bs <> P.replicate (w-dw) ' ' else bs
   where
     dw = displayWidth bs
     walk !l rest | l' >= w = P.take (P.length bs - P.length rest) bs
-                                <> mconcat (replicate (w-l) ellipsis)
+                                <> mconcat (replicate (w-l) $ UTF8.fromString "…")
                  | True    = walk l' rest'
-      where (c, rest') = fromJust $ UTF8.uncons rest
+      where (c, rest') = fromJust $ UTF8.uncons rest -- can't be at end since dw>w
             l' = l + charWidth c
-
-ellipsis :: ByteString
-ellipsis = UTF8.fromString "…"
 
 charWidth :: Char -> Int
 charWidth = fromIntegral . wcwidth . toEnum . fromEnum

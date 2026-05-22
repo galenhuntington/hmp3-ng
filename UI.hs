@@ -299,11 +299,11 @@ instance ModalElement HelpModal where
             clen = max 4 $ round $ fromIntegral wd * (0.2::Float)
             cmds = P.unwords ("" : map pprIt cs)
             pprIt c = case c of
-                  '\n' -> "Enter"
-                  '\f' -> "^L"
-                  '\\' -> "\\"
-                  ' '  -> "Space"
-                  _ -> case charToKey c of
+                '\n' -> "Enter"
+                '\f' -> "^L"
+                '\\' -> "\\"
+                ' '  -> "Space"
+                _ -> case charToKey c of
                     Curses.KeyUp        -> u"↑"
                     Curses.KeyDown      -> u"↓"
                     Curses.KeyPPage     -> "PgUp"
