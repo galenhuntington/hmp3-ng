@@ -14,13 +14,10 @@
 
 module UI (
         runDraw,
-
         -- * Construction, destruction
         start, end, suspend, screenSize, refresh, refreshClock, resetui,
-
         -- * Input
         getKey
-
   )   where
 
 import Base
@@ -47,6 +44,10 @@ import Foreign.C.Error (Errno(..), getErrno)
 import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString.Unsafe as B
 import qualified Data.ByteString.UTF8 as UTF8
+
+
+u :: String -> ByteString
+u = UTF8.fromString -- write u-strings like it's Python 2
 
 
 newtype Draw = Draw (IO ())
@@ -254,7 +255,7 @@ instance (Element a, Element b) => Element (a,b) where
 -- Info about the current track
 instance Element PPlaying where
     draw dd =
-        PPlaying . FancyS $ map (, defaultSty) $ spc2 : line
+        PPlaying . FancyS $ map (, defaultSty) $ "  " : line
       where
         x       = sizeW $ drawSize dd
         PId3 a  = draw dd
@@ -271,20 +272,14 @@ instance Element PId3 where
     draw DD{drawState=st} = case id3 st of
         Just i  -> PId3 $ id3str i
         Nothing -> PId3 $ case size st of
-                                0 -> emptyVal
+                                0 -> "(empty)"
                                 _ -> fbase $ music st ! current st
 
 -- | mp3 information
 instance Element PInfo where
     draw DD{drawState=st} = PInfo case info st of
-        Nothing  -> emptyVal
+        Nothing  -> "(empty)"
         Just i   -> userinfo i
-
-emptyVal :: ByteString
-emptyVal = "(empty)"
-
-spc2 :: ByteString
-spc2 = spaces 2
 
 modalWidth :: Int -> Int
 modalWidth w = max (min w 3) $ round $ fromIntegral w * (0.8::Float)
@@ -301,7 +296,7 @@ instance ModalElement HelpModal where
             wd = modalWidth swd
             f :: [Char] -> String -> ByteString
             f cs ps = forceWidth wd
-                        $ forceWidth clen cmds <> UTF8.fromString ps where
+                        $ forceWidth clen cmds <> u ps where
                 clen = max 4 $ round $ fromIntegral wd * (0.2::Float)
                 cmds = P.unwords ("" : map pprIt cs)
                 pprIt c = case c of
@@ -310,16 +305,16 @@ instance ModalElement HelpModal where
                       '\\' -> "\\"
                       ' '  -> "Space"
                       _ -> case charToKey c of
-                        Curses.KeyUp        -> UTF8.fromString "↑"
-                        Curses.KeyDown      -> UTF8.fromString "↓"
+                        Curses.KeyUp        -> u"↑"
+                        Curses.KeyDown      -> u"↓"
                         Curses.KeyPPage     -> "PgUp"
                         Curses.KeyNPage     -> "PgDn"
-                        Curses.KeyLeft      -> UTF8.fromString "←"
-                        Curses.KeyRight     -> UTF8.fromString "→"
+                        Curses.KeyLeft      -> u"←"
+                        Curses.KeyRight     -> u"→"
                         Curses.KeyEnd       -> "End"
                         Curses.KeyHome      -> "Home"
                         Curses.KeyBackspace -> "Backspace"
-                        _ -> UTF8.fromString [c]
+                        _ -> u[c]
 
 ------------------------------------------------------------------------
 
@@ -351,7 +346,7 @@ instance Element PTimes where
         PTimes $ FancyS $ map (, defaultSty)
             if x - 4 < P.length elapsed
             then [" "]
-            else [spc2, elapsed]
+            else ["  ", elapsed]
                     ++ (guard (distance > 0) *> [gap, remaining])
       where
         elapsed   = P.pack $ printf "%d:%02d" l_m l_s
@@ -370,12 +365,12 @@ instance Element PTimes where
 instance Element ProgressBar where
     draw dd@DD{drawSize=Size{sizeW=w}, drawState=st} = case drawFrame dd of
       Nothing -> ProgressBar . FancyS $
-              [(spc2, defaultSty), (spaces (w-4), bgs)]
+              [("  ", defaultSty), (spaces (w-4), bgs)]
         where
           (Style _ bg) = progress (config st)
           bgs          = Style bg bg
       Just Frame {..} -> ProgressBar . FancyS $
-          [(spc2, defaultSty)
+          [("  ", defaultSty)
           ,(spaces distance, fgs)
           ,(spaces (width - distance), bgs)]
         where
@@ -451,18 +446,18 @@ instance Element PlayTitle where
     draw dd =
         PlayTitle $ FancyS $ map (,hl)
             if gap >= 2
-            then [mconcat [space,inf,spaces gapl], modesBS,
-                    mconcat [spaces gapr,time,space,ver,space]]
+            then [mconcat [" ",inf,spaces gapl], modesBS,
+                    mconcat [spaces gapr,time," ",ver," "]]
             else let gap' = x - modlen; gapl' = gap' `div` 2
                  in if gap' >= 2
                     then [spaces gapl', modesBS, spaces $ gap' - gapl']
-                    else [space, UTF8.fromString (take (x-2) modes), space]
+                    else [" ", u $ take (x-2) modes, " "]
       where
         PlayInfo inf    = draw dd
         PTime time      = draw dd
         PlayModes modes = draw dd
         PVersion ver    = draw dd
-        modesBS         = UTF8.fromString modes
+        modesBS         = u modes
 
         x       = sizeW $ drawSize dd
         lsize   = 1 + P.length inf
@@ -472,7 +467,6 @@ instance Element PlayTitle where
         gapl    = 1 `max` ((side - lsize) `min` gap)
         gapr    = 1 `max` (gap - gapl)
         modlen  = 6 -- length modes
-        space   = spaces 1
         hl      = titlebar . config $ drawState dd
 
 -- | Playlist
@@ -650,7 +644,6 @@ drawSegment :: ByteString -> Style -> IO ()
 drawSegment bs sty = withStyle sty $ void $
     B.unsafeUseAsCStringLen bs \(cstr, len) ->
         waddnstr Curses.stdScr cstr (fromIntegral len)
-{-# INLINE drawSegment #-}
 
 
 ------------------------------------------------------------------------
@@ -719,7 +712,6 @@ setXterm s = setXtermTitle $ case status s of
     Paused  -> ["paused"]
     Stopped -> ["stopped"]
 
---  Not exported by hscurses.
 foreign import ccall safe
     waddnstr :: Curses.Window -> CString -> CInt -> IO CInt
 
