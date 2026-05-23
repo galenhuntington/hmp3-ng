@@ -52,3 +52,6 @@ sequenceWhile _ [] = pure []
 sequenceWhile p (m:ms) = m >>= \a ->
     if p a then (a:) <$> sequenceWhile p ms else pure []
 
+whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
+whenJust mb f = maybe (pure ()) f mb
+

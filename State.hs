@@ -71,8 +71,14 @@ data HState = HState {
 --
 -- | The initial state
 --
-emptySt :: HState
-emptySt = HState {
+newEmptyHS :: IO HState
+newEmptyHS = do
+    modified <- newEmptyMVar
+    writeh   <- newEmptyMVar
+    errh     <- newEmptyMVar
+    readf    <- newEmptyMVar
+    drawLock <- newMVar ()
+    pure HState {
         music        = listArray (0,0) []
        ,folders      = listArray (0,0) []
 
@@ -81,10 +87,10 @@ emptySt = HState {
        ,cursor       = 0
 
        ,threads      = []
-       ,modified     = unsafePerformIO newEmptyMVar
-       ,writeh       = unsafePerformIO newEmptyMVar
-       ,errh         = unsafePerformIO newEmptyMVar
-       ,readf        = unsafePerformIO newEmptyMVar
+       ,modified
+       ,writeh
+       ,errh
+       ,readf
 
        ,mp3pid       = Nothing
        ,clock        = Nothing
@@ -105,17 +111,17 @@ emptySt = HState {
        ,config       = Config.defaultStyle
        ,boottime     = 0
        ,status       = Stopped
-       ,mode         = Once
+       ,mode         = minBound
        ,minibuffer   = Fast mempty defaultSty
        ,uptime       = mempty
-       ,drawLock     = unsafePerformIO (newMVar ())
+       ,drawLock
     }
 
 --
--- | A global variable holding the state. Todo StateT
+-- | A global variable holding the state.
 --
 state :: MVar HState
-state = unsafePerformIO $ newMVar emptySt
+state = unsafePerformIO $ newMVar =<< newEmptyHS
 {-# NOINLINE state #-}
 
 ------------------------------------------------------------------------

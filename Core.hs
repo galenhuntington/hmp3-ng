@@ -8,22 +8,22 @@
 -- | Main module. 
 --
 module Core (
-        start,
-        shutdown,
-        seekLeft, seekRight, upOne, downOne, pause, nextMode, playNext, playPrev,
-        forcePause, quit, putmsg, clrmsg, toggleHelp, play, playCur,
-        jumpToPlaying, jump, jumpRel,
-        upPage, downPage,
-        seekStart,
-        blacklist,
-        showHist, hideHist,
-        jumpToMatchDir, jumpToMatchFile,
-        toggleFocus, jumpToNextDir, jumpToPrevDir,
-        loadConfig,
-        discardErrors,
-        toggleExit,
-        showTimeDiff_,
-    ) where
+    start,
+    shutdown,
+    seekLeft, seekRight, upOne, downOne, pause, nextMode, playNext, playPrev,
+    forcePause, quit, putmsg, clrmsg, toggleHelp, play, playCur,
+    jumpToPlaying, jump, jumpRel,
+    upPage, downPage,
+    seekStart,
+    blacklist,
+    showHist, hideHist,
+    jumpToMatchDir, jumpToMatchFile,
+    toggleFocus, jumpToNextDir, jumpToPrevDir,
+    loadConfig,
+    discardErrors,
+    toggleExit,
+    showTimeDiff_,
+) where
 
 import Base
 
@@ -35,6 +35,7 @@ import FastIO               (send, FiltHandle(..), newFiltHandle)
 import Tree hiding (File, Dir)
 import qualified Tree (File,Dir)
 import qualified UI
+import Config (defaultStyle)
 
 import Text.Regex.PCRE.Light
 import {-# SOURCE #-} Keymap (keyLoop)
@@ -67,21 +68,20 @@ mp3Tool =
 start :: Bool -> Tree -> IO ()
 start playNow (Tree ds fs) = handle @SomeException (shutdown . Just . show) do
 
-    t0 <- forkIO mpgLoop    -- start this off early, to give mpg123 time to settle
-
     c <- UI.start -- initialise curses
 
     now <- getMonoTime
     mode <- readState
 
-    -- fork some threads
-    t1 <- forkIO $ mpgInput readf
-    t2 <- forkIO refreshLoop
-    t3 <- forkIO clockLoop
-    t4 <- forkIO uptimeLoop
-    t5 <- forkIO
+    threads <- sequence $ map forkIO
+        [ mpgLoop
+        , mpgInput readf
+        , refreshLoop
+        , clockLoop
+        , uptimeLoop
         -- mpg321 uses stderr for @F messages
-        $ if mp3Tool == "mpg321" then mpgInput errh else errorLoop
+        , if mp3Tool == "mpg321" then mpgInput errh else errorLoop
+        ]
 
     silentlyModifyST $ \s -> s
         { music        = fs
@@ -93,12 +93,11 @@ start playNow (Tree ds fs) = handle @SomeException (shutdown . Just . show) do
         , uptime       = showTimeDiff now now
         , boottime     = now
         , config       = c
-        , threads      = [t0,t1,t2,t3,t4,t5] }
+        , threads      }
 
     loadConfig
 
-    when (0 <= (snd . bounds $ fs)) do
-        if mode == Random then modifySTM jumpToRandom else playCur
+    if mode == Random then modifySTM jumpToRandom else playCur
     when (not playNow) pause
 
     run         -- won't restart if this fails!
@@ -112,11 +111,7 @@ runForever fn = catch (forever fn) handler
         handler :: SomeException -> IO ()
         handler e =
             unless (exitTime e) $
-                (warnA . show) e >> runForever fn        -- reopen the catch
-
--- | Standard combinator.
-whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
-whenJust mb f = maybe (pure ()) f mb
+                (warnA . ("outer: " ++) . show) e >> runForever fn  -- reopen the catch
 
 -- | Generic handler
 -- I don't know why these are ignored, but preserving old logic.
@@ -138,7 +133,7 @@ exitTime e | is @IOException e = False -- ignore
 -- For example, if we can't start it two times in a row, perhaps give up?
 --
 mpgLoop :: IO ()
-mpgLoop = runForever do
+mpgLoop = newIORef (1 :: Integer) >>= \spawnsRef -> runForever do
     mmpg <- findExecutable mp3Tool
     case mmpg of
       Nothing     -> quit (Just $ "Cannot find " ++ mp3Tool ++ " in path")
@@ -146,21 +141,25 @@ mpgLoop = runForever do
 
         -- if we're never able to start mpg123, do something sensible
         mv <- catch (pure <$> runInteractiveProcess mppath ["-R", "-"] Nothing Nothing)
-                    (\ (e :: SomeException) ->
-                           do warnA ("Unable to start " ++ mp3Tool ++ ": " ++ show e)
+                    (\ (ex :: SomeException) ->
+                           do warnA ("Unable to start " ++ mp3Tool ++ ": " ++ show ex)
                               pure Nothing)
 
         whenJust mv \ (hw, r, e, pid) -> do
+            spawns <- readIORef spawnsRef
 
-            mhw         <- newMVar hw
-            mew         <- newMVar =<< newFiltHandle e
-            mfilep      <- newMVar =<< newFiltHandle r
+            when (spawns > 1) do
+                void $ takeMVar =<< getsST readf
+                void $ takeMVar =<< getsST writeh
+                void $ takeMVar =<< getsST errh
+                warnA $ "Started " ++ mp3Tool ++ " #" ++ show spawns
+
+            join $ putMVar <$> getsST readf <*> newFiltHandle r
+            join $ putMVar <$> getsST errh <*> newFiltHandle e
+            flip putMVar hw =<< getsST writeh
 
             modifyST $ \st ->
                st { mp3pid    = Just pid
-                  , writeh    = mhw
-                  , errh      = mew
-                  , readf     = mfilep
                   , status    = Stopped
                   , info      = Nothing
                   , id3       = Nothing
@@ -169,7 +168,8 @@ mpgLoop = runForever do
             catch @SomeException (void $ waitForProcess pid) (\_ -> pure ())
             stop <- getsST doNotResuscitate
             when stop exitSuccess
-            warnA $ "Restarting " ++ mppath ++ " ..."
+            warnA $ "Restarting " ++ mppath ++ " (#" ++ show spawns ++ ")..."
+            modifyIORef' spawnsRef (+ 1)
 
         -- Delay to slow spawn loops in case of trouble.
         threadDelay 4_000_000
@@ -228,7 +228,7 @@ clockLoop = runForever $ threadDelay delay >> UI.refreshClock
 -- | Handle, and display errors produced by mpg123
 errorLoop :: IO ()
 errorLoop = runForever $
-    getsST errh >>= readMVar >>= hGetLine . filtHandle >>= warnA
+    getsST errh >>= readMVar >>= hGetLine . filtHandle >>= (warnA . ("mpg: "++))
 
 ------------------------------------------------------------------------
 
@@ -243,7 +243,7 @@ mpgInput field = runForever $ do
     res  <- parser fp
     case res of
         Right m       -> handleMsg m
-        Left (Just e) -> (warnA.show) e
+        Left (Just e) -> (warnA . ("read: "++) . show) e
         _             -> pure ()
 
 ------------------------------------------------------------------------
@@ -265,8 +265,7 @@ shutdown ms =
                 Just pid -> do
                     h <- readMVar (writeh st)
                     send h Quit                        -- ask politely
-                    waitForProcess pid
-                    pure ()
+                    void $ waitForProcess pid
 
     `finally`
 
@@ -565,7 +564,7 @@ readState = do
     modeM <- if b
         then readMaybe <$!> readFile f
         else pure Nothing
-    pure $ fromMaybe (mode emptySt) modeM
+    pure $ fromMaybe minBound modeM
 
 ------------------------------------------------------------------------
 -- Read styles from style.conf
@@ -594,14 +593,14 @@ loadConfig = do
                 initcolours sty
                 modifyST $ \st -> st { config = sty }
       else do
-        let sty = config emptySt
-        initcolours sty
-        modifyST $ \st -> st { config = sty }
+        initcolours defaultStyle
+        modifyST $ \st -> st { config = defaultStyle }
     UI.resetui
 
 ------------------------------------------------------------------------
 -- Editing the minibuffer
 
+-- TODO maybe shouldn't be silent?
 putmsg :: StringA -> IO ()
 putmsg s = silentlyModifyST $ \st -> st { minibuffer = s }
 
@@ -611,7 +610,10 @@ clrmsg = putmsg (Fast P.empty defaultSty)
 
 --
 warnA :: String -> IO ()
-warnA x = do
-    sty <- getsST config
-    putmsg $ Fast (P.pack x) (warnings sty)
+warnA x =
+    -- Handle read errors get a respawn, already reported.
+    unless ("hGetLine" `isInfixOf` x) do
+        sty <- getsST config
+        putmsg $ Fast (P.pack x) (warnings sty)
+        touchST
 

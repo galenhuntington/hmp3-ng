@@ -155,7 +155,7 @@ resizeui = Draw $ void $ do
     do
         -- not sure I need all these...
         Curses.nl True
-        Curses.leaveOk True
+        _ <- Curses.leaveOk True
         Curses.noDelay Curses.stdScr False
         Curses.cBreak True
         -- Curses.meta stdScr True -- not in module
