@@ -22,13 +22,6 @@ import System.Clock             (TimeSpec(..))
 import System.Process           (ProcessHandle)
 
 
-------------------------------------------------------------------------
--- A state monad over IO would be another option.
-
--- type ST = StateT HState IO
-
-------------------------------------------------------------------------
-
 -- | The editor state type
 data HState = HState {
         music           :: !FileArray
@@ -111,14 +104,14 @@ newEmptyHS = do
 --
 -- | A global variable holding the state.
 --
-state :: MVar HState
-state = unsafePerformIO $ newMVar =<< newEmptyHS
-{-# NOINLINE state #-}
+hState :: MVar HState
+hState = unsafePerformIO $ newMVar =<< newEmptyHS
+{-# NOINLINE hState #-}
 
 data Mpg = Mpg
-    { mpgWriteh :: !Handle
-    , mpgReadf  :: !FiltHandle
-    , mpgErrh   :: !FiltHandle
+    { writeh :: !Handle
+    , readf  :: !FiltHandle
+    , errh   :: !FiltHandle
     }
 
 mpg :: MVar Mpg
@@ -127,43 +120,43 @@ mpg = unsafePerformIO newEmptyMVar
 
 -- Single point that needs to serialize: writing to the pipe.
 sendMpg :: Pretty a => a -> IO ()
-sendMpg m = withMVar mpg \m' -> send (mpgWriteh m') m
+sendMpg x = withMVar mpg \m -> send (writeh m) x
 
 ------------------------------------------------------------------------
 -- state accessor functions
 
 -- | Access a component of the state with a projection function
-getsST :: (HState -> a) -> IO a
-getsST f = f <$> readMVar state
+getsHS :: (HState -> a) -> IO a
+getsHS f = f <$> readMVar hState
 
 -- | Modify the state with a pure function
-silentlyModifyST :: (HState -> HState) -> IO ()
-silentlyModifyST  f = modifyMVar_ state (pure . f)
+silentlyModifyHS :: (HState -> HState) -> IO ()
+silentlyModifyHS  f = modifyMVar_ hState (pure . f)
 
 ------------------------------------------------------------------------
 
-modifyST :: (HState -> HState) -> IO ()
-modifyST f = silentlyModifyST f <* touchST
+modifyHS_ :: (HState -> HState) -> IO ()
+modifyHS_ f = silentlyModifyHS f <* touchHS
 
 -- | Modify the state with an IO action, triggering a refresh
-modifySTM :: (HState -> IO HState) -> IO ()
-modifySTM f = modifyMVar_ state f <* touchST
+modifyHSM :: (HState -> IO HState) -> IO ()
+modifyHSM f = modifyMVar_ hState f <* touchHS
 
--- | Modify the state with an IO action, returning a value
-modifySTM_ :: (HState -> IO (HState,a)) -> IO a
-modifySTM_ f = modifyMVar state f <* touchST
+-- | Modify the state returning a value
+modifyHS :: (HState -> (HState, a)) -> IO a
+modifyHS f = modifyMVar hState (pure . f) <* touchHS
 
 -- | Trigger a refresh. This is the only way to update the screen
-touchST :: IO ()
-touchST = withMVar state \st -> void $ tryPutMVar (modified st) ()
+touchHS :: IO ()
+touchHS = withMVar hState \st -> void $ tryPutMVar (modified st) ()
 
 forceNextPacket :: IO ()
 forceNextPacket = do
-  fh <- mpgReadf <$> readMVar mpg
+  fh <- readf <$> readMVar mpg
   writeIORef (frameCount fh) 0
 
 withDrawLock :: IO () -> IO ()
 withDrawLock io = do
-    lock <- getsST drawLock
+    lock <- getsHS drawLock
     withMVar lock $ const io
 

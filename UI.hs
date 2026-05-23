@@ -68,7 +68,7 @@ start = do
         case thisterm of 
             Just "vt220" -> setEnv "TERM" "xterm-color"
             Just t | "xterm" `isPrefixOf` t 
-                   -> silentlyModifyST $ \st -> st { xterm = True }
+                   -> silentlyModifyHS $ \st -> st { xterm = True }
             _ -> pure ()
 
     Curses.initCurses
@@ -559,7 +559,7 @@ spaces = flip P.replicate ' '
 --
 redrawJustClock :: Draw
 redrawJustClock = Draw $ discardErrors do
-   st      <- getsST id
+   st      <- getsHS id
    let fr = clock st
    (h, w) <- screenSize
    let sz = Size h w
@@ -601,7 +601,7 @@ renderModals s sz = do
 redraw :: Draw
 redraw = Draw $ discardErrors do
    -- linux ncurses, in particular, seems to complain a lot. this is an easy solution
-   s <- getsST id    -- another refresh could be triggered?
+   s <- getsHS id    -- another refresh could be triggered?
    let f = clock s
    (h, w) <- screenSize
    let sz = Size h w
