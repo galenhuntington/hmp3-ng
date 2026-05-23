@@ -43,6 +43,7 @@ import {-# SOURCE #-} Keymap (keyLoop)
 import qualified Data.ByteString.Char8 as P
 import qualified Data.Sequence as Seq
 
+import Control.Arrow            ((&&&))
 import Data.Array               ((!), bounds, Array)
 import System.Directory         (doesFileExist, findExecutable, createDirectoryIfMissing,
                                  getXdgDirectory, XdgDirectory(..))
@@ -97,7 +98,7 @@ start playNow (Tree ds fs) = handle @SomeException (shutdown . Just . show) do
 
     loadConfig
 
-    if mode == Random then modifyHSM jumpToRandom else playCur
+    if mode == Random then jumpToRandom else playCur
     when (not playNow) pause
 
     run         -- won't restart if this fails!
@@ -256,7 +257,7 @@ shutdown ms = do
     silentlyModifyHS $ \st -> st { doNotResuscitate = True }
     discardErrors writeState
     mpid <- getsHS mpgPid
-    whenJust mpid \pid -> do
+    flip (maybe $ pure ()) mpid \pid -> do
         sendMpg Quit               -- ask politely
         void $ waitForProcess pid
 
@@ -350,13 +351,14 @@ jumpRel r | r < 0 || r >= 1 = pure ()
 
 -- | Load and play the song under the cursor
 play :: IO ()
-play = modifyHSM $ \st ->
-    if current st == cursor st
-    then jumpToRandom st
-    else playAtN st (const $ cursor st)
+play = do
+    (curr, curs) <- getsHS (current &&& cursor)
+    if curr == curs
+        then jumpToRandom
+        else playAtN (const curs)
 
 playCur :: IO ()
-playCur = modifyHSM $ \st -> playAtN st (const $ cursor st)
+playCur = playAtN . const =<< getsHS cursor
 
 blacklist :: IO ()
 blacklist = do
@@ -366,53 +368,52 @@ blacklist = do
         in P.intercalate (P.singleton '/') [dname $ folders st ! fdir fe, fbase fe]
 
 -- | Jump to a random song
-jumpToRandom :: HState -> IO HState
-jumpToRandom st = playAtN st . const =<< randomRIO (0, size st - 1)
+jumpToRandom :: IO ()
+jumpToRandom = playAtN . const =<< (\sz -> randomRIO (0, sz-1)) =<< getsHS size
 
 -- | Play the song before the current song, if we're not at the beginning
 -- If we're at the beginning, and loop mode is on, then loop to the end
 -- If we're in random mode, play the next random track
 playPrev :: IO ()
-playPrev = modifyHSM \st -> case mode st of
-    Random -> jumpToRandom st
-    Single -> pure st
-    _ | current st > 0
-           -> playAtN st (subtract 1)
-    Loop   -> playAtN st (const (size st - 1))
-    Once   -> pure st
+playPrev = do
+    (mo, (sz, cur)) <- getsHS (mode &&& size &&& current)
+    case mo of
+        Random      -> jumpToRandom
+        Single      -> pure ()
+        _ | cur > 0 -> playAtN (subtract 1)
+        Loop        -> playAtN (const (sz-1))
+        Once        -> pure ()
 
 -- | Play the song following the current song, if we're not at the end
 -- If we're at the end, and loop mode is on, then loop to the start
 -- If we're in random mode, play the next random track
 playNext :: IO ()
-playNext = modifyHSM \st -> case mode st of
-    Random -> jumpToRandom st
-    Single -> pure st
-    _ | current st < size st - 1
-           -> playAtN st (+ 1)
-    Loop   -> playAtN st (const 0)
-    Once   -> pure st
+playNext = do
+    (mo, notLast) <- getsHS (mode &&& (\st -> current st < size st - 1))
+    case mo of
+        Random      -> jumpToRandom
+        Single      -> pure ()
+        _ | notLast -> playAtN (+ 1)
+        Loop        -> playAtN (const 0)
+        Once        -> pure ()
 
 -- | Generic next song selection
 -- If the cursor and current are currently the same, continue that.
-playAtN :: HState -> (Int -> Int) -> IO HState
-playAtN st fn = do
+playAtN :: (Int -> Int) -> IO ()
+playAtN fn = do
     now <- getMonoTime
-    let m   = music st
-        i   = current st
-        new = fn i
-        fe  = m ! new
-        -- unsure of this GBH (2008)
-        f   = P.intercalate (P.singleton '/')
-                 [dname $ folders st ! fdir fe, fbase fe]
-        j   = cursor  st
-        st' = st { current = new
-                 , status  = Playing
-                 , cursor  = if i == cursor st then new else j
-                 , playHist = Seq.take 36 $ (now, new) Seq.<| playHist st
-                 }
-    sendMpg $ Load f
-    pure st'
+    file <- modifyHS \st@HState{..} ->
+        let new = fn current
+            fe  = music ! new
+            f   = P.intercalate (P.singleton '/')
+                     [dname $ folders ! fdir fe, fbase fe]
+            st' = st { current = new
+                     , status  = Playing
+                     , cursor  = if current == cursor then new else cursor
+                     , playHist = Seq.take 36 $ (now, new) Seq.<| playHist
+                     }
+        in (st', f)
+    sendMpg $ Load file
 
 ------------------------------------------------------------------------
 

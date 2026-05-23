@@ -133,20 +133,14 @@ getsHS f = f <$> readMVar hState
 silentlyModifyHS :: (HState -> HState) -> IO ()
 silentlyModifyHS  f = modifyMVar_ hState (pure . f)
 
-------------------------------------------------------------------------
-
 modifyHS_ :: (HState -> HState) -> IO ()
 modifyHS_ f = silentlyModifyHS f <* touchHS
-
--- | Modify the state with an IO action, triggering a refresh
-modifyHSM :: (HState -> IO HState) -> IO ()
-modifyHSM f = modifyMVar_ hState f <* touchHS
 
 -- | Modify the state returning a value
 modifyHS :: (HState -> (HState, a)) -> IO a
 modifyHS f = modifyMVar hState (pure . f) <* touchHS
 
--- | Trigger a refresh. This is the only way to update the screen
+-- | Trigger a refresh. This is the only way to update the screen.
 touchHS :: IO ()
 touchHS = withMVar hState \st -> void $ tryPutMVar (modified st) ()
 
