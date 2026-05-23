@@ -134,7 +134,7 @@ exitTime e | is @IOException e = False -- ignore
 -- For example, if we can't start it two times in a row, perhaps give up?
 --
 mpgLoop :: IO ()
-mpgLoop = newIORef (1 :: Integer) >>= \spawnsRef -> runForever do
+mpgLoop = runForever do
     mmpg <- findExecutable mp3Tool
     case mmpg of
       Nothing     -> quit (Just $ "Cannot find " ++ mp3Tool ++ " in path")
@@ -142,14 +142,9 @@ mpgLoop = newIORef (1 :: Integer) >>= \spawnsRef -> runForever do
         mv <- try $ runInteractiveProcess mppath ["-R", "-"] Nothing Nothing
         case mv of
           Left (ex :: SomeException) ->
-            warnA $ "Unable to start " ++ mp3Tool ++ ": " ++ show ex ++ "; retrying..."
+            warnA $ "Unable to start " ++ mppath ++ ": " ++ show ex ++ "; retrying..."
 
           Right (writeh, r, e, pid) -> do
-            spawns <- readIORef spawnsRef
-
-            when (spawns > 1) do
-                void $ takeMVar mpg
-                warnA $ "Started " ++ mp3Tool ++ " #" ++ show spawns
 
             modifyHS_ $ \st -> st
                 { mpgPid    = Just pid
@@ -163,14 +158,18 @@ mpgLoop = newIORef (1 :: Integer) >>= \spawnsRef -> runForever do
             putMVar mpg Mpg { readf, errh, writeh }
 
             catch @SomeException (void $ waitForProcess pid) (const $ pure ())
+
             silentlyModifyHS $ \st -> st { mpgPid = Nothing }
+            void $ takeMVar mpg
+
             stop <- getsHS doNotResuscitate
             when stop exitSuccess
-            warnA $ "Restarting " ++ mppath ++ " (#" ++ show spawns ++ ")..."
-            modifyIORef' spawnsRef (+ 1)
+            threadDelay 1_000_000  -- let threads spit errors
+            warnA $ "Restarting " ++ mppath ++ "..."
 
-        -- Delay to slow spawn loops in case of trouble.
+        -- Slow spawn loops in case of trouble.
         threadDelay 4_000_000
+        warnA "Ready" -- optimistic but will get overwritten on error
 
 
 ------------------------------------------------------------------------
@@ -226,7 +225,7 @@ clockLoop = runForever $ threadDelay delay >> UI.refreshClock
 -- | Handle, and display errors produced by mpg123
 errorLoop :: IO ()
 errorLoop = runForever $
-    errh <$> readMVar mpg >>= hGetLine . filtHandle >>= (warnA . ("mpg: "++))
+    readMVar mpg <&> errh >>= hGetLine . filtHandle >>= (warnA . ("mpg: "++))
 
 ------------------------------------------------------------------------
 
@@ -236,8 +235,7 @@ errorLoop = runForever $
 --
 mpgInput :: (Mpg -> FiltHandle) -> IO ()
 mpgInput field = runForever $ do
-    fp   <- field <$> readMVar mpg
-    res  <- parser fp
+    res <- parser =<< field <$> readMVar mpg
     case res of
         Right m       -> handleMsg m
         Left (Just e) -> (warnA . ("read: "++) . show) e
@@ -601,10 +599,8 @@ clrmsg = putmsg (Fast P.empty defaultSty)
 
 --
 warnA :: String -> IO ()
-warnA x =
-    -- Handle read errors get a respawn, already reported.
-    unless ("hGetLine" `isInfixOf` x) do
-        sty <- getsHS config
-        putmsg $ Fast (P.pack x) (warnings sty)
-        touchHS
+warnA x = do
+    sty <- getsHS config
+    putmsg $ Fast (P.pack x) (warnings sty)
+    touchHS
 

@@ -8,14 +8,10 @@ module FastIO where
 
 import Base
 
-import Syntax                   (Pretty(ppr))
-
 import qualified Data.ByteString.Char8 as B
 
 import System.Posix.Files.ByteString
 import System.Posix.Directory.ByteString
-
-import System.IO                (hFlush)
 
 ------------------------------------------------------------------------
 
@@ -83,11 +79,6 @@ checkF (FiltHandle _ ir) = do
 
 isReadable :: ByteString -> IO Bool
 isReadable fp = fileAccess fp True False False
-
--- ---------------------------------------------------------------------
--- | Send a msg over the channel to the decoder
-send :: Pretty a => Handle -> a -> IO ()
-send h m = B.hPut h (ppr m) >> B.hPut h "\n" >> hFlush h
 
 ------------------------------------------------------------------------ 
 

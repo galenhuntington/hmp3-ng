@@ -9,16 +9,18 @@ module State where
 
 import Base
 
-import FastIO (FiltHandle(..), send)
-import Syntax                   (Status(Stopped), Mode(..), Frame, Info, Id3, Pretty)
+import FastIO (FiltHandle(..))
+import Syntax                   (Status(Stopped), Mode(..), Frame, Info, Id3, Pretty(ppr))
 import Tree                     (FileArray, DirArray)
 import Style                    (StringA(Fast), defaultSty, UIStyle)
 import qualified Config (defaultStyle)
 
 import Text.Regex.PCRE.Light    (Regex)
 import Data.Array               (listArray)
+import Data.ByteString          (hPut)
 import Data.Sequence            (Seq)
 import System.Clock             (TimeSpec(..))
+import System.IO                (hFlush)
 import System.Process           (ProcessHandle)
 
 
@@ -118,9 +120,9 @@ mpg :: MVar Mpg
 mpg = unsafePerformIO newEmptyMVar
 {-# NOINLINE mpg #-}
 
--- Single point that needs to serialize: writing to the pipe.
 sendMpg :: Pretty a => a -> IO ()
-sendMpg x = withMVar mpg \m -> send (writeh m) x
+sendMpg s = withMVar mpg $ (. writeh) \h ->
+    hPut h (ppr s) >> hPut h "\n" >> hFlush h  -- XXX NoBuffering?
 
 ------------------------------------------------------------------------
 -- state accessor functions
