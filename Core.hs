@@ -31,7 +31,7 @@ import Syntax
 import Lexer                (parser)
 import State
 import Style
-import FastIO               (send, FiltHandle(..), newFiltHandle)
+import FastIO               (FiltHandle(..), newFiltHandle)
 import Tree hiding (File, Dir)
 import qualified Tree (File,Dir)
 import qualified UI
@@ -75,12 +75,12 @@ start playNow (Tree ds fs) = handle @SomeException (shutdown . Just . show) do
 
     threads <- sequence $ map forkIO
         [ mpgLoop
-        , mpgInput readf
+        , mpgInput mpgReadf
         , refreshLoop
         , clockLoop
         , uptimeLoop
         -- mpg321 uses stderr for @F messages
-        , if mp3Tool == "mpg321" then mpgInput errh else errorLoop
+        , if mp3Tool == "mpg321" then mpgInput mpgErrh else errorLoop
         ]
 
     silentlyModifyST $ \s -> s
@@ -145,34 +145,33 @@ mpgLoop = newIORef (1 :: Integer) >>= \spawnsRef -> runForever do
                            do warnA ("Unable to start " ++ mp3Tool ++ ": " ++ show ex)
                               pure Nothing)
 
-        whenJust mv \ (hw, r, e, pid) -> do
+        whenJust mv \ (mpgWriteh, r, e, pid) -> do
             spawns <- readIORef spawnsRef
 
             when (spawns > 1) do
-                void $ takeMVar =<< getsST readf
-                void $ takeMVar =<< getsST writeh
-                void $ takeMVar =<< getsST errh
+                void $ takeMVar mpg
                 warnA $ "Started " ++ mp3Tool ++ " #" ++ show spawns
 
-            join $ putMVar <$> getsST readf <*> newFiltHandle r
-            join $ putMVar <$> getsST errh <*> newFiltHandle e
-            flip putMVar hw =<< getsST writeh
+            modifyST $ \st -> st
+                { mpgPid    = Just pid
+                , status    = Stopped
+                , info      = Nothing
+                , id3       = Nothing
+                }
 
-            modifyST $ \st ->
-               st { mp3pid    = Just pid
-                  , status    = Stopped
-                  , info      = Nothing
-                  , id3       = Nothing
-                  }
+            mpgReadf <- newFiltHandle r
+            mpgErrh <- newFiltHandle e
+            putMVar mpg Mpg { mpgReadf, mpgErrh, mpgWriteh }
 
-            catch @SomeException (void $ waitForProcess pid) (\_ -> pure ())
+            catch @SomeException (void $ waitForProcess pid) (const $ pure ())
+            silentlyModifyST $ \st -> st { mpgPid = Nothing }
             stop <- getsST doNotResuscitate
             when stop exitSuccess
             warnA $ "Restarting " ++ mppath ++ " (#" ++ show spawns ++ ")..."
             modifyIORef' spawnsRef (+ 1)
 
         -- Delay to slow spawn loops in case of trouble.
-        threadDelay 4_000_000
+        threadDelay 400_000
 
 
 ------------------------------------------------------------------------
@@ -228,7 +227,7 @@ clockLoop = runForever $ threadDelay delay >> UI.refreshClock
 -- | Handle, and display errors produced by mpg123
 errorLoop :: IO ()
 errorLoop = runForever $
-    getsST errh >>= readMVar >>= hGetLine . filtHandle >>= (warnA . ("mpg: "++))
+    mpgErrh <$> readMVar mpg >>= hGetLine . filtHandle >>= (warnA . ("mpg: "++))
 
 ------------------------------------------------------------------------
 
@@ -236,10 +235,9 @@ errorLoop = runForever $
 -- shutdown kills the other end of the pipe, hGetLine will fail, so we
 -- take that chance to exit.
 --
-mpgInput :: (HState -> MVar FiltHandle) -> IO ()
+mpgInput :: (Mpg -> FiltHandle) -> IO ()
 mpgInput field = runForever $ do
-    mvar <- getsST field
-    fp   <- readMVar mvar
+    fp   <- field <$> readMVar mpg
     res  <- parser fp
     case res of
         Right m       -> handleMsg m
@@ -256,16 +254,13 @@ run = runForever keyLoop
 
 -- | Close most things. Important to do all the jobs:
 shutdown :: Maybe String -> IO ()
-shutdown ms =
-    do  silentlyModifyST $ \st -> st { doNotResuscitate = True }
-        discardErrors writeState
-        withST $ \st -> do
-            case mp3pid st of
-                Nothing  -> pure ()
-                Just pid -> do
-                    h <- readMVar (writeh st)
-                    send h Quit                        -- ask politely
-                    void $ waitForProcess pid
+shutdown ms = do
+    silentlyModifyST $ \st -> st { doNotResuscitate = True }
+    discardErrors writeState
+    mpid <- getsST mpgPid
+    whenJust mpid \pid -> do
+        sendMpg Quit               -- ask politely
+        void $ waitForProcess pid
 
     `finally`
 
@@ -317,10 +312,8 @@ seek fn = do
     case f of
         Nothing -> pure ()
         Just g  -> do
-            withST $ \st -> do
-                h <- readMVar (writeh st)
-                send h $ Jump (fn g)
-                forceNextPacket         -- don't drop the next Frame.
+            sendMpg $ Jump (fn g)
+            forceNextPacket         -- don't drop the next Frame.
             silentlyModifyST $ \st -> st { clockUpdate = True }
 
 
@@ -369,10 +362,10 @@ playCur = modifySTM $ \st -> playAtN st (const $ cursor st)
 
 blacklist :: IO ()
 blacklist = do
-  st <- getsST id
-  appendFile ".hmp3-delete" . (++"\n") . P.unpack $
-    let fe = music st ! cursor st
-    in P.intercalate (P.singleton '/') [dname $ folders st ! fdir fe, fbase fe]
+    st <- getsST id
+    appendFile ".hmp3-delete" . (++"\n") . P.unpack $
+        let fe = music st ! cursor st
+        in P.intercalate (P.singleton '/') [dname $ folders st ! fdir fe, fbase fe]
 
 -- | Jump to a random song
 jumpToRandom :: HState -> IO HState
@@ -420,15 +413,14 @@ playAtN st fn = do
                  , cursor  = if i == cursor st then new else j
                  , playHist = Seq.take 36 $ (now, new) Seq.<| playHist st
                  }
-    h <- readMVar (writeh st)
-    send h (Load f)
+    sendMpg $ Load f
     pure st'
 
 ------------------------------------------------------------------------
 
 -- | Toggle pause on the current song
 pause :: IO ()
-pause = withST $ \st -> readMVar (writeh st) >>= flip send Pause
+pause = sendMpg Pause
 
 -- | Always pause
 forcePause :: IO ()

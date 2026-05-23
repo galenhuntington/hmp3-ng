@@ -9,8 +9,8 @@ module State where
 
 import Base
 
-import FastIO (FiltHandle(..))
-import Syntax                   (Status(Stopped), Mode(..), Frame, Info,Id3)
+import FastIO (FiltHandle(..), send)
+import Syntax                   (Status(Stopped), Mode(..), Frame, Info, Id3, Pretty)
 import Tree                     (FileArray, DirArray)
 import Style                    (StringA(Fast), defaultSty, UIStyle)
 import qualified Config (defaultStyle)
@@ -38,10 +38,7 @@ data HState = HState {
        ,cursor          :: !Int                  -- mp3 under the cursor
        ,clock           :: !(Maybe Frame)        -- current clock value
        ,clockUpdate     :: !Bool
-       ,mp3pid          :: !(Maybe ProcessHandle) -- pid of decoder
-       ,writeh          :: !(MVar Handle)        --  handle to mp3 (should be MVars?)
-       ,errh            :: !(MVar FiltHandle)    --  error handle to mp3
-       ,readf           :: !(MVar FiltHandle)    -- r/w pipe to mp3
+       ,mpgPid          :: !(Maybe ProcessHandle) -- pid of decoder
        ,threads         :: ![ThreadId]           -- all our threads
        ,id3             :: !(Maybe Id3)          -- maybe mp3 id3 info
        ,info            :: !(Maybe Info)         -- mp3 info
@@ -74,9 +71,6 @@ data HState = HState {
 newEmptyHS :: IO HState
 newEmptyHS = do
     modified <- newEmptyMVar
-    writeh   <- newEmptyMVar
-    errh     <- newEmptyMVar
-    readf    <- newEmptyMVar
     drawLock <- newMVar ()
     pure HState {
         music        = listArray (0,0) []
@@ -88,11 +82,8 @@ newEmptyHS = do
 
        ,threads      = []
        ,modified
-       ,writeh
-       ,errh
-       ,readf
 
-       ,mp3pid       = Nothing
+       ,mpgPid       = Nothing
        ,clock        = Nothing
        ,info         = Nothing
        ,id3          = Nothing
@@ -124,16 +115,26 @@ state :: MVar HState
 state = unsafePerformIO $ newMVar =<< newEmptyHS
 {-# NOINLINE state #-}
 
+data Mpg = Mpg
+    { mpgWriteh :: !Handle
+    , mpgReadf  :: !FiltHandle
+    , mpgErrh   :: !FiltHandle
+    }
+
+mpg :: MVar Mpg
+mpg = unsafePerformIO newEmptyMVar
+{-# NOINLINE mpg #-}
+
+-- Single point that needs to serialize: writing to the pipe.
+sendMpg :: Pretty a => a -> IO ()
+sendMpg m = withMVar mpg \m' -> send (mpgWriteh m') m
+
 ------------------------------------------------------------------------
 -- state accessor functions
 
 -- | Access a component of the state with a projection function
 getsST :: (HState -> a) -> IO a
-getsST f = withST (pure . f)
-
--- | Perform a (read-only) IO action on the state
-withST :: (HState -> IO a) -> IO a
-withST f = readMVar state >>= f
+getsST f = f <$> readMVar state
 
 -- | Modify the state with a pure function
 silentlyModifyST :: (HState -> HState) -> IO ()
@@ -158,7 +159,7 @@ touchST = withMVar state \st -> void $ tryPutMVar (modified st) ()
 
 forceNextPacket :: IO ()
 forceNextPacket = do
-  fh <- readMVar =<< getsST readf
+  fh <- mpgReadf <$> readMVar mpg
   writeIORef (frameCount fh) 0
 
 withDrawLock :: IO () -> IO ()
