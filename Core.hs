@@ -138,14 +138,12 @@ mpgLoop = newIORef (1 :: Integer) >>= \spawnsRef -> runForever do
     case mmpg of
       Nothing     -> quit (Just $ "Cannot find " ++ mp3Tool ++ " in path")
       Just mppath -> do
+        mv <- try $ runInteractiveProcess mppath ["-R", "-"] Nothing Nothing
+        case mv of
+          Left (ex :: SomeException) ->
+            warnA $ "Unable to start " ++ mp3Tool ++ ": " ++ show ex ++ "; retrying..."
 
-        -- if we're never able to start mpg123, do something sensible
-        mv <- catch (pure <$> runInteractiveProcess mppath ["-R", "-"] Nothing Nothing)
-                    (\ (ex :: SomeException) ->
-                           do warnA ("Unable to start " ++ mp3Tool ++ ": " ++ show ex)
-                              pure Nothing)
-
-        whenJust mv \ (mpgWriteh, r, e, pid) -> do
+          Right (mpgWriteh, r, e, pid) -> do
             spawns <- readIORef spawnsRef
 
             when (spawns > 1) do
@@ -171,7 +169,7 @@ mpgLoop = newIORef (1 :: Integer) >>= \spawnsRef -> runForever do
             modifyIORef' spawnsRef (+ 1)
 
         -- Delay to slow spawn loops in case of trouble.
-        threadDelay 400_000
+        threadDelay 4_000_000
 
 
 ------------------------------------------------------------------------
