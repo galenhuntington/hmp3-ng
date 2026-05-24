@@ -137,7 +137,7 @@ mpgLoop :: IO ()
 mpgLoop = runForever do
     mmpg <- findExecutable mp3Tool
     case mmpg of
-      Nothing     -> shutdown (Just $ "Cannot find " ++ mp3Tool ++ " in path")
+      Nothing     -> shutdown $ Just $ "Cannot find " ++ mp3Tool ++ " in path"
       Just mppath -> do
         mv <- try $ runInteractiveProcess mppath ["-R", "-"] Nothing Nothing
         case mv of
@@ -145,7 +145,6 @@ mpgLoop = runForever do
             warnA $ mppath ++ " failed to start; retrying: " ++ show ex
 
           Right (writeh, r, e, pid) -> do
-
             ct <- modifyHS $ \st -> let sp = spawns st + 1 in (st
                 { mpgPid    = Just pid
                 , status    = Stopped
@@ -191,7 +190,7 @@ uptimeLoop = runForever $ do
     now <- getMonoTime
     modifyHS_ $ \st -> st { uptime = showTimeDiff (boottime st) now }
   where
-    delay = 5 * 1000 * 1000 -- refresh every 5 seconds
+    delay = 5_000_000
 
 ------------------------------------------------------------------------
 
@@ -215,11 +214,11 @@ showTimeDiff = showTimeDiff_ False
 
 ------------------------------------------------------------------------
 
--- | Once each half second, wake up and redraw the clock
+-- | Periodically wake up and redraw the clock
 clockLoop :: IO ()
 clockLoop = runForever $ threadDelay delay >> UI.refreshClock
   where
-    delay = 500 * 1000 -- 0.5 second
+    delay = 200_000
 
 ------------------------------------------------------------------------
 

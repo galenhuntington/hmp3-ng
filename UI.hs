@@ -101,8 +101,9 @@ nocursor = Draw $ discardErrors $ void $ Curses.cursSet Curses.CursorInvisible
 -- | Clean up and go home. Refresh is needed on linux. grr.
 --
 end :: Bool -> IO ()
-end isXterm = do when isXterm $ setXtermTitle ["xterm"]
-                 Curses.endWin
+end isXterm = withDrawLock do
+    when isXterm $ setXtermTitle ["xterm"]
+    Curses.endWin
 
 --
 -- | Suspend the program
