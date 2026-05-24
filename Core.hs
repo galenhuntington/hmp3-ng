@@ -142,7 +142,7 @@ mpgLoop = runForever do
         mv <- try $ runInteractiveProcess mppath ["-R", "-"] Nothing Nothing
         case mv of
           Left (ex :: SomeException) ->
-            warnA $ "Unable to start " ++ mppath ++ ": " ++ show ex ++ "; retrying..."
+            warnA $ mppath ++ " failed to start; retrying: " ++ show ex
 
           Right (writeh, r, e, pid) -> do
 
@@ -167,7 +167,7 @@ mpgLoop = runForever do
             stop <- getsHS doNotResuscitate
             when stop exitSuccess
             threadDelay 1_000_000  -- let threads spit errors
-            warnA $ "Restarting " ++ mppath ++ "..."
+            warnA $ "Restarting " ++ mppath ++ " ..."
 
         -- Slow spawn loops in case of trouble.
         threadDelay 4_000_000
