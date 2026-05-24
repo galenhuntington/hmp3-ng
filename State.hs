@@ -22,6 +22,7 @@ import Data.Sequence            (Seq)
 import System.Clock             (TimeSpec(..))
 import System.IO                (hFlush)
 import System.Process           (ProcessHandle)
+import System.Random
 
 
 -- | The editor state type
@@ -33,6 +34,7 @@ data HState = HState {
        ,cursor          :: !Int                  -- mp3 under the cursor
        ,clock           :: !(Maybe Frame)        -- current clock value
        ,clockUpdate     :: !Bool
+       ,randomGen       :: StdGen                -- random seed
        ,mpgPid          :: !(Maybe ProcessHandle) -- pid of decoder
        ,spawns          :: Integer               -- count of decoder spawns
        ,threads         :: ![ThreadId]           -- all our threads
@@ -44,7 +46,7 @@ data HState = HState {
        ,histVisible     :: !(Maybe [(ByteString, (Int, ByteString))]) -- history pop-up if shown
        ,exitVisible     :: !Bool                 -- confirm exit modal shown
        ,miniFocused     :: !Bool                 -- is the mini buffer focused?
-       ,mode            :: !Mode                 -- random mode
+       ,mode            :: !Mode
        ,uptime          :: !ByteString
        ,boottime        :: !TimeSpec
        ,regex           :: !(Maybe (Regex,Bool)) -- most recent search pattern and direction
@@ -66,8 +68,9 @@ data HState = HState {
 --
 newEmptyHS :: IO HState
 newEmptyHS = do
-    modified <- newEmptyMVar
-    drawLock <- newMVar ()
+    modified  <- newEmptyMVar
+    drawLock  <- newMVar ()
+    randomGen <- newStdGen
     pure HState {
         music        = listArray (0,0) []
        ,folders      = listArray (0,0) []
@@ -95,6 +98,7 @@ newEmptyHS = do
        ,xterm            = False
        ,doNotResuscitate = False    -- mpg123 should be restarted
 
+       ,randomGen
        ,playHist     = mempty
        ,config       = Config.defaultStyle
        ,boottime     = 0

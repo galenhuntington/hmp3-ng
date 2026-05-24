@@ -43,14 +43,15 @@ import {-# SOURCE #-} Keymap (keyLoop)
 import qualified Data.ByteString.Char8 as P
 import qualified Data.Sequence as Seq
 
-import Control.Arrow            ((&&&))
 import Data.Array               ((!), bounds, Array)
+import Data.Tuple               (swap)
+import Control.Monad.State.Strict
 import System.Directory         (doesFileExist, findExecutable, createDirectoryIfMissing,
                                  getXdgDirectory, XdgDirectory(..))
 import System.IO                (hPutStrLn, hGetLine, stderr, hFlush)
 import System.Process           (runInteractiveProcess, waitForProcess)
 import System.Clock             (TimeSpec(..), diffTimeSpec)
-import System.Random            (randomRIO)
+import System.Random            (randomR)
 import System.FilePath          ((</>))
 
 import System.Posix.Process     (exitImmediately)
@@ -98,7 +99,7 @@ start playNow (Tree ds fs) = handle @SomeException (shutdown . Just . show) do
 
     loadConfig
 
-    if mode == Random then playRandom else playCur
+    if mode == Random then runPlayOp playRandomOp else playCur
     when (not playNow) pause
 
     run         -- won't restart if this fails!
@@ -356,64 +357,78 @@ blacklist = do
 
 ------------------------------------------------------------------------
 
--- | Load and play the song under the cursor
+type PlayOp = State HState (Maybe Int)
+
+-- | Play the song under the cursor or random if that one is playing
+-- TODO these semantics are strange; maybe playNext instead of random?
 play :: IO ()
-play = do
-    (curr, curs) <- getsHS (current &&& cursor)
-    if curr == curs
-        then playRandom
-        else playAtN (const curs)
+play = runPlayOp do
+    HState { current, cursor } <- get
+    if current == cursor
+        then playRandomOp
+        else pure $ Just cursor
 
+-- | Play the song under the cursor (from the start)
 playCur :: IO ()
-playCur = playAtN . const =<< getsHS cursor
-
--- | Jump to a random song
-playRandom :: IO ()
-playRandom = playAtN . const =<< (\sz -> randomRIO (0, sz-1)) =<< getsHS size
+playCur = runPlayOp $ Just <$> gets cursor
 
 -- | Play the song before the current song, if we're not at the beginning
 -- If we're at the beginning, and loop mode is on, then loop to the end
 -- If we're in random mode, play the next random track
 playPrev :: IO ()
-playPrev = do
-    (mo, (sz, cur)) <- getsHS (mode &&& size &&& current)
-    case mo of
-        Random      -> playRandom
-        Single      -> pure ()
-        _ | cur > 0 -> playAtN (subtract 1)
-        Loop        -> playAtN (const (sz-1))
-        Once        -> pure ()
+playPrev = runPlayOp do
+    HState { mode, size, current } <- get
+    case mode of
+        Random  -> playRandomOp
+        Single  -> pure Nothing
+        _ | current > 0
+                -> pure $ Just $ current - 1
+        Loop    -> pure $ Just $ size - 1
+        Once    -> pure Nothing
 
 -- | Play the song following the current song, if we're not at the end
 -- If we're at the end, and loop mode is on, then loop to the start
 -- If we're in random mode, play the next random track
 playNext :: IO ()
-playNext = do
-    (mo, notLast) <- getsHS (mode &&& (\st -> current st < size st - 1))
-    case mo of
-        Random      -> playRandom
-        Single      -> pure ()
-        _ | notLast -> playAtN (+ 1)
-        Loop        -> playAtN (const 0)
-        Once        -> pure ()
+playNext = runPlayOp do
+    HState { mode, current, size } <- get
+    let next = current + 1
+    case mode of
+        Random  -> playRandomOp
+        Single  -> pure Nothing
+        _ | next < size
+                -> pure $ Just next
+        Loop    -> pure $ Just 0
+        Once    -> pure Nothing
+
+-- | Random song
+playRandomOp :: PlayOp
+playRandomOp = do
+    HState { size, randomGen } <- get
+    let (new, gen') = randomR (0, size-1) randomGen
+    modify' \st -> st { randomGen = gen' }
+    pure $ Just new
 
 -- | Generic next song selection
--- If the cursor and current are currently the same, continue that.
-playAtN :: (Int -> Int) -> IO ()
-playAtN fn = do
+-- If cursor is on current, drag it along.
+runPlayOp :: PlayOp -> IO ()
+runPlayOp op = do
     now <- getMonoTime
-    file <- modifyHS \st@HState{..} ->
-        let new = fn current
-            fe  = music ! new
-            f   = P.intercalate (P.singleton '/')
-                     [dname $ folders ! fdir fe, fbase fe]
-            st' = st { current = new
-                     , status  = Playing
-                     , cursor  = if current == cursor then new else cursor
-                     , playHist = Seq.take 36 $ (now, new) Seq.<| playHist
-                     }
-        in (st', f)
-    sendMpg $ Load file
+    mfile <- modifyHS $ swap . runState do
+        mnew <- op
+        forM mnew \new -> do
+            HState { .. } <- get
+            let fe = music ! new
+                f  = P.intercalate (P.singleton '/')
+                        [dname $ folders ! fdir fe, fbase fe]
+            modify' \st -> st
+                { current = new
+                , status  = Playing
+                , cursor  = if current == cursor then new else cursor
+                , playHist = Seq.take 36 $ (now, new) Seq.<| playHist
+                }
+            pure f
+    forM_ mfile $ sendMpg . Load
 
 ------------------------------------------------------------------------
 
