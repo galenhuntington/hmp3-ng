@@ -34,6 +34,7 @@ data HState = HState {
        ,clock           :: !(Maybe Frame)        -- current clock value
        ,clockUpdate     :: !Bool
        ,mpgPid          :: !(Maybe ProcessHandle) -- pid of decoder
+       ,spawns          :: Integer               -- count of decoder spawns
        ,threads         :: ![ThreadId]           -- all our threads
        ,id3             :: !(Maybe Id3)          -- maybe mp3 id3 info
        ,info            :: !(Maybe Info)         -- mp3 info
@@ -79,6 +80,7 @@ newEmptyHS = do
        ,modified
 
        ,mpgPid       = Nothing
+       ,spawns       = 0
        ,clock        = Nothing
        ,info         = Nothing
        ,id3          = Nothing

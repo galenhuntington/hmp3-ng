@@ -146,17 +146,19 @@ mpgLoop = runForever do
 
           Right (writeh, r, e, pid) -> do
 
-            modifyHS_ $ \st -> st
+            ct <- modifyHS $ \st -> let sp = spawns st + 1 in (st
                 { mpgPid    = Just pid
                 , status    = Stopped
                 , info      = Nothing
                 , id3       = Nothing
-                }
+                , spawns    = sp
+                }, sp)
 
             readf <- newFiltHandle r
             errh <- newFiltHandle e
             putMVar mpg Mpg { readf, errh, writeh }
 
+            when (ct > 1) $ warnA $ mp3Tool ++ " #" ++ show ct ++ ": Ready"
             catch @SomeException (void $ waitForProcess pid) (const $ pure ())
 
             silentlyModifyHS $ \st -> st { mpgPid = Nothing }
@@ -169,7 +171,6 @@ mpgLoop = runForever do
 
         -- Slow spawn loops in case of trouble.
         threadDelay 4_000_000
-        warnA "Ready" -- optimistic but will get overwritten on error
 
 
 ------------------------------------------------------------------------
