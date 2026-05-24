@@ -11,7 +11,7 @@ module Core (
     start,
     shutdown,
     seekLeft, seekRight, upOne, downOne, pause, nextMode, playNext, playPrev,
-    forcePause, quit, putmsg, clrmsg, toggleHelp, play, playCur,
+    forcePause, putmsg, clrmsg, toggleHelp, play, playCur,
     jumpToPlaying, jump, jumpRel,
     upPage, downPage,
     seekStart,
@@ -137,7 +137,7 @@ mpgLoop :: IO ()
 mpgLoop = runForever do
     mmpg <- findExecutable mp3Tool
     case mmpg of
-      Nothing     -> quit (Just $ "Cannot find " ++ mp3Tool ++ " in path")
+      Nothing     -> shutdown (Just $ "Cannot find " ++ mp3Tool ++ " in path")
       Just mppath -> do
         mv <- try $ runInteractiveProcess mppath ["-R", "-"] Nothing Nothing
         case mv of
@@ -425,10 +425,6 @@ forcePause :: IO ()
 forcePause = do
     st <- getsHS status
     when (st == Playing) pause
-
--- | Shutdown and exit
-quit :: Maybe String -> IO ()
-quit = shutdown
 
 ------------------------------------------------------------------------
 

@@ -146,7 +146,7 @@ historyMode = KeyMap \c -> do
 
 confirmQuitMode :: KeyMap
 confirmQuitMode = KeyMap \case
-    'y' -> quit Nothing $> undefined -- quit never returns
+    'y' -> shutdown Nothing $> undefined -- shutdown never returns
     _   -> toggleExit *> touchHS $> mainMode
 
 
