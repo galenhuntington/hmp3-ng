@@ -124,7 +124,7 @@ mpg = unsafePerformIO newEmptyMVar
 
 sendMpg :: Pretty a => a -> IO ()
 sendMpg s = withMVar mpg $ (. writeh) \h ->
-    hPut h (ppr s) >> hPut h "\n" >> hFlush h  -- XXX NoBuffering?
+    hPut h (ppr s) >> hPut h "\n" >> hFlush h
 
 ------------------------------------------------------------------------
 -- state accessor functions

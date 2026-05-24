@@ -98,7 +98,7 @@ start playNow (Tree ds fs) = handle @SomeException (shutdown . Just . show) do
 
     loadConfig
 
-    if mode == Random then jumpToRandom else playCur
+    if mode == Random then playRandom else playCur
     when (not playNow) pause
 
     run         -- won't restart if this fails!
@@ -107,12 +107,12 @@ start playNow (Tree ds fs) = handle @SomeException (shutdown . Just . show) do
 
 -- | Uniform loop and thread handler (subtle, and requires exitImmediately)
 runForever :: IO () -> IO ()
-runForever fn = catch (forever fn) handler
-    where
-        handler :: SomeException -> IO ()
-        handler e =
-            unless (exitTime e) $
-                (warnA . ("outer: " ++) . show) e >> runForever fn  -- reopen the catch
+runForever fn = catch (forever fn) handler where
+    handler :: SomeException -> IO ()
+    handler e = unless (exitTime e) do
+        warnA $ "outer: " ++ show e
+        threadDelay 50_000
+        runForever fn
 
 -- | Generic handler
 -- I don't know why these are ignored, but preserving old logic.
@@ -160,6 +160,7 @@ mpgLoop = runForever do
             when (ct > 1) $ warnA $ mp3Tool ++ " #" ++ show ct ++ ": Ready"
             catch @SomeException (void $ waitForProcess pid) (const $ pure ())
 
+            -- Must be in this order or risk shutdown deadlock!
             silentlyModifyHS $ \st -> st { mpgPid = Nothing }
             void $ takeMVar mpg
 
@@ -225,7 +226,7 @@ clockLoop = runForever $ threadDelay delay >> UI.refreshClock
 -- | Handle, and display errors produced by mpg123
 errorLoop :: IO ()
 errorLoop = runForever $
-    readMVar mpg <&> errh >>= hGetLine . filtHandle >>= (warnA . ("mpg: "++))
+    readMVar mpg <&> errh >>= hGetLine . filtHandle >>= (warnA . ("mpg: " ++))
 
 ------------------------------------------------------------------------
 
@@ -238,7 +239,7 @@ mpgInput field = runForever $ do
     res <- parser =<< field <$> readMVar mpg
     case res of
         Right m       -> handleMsg m
-        Left (Just e) -> (warnA . ("read: "++) . show) e
+        Left (Just e) -> (warnA . ("read: " ++) . show) e
         _             -> pure ()
 
 ------------------------------------------------------------------------
@@ -345,19 +346,7 @@ jumpRel r | r < 0 || r >= 1 = pure ()
           | True = modifyHS_ $ \st ->
               st { cursor = floor $ fromIntegral (size st) * r }
 
-------------------------------------------------------------------------
-
--- | Load and play the song under the cursor
-play :: IO ()
-play = do
-    (curr, curs) <- getsHS (current &&& cursor)
-    if curr == curs
-        then jumpToRandom
-        else playAtN (const curs)
-
-playCur :: IO ()
-playCur = playAtN . const =<< getsHS cursor
-
+-- | Experimental feature concept.
 blacklist :: IO ()
 blacklist = do
     st <- getsHS id
@@ -365,9 +354,22 @@ blacklist = do
         let fe = music st ! cursor st
         in P.intercalate (P.singleton '/') [dname $ folders st ! fdir fe, fbase fe]
 
+------------------------------------------------------------------------
+
+-- | Load and play the song under the cursor
+play :: IO ()
+play = do
+    (curr, curs) <- getsHS (current &&& cursor)
+    if curr == curs
+        then playRandom
+        else playAtN (const curs)
+
+playCur :: IO ()
+playCur = playAtN . const =<< getsHS cursor
+
 -- | Jump to a random song
-jumpToRandom :: IO ()
-jumpToRandom = playAtN . const =<< (\sz -> randomRIO (0, sz-1)) =<< getsHS size
+playRandom :: IO ()
+playRandom = playAtN . const =<< (\sz -> randomRIO (0, sz-1)) =<< getsHS size
 
 -- | Play the song before the current song, if we're not at the beginning
 -- If we're at the beginning, and loop mode is on, then loop to the end
@@ -376,7 +378,7 @@ playPrev :: IO ()
 playPrev = do
     (mo, (sz, cur)) <- getsHS (mode &&& size &&& current)
     case mo of
-        Random      -> jumpToRandom
+        Random      -> playRandom
         Single      -> pure ()
         _ | cur > 0 -> playAtN (subtract 1)
         Loop        -> playAtN (const (sz-1))
@@ -389,7 +391,7 @@ playNext :: IO ()
 playNext = do
     (mo, notLast) <- getsHS (mode &&& (\st -> current st < size st - 1))
     case mo of
-        Random      -> jumpToRandom
+        Random      -> playRandom
         Single      -> pure ()
         _ | notLast -> playAtN (+ 1)
         Loop        -> playAtN (const 0)
