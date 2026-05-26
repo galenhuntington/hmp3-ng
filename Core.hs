@@ -75,7 +75,7 @@ start playNow (Tree ds fs) = handle @SomeException (shutdown . Just . show) do
     now <- getMonoTime
     mode <- readState
 
-    threads <- sequence $ map forkIO
+    threads <- traverse forkIO
         [ mpgLoop
         , mpgInput readf
         , refreshLoop
@@ -85,14 +85,13 @@ start playNow (Tree ds fs) = handle @SomeException (shutdown . Just . show) do
         , if mp3Tool == "mpg321" then mpgInput errh else errorLoop
         ]
 
-    silentlyModifyHS $ \s -> s
+    silentlyModifyHS $ \st -> st
         { music        = fs
         , folders      = ds
         , size         = 1 + (snd . bounds $ fs)
         , cursor       = 0
         , current      = 0
         , mode         = mode
-        , uptime       = showTimeDiff now now
         , boottime     = now
         , config       = c
         , threads      }
@@ -106,7 +105,7 @@ start playNow (Tree ds fs) = handle @SomeException (shutdown . Just . show) do
 
 ------------------------------------------------------------------------
 
--- | Uniform loop and thread handler (subtle, and requires exitImmediately)
+-- | Uniform loop and thread handler
 runForever :: IO () -> IO ()
 runForever fn = catch (forever fn) handler where
     handler :: SomeException -> IO ()
@@ -188,11 +187,9 @@ refreshLoop = do
 -- | The clock ticks once per minute, but check more often in case of drift.
 uptimeLoop :: IO ()
 uptimeLoop = runForever $ do
-    threadDelay delay
     now <- getMonoTime
     modifyHS_ $ \st -> st { uptime = showTimeDiff (boottime st) now }
-  where
-    delay = 5_000_000
+    threadDelay 3_000_000
 
 ------------------------------------------------------------------------
 
@@ -218,9 +215,7 @@ showTimeDiff = showTimeDiff_ False
 
 -- | Periodically wake up and redraw the clock
 clockLoop :: IO ()
-clockLoop = runForever $ threadDelay delay >> UI.refreshClock
-  where
-    delay = 200_000
+clockLoop = runForever $ threadDelay 125_000 *> UI.refreshClock
 
 ------------------------------------------------------------------------
 
@@ -357,6 +352,7 @@ blacklist = do
 
 ------------------------------------------------------------------------
 
+-- | Operates on HState and outputs maybe a track to play.
 type PlayOp = State HState (Maybe Int)
 
 -- | Play the song under the cursor or random if that one is playing

@@ -34,9 +34,9 @@ data HState = HState {
        ,cursor          :: !Int                  -- mp3 under the cursor
        ,clock           :: !(Maybe Frame)        -- current clock value
        ,clockUpdate     :: !Bool
-       ,randomGen       :: StdGen                -- random seed
+       ,randomGen       :: !StdGen               -- random seed
        ,mpgPid          :: !(Maybe ProcessHandle) -- pid of decoder
-       ,spawns          :: Integer               -- count of decoder spawns
+       ,spawns          :: !Integer              -- count of decoder spawns
        ,threads         :: ![ThreadId]           -- all our threads
        ,id3             :: !(Maybe Id3)          -- maybe mp3 id3 info
        ,info            :: !(Maybe Info)         -- mp3 info
@@ -50,10 +50,10 @@ data HState = HState {
        ,uptime          :: !ByteString
        ,boottime        :: !TimeSpec
        ,regex           :: !(Maybe (Regex,Bool)) -- most recent search pattern and direction
-       ,searchHist      :: [String]              -- history of searches
+       ,searchHist      :: ![String]             -- history of searches
        ,xterm           :: !Bool
        ,doNotResuscitate :: !Bool                -- should we just let mpg123 die?
-       ,playHist        :: Seq (TimeSpec, Int)  -- limited history of songs played
+       ,playHist        :: !(Seq (TimeSpec, Int)) -- limited history of songs played
        ,config          :: !UIStyle             -- config values
 
        ,modified        :: !(MVar ())           -- Set when redrawable components of 
