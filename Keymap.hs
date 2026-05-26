@@ -18,7 +18,7 @@ import Base hiding ((!?))
 
 import Core
 import Config       (package)
-import State        (getsST, touchST, modifyST, HState(histVisible, searchHist))
+import State        (getsHS, touchHS, modifyHS_, HState(histVisible, searchHist))
 import Style        (defaultSty, StringA(Fast))
 import qualified UI (getKey, resetui)
 
@@ -48,18 +48,18 @@ keyLoop = go mainMode where
 
 mainMode :: KeyMap
 mainMode = KeyMap dispatch where
-    dispatch 'q'  = forcePause *> toggleExit *> touchST $> confirmQuitMode
+    dispatch 'q'  = forcePause *> toggleExit *> touchHS $> confirmQuitMode
     dispatch c
         | c `elem` ['/', '?', '\\', '|']
                                = enterSearch c
-        | c `elem` ['H', ';']  = showHist *> touchST $> historyMode
+        | c `elem` ['H', ';']  = showHist *> touchHS $> historyMode
         | c >= '1' && c <= '9' =
             jumpRel (0.1 * fromIntegral (fromEnum c - 48)) $> mainMode
         | True                 = sequence_ (M.lookup c keyMap) $> mainMode
 
     enterSearch stype = do
         toggleFocus
-        hist <- getsST searchHist
+        hist <- getsHS searchHist
         searchMode stype $ Zipper "" hist []
 
 
@@ -76,7 +76,7 @@ searchMode stype = step where
     step z = renderSearch stype z $> KeyMap (`dispatch` z)
 
     dispatch c z
-        | c == '\ESC'      = clrmsg *> touchST *> leave
+        | c == '\ESC'      = clrmsg *> touchHS *> leave
         | c `elem` enter'  = commit z
         | c `elem` delete' = step $ zipEdit dropLast z
         | k == KeyUp       = step $ zipUp z
@@ -86,19 +86,19 @@ searchMode stype = step where
         | otherwise        = step $ zipEdit (++ [c]) z
       where k = charToKey c
 
-    commit (Zipper []  _ _) = clrmsg *> touchST *> leave
+    commit (Zipper []  _ _) = clrmsg *> touchHS *> leave
     commit (Zipper pat _ _) = do
         let jumpy = if stype `elem` ['/', '?']
                     then jumpToMatchFile else jumpToMatchDir
         jumpy (Just pat) (stype `elem` ['/', '\\'])
-        modifyST \st -> st { searchHist = pat : filter (/= pat) (searchHist st) }
+        modifyHS_ \st -> st { searchHist = pat : filter (/= pat) (searchHist st) }
         leave
 
     histDelete z = do
         let z' = case z of
                 Zipper _ b (pv:rest) -> Zipper pv b rest
                 Zipper _ b _         -> Zipper "" b []
-        modifyST \st -> st { searchHist = filter (/= cur z) (searchHist st) }
+        modifyHS_ \st -> st { searchHist = filter (/= cur z) (searchHist st) }
         step z'
 
     leave = toggleFocus $> mainMode
@@ -106,7 +106,7 @@ searchMode stype = step where
 renderSearch :: Char -> Zipper -> IO ()
 renderSearch prefix z = do
     putmsg $ Fast (P.pack (prefix : cur z)) defaultSty
-    touchST
+    touchHS
 
 dropLast :: [a] -> [a]
 dropLast [] = []
@@ -128,10 +128,10 @@ zipDown z                       = z
 historyMode :: KeyMap
 historyMode = KeyMap \c -> do
     for_ (M.lookup c historyKeys) \k -> do
-        phm <- getsST histVisible
+        phm <- getsHS histVisible
         for_ (phm >>= (!? k)) (jump . fst . snd)
     hideHist
-    touchST
+    touchHS
     pure mainMode
   where
     historyKeys :: M.Map Char Int
@@ -146,8 +146,8 @@ historyMode = KeyMap \c -> do
 
 confirmQuitMode :: KeyMap
 confirmQuitMode = KeyMap \case
-    'y' -> quit Nothing $> undefined -- quit never returns
-    _   -> toggleExit *> touchST $> mainMode
+    'y' -> shutdown Nothing $> undefined -- shutdown never returns
+    _   -> toggleExit *> touchHS $> mainMode
 
 
 ------------------------------------------------------------------------

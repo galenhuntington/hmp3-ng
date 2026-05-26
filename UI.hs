@@ -68,7 +68,7 @@ start = do
         case thisterm of 
             Just "vt220" -> setEnv "TERM" "xterm-color"
             Just t | "xterm" `isPrefixOf` t 
-                   -> silentlyModifyST $ \st -> st { xterm = True }
+                   -> silentlyModifyHS $ \st -> st { xterm = True }
             _ -> pure ()
 
     Curses.initCurses
@@ -101,8 +101,9 @@ nocursor = Draw $ discardErrors $ void $ Curses.cursSet Curses.CursorInvisible
 -- | Clean up and go home. Refresh is needed on linux. grr.
 --
 end :: Bool -> IO ()
-end isXterm = do when isXterm $ setXtermTitle ["xterm"]
-                 Curses.endWin
+end isXterm = withDrawLock do
+    when isXterm $ setXtermTitle ["xterm"]
+    Curses.endWin
 
 --
 -- | Suspend the program
@@ -155,7 +156,7 @@ resizeui = Draw $ void $ do
     do
         -- not sure I need all these...
         Curses.nl True
-        Curses.leaveOk True
+        _ <- Curses.leaveOk True
         Curses.noDelay Curses.stdScr False
         Curses.cBreak True
         -- Curses.meta stdScr True -- not in module
@@ -559,7 +560,7 @@ spaces = flip P.replicate ' '
 --
 redrawJustClock :: Draw
 redrawJustClock = Draw $ discardErrors do
-   st      <- getsST id
+   st      <- getsHS id
    let fr = clock st
    (h, w) <- screenSize
    let sz = Size h w
@@ -601,7 +602,7 @@ renderModals s sz = do
 redraw :: Draw
 redraw = Draw $ discardErrors do
    -- linux ncurses, in particular, seems to complain a lot. this is an easy solution
-   s <- getsST id    -- another refresh could be triggered?
+   s <- getsHS id    -- another refresh could be triggered?
    let f = clock s
    (h, w) <- screenSize
    let sz = Size h w

@@ -8,22 +8,22 @@
 -- | Main module. 
 --
 module Core (
-        start,
-        shutdown,
-        seekLeft, seekRight, upOne, downOne, pause, nextMode, playNext, playPrev,
-        forcePause, quit, putmsg, clrmsg, toggleHelp, play, playCur,
-        jumpToPlaying, jump, jumpRel,
-        upPage, downPage,
-        seekStart,
-        blacklist,
-        showHist, hideHist,
-        jumpToMatchDir, jumpToMatchFile,
-        toggleFocus, jumpToNextDir, jumpToPrevDir,
-        loadConfig,
-        discardErrors,
-        toggleExit,
-        showTimeDiff_,
-    ) where
+    start,
+    shutdown,
+    seekLeft, seekRight, upOne, downOne, pause, nextMode, playNext, playPrev,
+    forcePause, putmsg, clrmsg, toggleHelp, play, playCur,
+    jumpToPlaying, jump, jumpRel,
+    upPage, downPage,
+    seekStart,
+    blacklist,
+    showHist, hideHist,
+    jumpToMatchDir, jumpToMatchFile,
+    toggleFocus, jumpToNextDir, jumpToPrevDir,
+    loadConfig,
+    discardErrors,
+    toggleExit,
+    showTimeDiff_,
+) where
 
 import Base
 
@@ -31,10 +31,11 @@ import Syntax
 import Lexer                (parser)
 import State
 import Style
-import FastIO               (send, FiltHandle(..), newFiltHandle)
+import FastIO               (FiltHandle(..), newFiltHandle)
 import Tree hiding (File, Dir)
 import qualified Tree (File,Dir)
 import qualified UI
+import Config (defaultStyle)
 
 import Text.Regex.PCRE.Light
 import {-# SOURCE #-} Keymap (keyLoop)
@@ -43,12 +44,14 @@ import qualified Data.ByteString.Char8 as P
 import qualified Data.Sequence as Seq
 
 import Data.Array               ((!), bounds, Array)
+import Data.Tuple               (swap)
+import Control.Monad.State.Strict
 import System.Directory         (doesFileExist, findExecutable, createDirectoryIfMissing,
                                  getXdgDirectory, XdgDirectory(..))
 import System.IO                (hPutStrLn, hGetLine, stderr, hFlush)
 import System.Process           (runInteractiveProcess, waitForProcess)
 import System.Clock             (TimeSpec(..), diffTimeSpec)
-import System.Random            (randomRIO)
+import System.Random            (randomR)
 import System.FilePath          ((</>))
 
 import System.Posix.Process     (exitImmediately)
@@ -67,56 +70,49 @@ mp3Tool =
 start :: Bool -> Tree -> IO ()
 start playNow (Tree ds fs) = handle @SomeException (shutdown . Just . show) do
 
-    t0 <- forkIO mpgLoop    -- start this off early, to give mpg123 time to settle
-
     c <- UI.start -- initialise curses
 
     now <- getMonoTime
     mode <- readState
 
-    -- fork some threads
-    t1 <- forkIO $ mpgInput readf
-    t2 <- forkIO refreshLoop
-    t3 <- forkIO clockLoop
-    t4 <- forkIO uptimeLoop
-    t5 <- forkIO
+    threads <- traverse forkIO
+        [ mpgLoop
+        , mpgInput readf
+        , refreshLoop
+        , clockLoop
+        , uptimeLoop
         -- mpg321 uses stderr for @F messages
-        $ if mp3Tool == "mpg321" then mpgInput errh else errorLoop
+        , if mp3Tool == "mpg321" then mpgInput errh else errorLoop
+        ]
 
-    silentlyModifyST $ \s -> s
+    silentlyModifyHS $ \st -> st
         { music        = fs
         , folders      = ds
         , size         = 1 + (snd . bounds $ fs)
         , cursor       = 0
         , current      = 0
         , mode         = mode
-        , uptime       = showTimeDiff now now
         , boottime     = now
         , config       = c
-        , threads      = [t0,t1,t2,t3,t4,t5] }
+        , threads      }
 
     loadConfig
 
-    when (0 <= (snd . bounds $ fs)) do
-        if mode == Random then modifySTM jumpToRandom else playCur
+    if mode == Random then runPlayOp playRandomOp else playCur
     when (not playNow) pause
 
     run         -- won't restart if this fails!
 
 ------------------------------------------------------------------------
 
--- | Uniform loop and thread handler (subtle, and requires exitImmediately)
+-- | Uniform loop and thread handler
 runForever :: IO () -> IO ()
-runForever fn = catch (forever fn) handler
-    where
-        handler :: SomeException -> IO ()
-        handler e =
-            unless (exitTime e) $
-                (warnA . show) e >> runForever fn        -- reopen the catch
-
--- | Standard combinator.
-whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
-whenJust mb f = maybe (pure ()) f mb
+runForever fn = catch (forever fn) handler where
+    handler :: SomeException -> IO ()
+    handler e = unless (exitTime e) do
+        warnA $ "outer: " ++ show e
+        threadDelay 50_000
+        runForever fn
 
 -- | Generic handler
 -- I don't know why these are ignored, but preserving old logic.
@@ -141,37 +137,39 @@ mpgLoop :: IO ()
 mpgLoop = runForever do
     mmpg <- findExecutable mp3Tool
     case mmpg of
-      Nothing     -> quit (Just $ "Cannot find " ++ mp3Tool ++ " in path")
+      Nothing     -> shutdown $ Just $ "Cannot find " ++ mp3Tool ++ " in path"
       Just mppath -> do
+        mv <- try $ runInteractiveProcess mppath ["-R", "-"] Nothing Nothing
+        case mv of
+          Left (ex :: SomeException) ->
+            warnA $ mppath ++ " failed to start; retrying: " ++ show ex
 
-        -- if we're never able to start mpg123, do something sensible
-        mv <- catch (pure <$> runInteractiveProcess mppath ["-R", "-"] Nothing Nothing)
-                    (\ (e :: SomeException) ->
-                           do warnA ("Unable to start " ++ mp3Tool ++ ": " ++ show e)
-                              pure Nothing)
+          Right (writeh, r, e, pid) -> do
+            ct <- modifyHS $ \st -> let sp = spawns st + 1 in (st
+                { mpgPid    = Just pid
+                , status    = Stopped
+                , info      = Nothing
+                , id3       = Nothing
+                , spawns    = sp
+                }, sp)
 
-        whenJust mv \ (hw, r, e, pid) -> do
+            readf <- newFiltHandle r
+            errh <- newFiltHandle e
+            putMVar mpg Mpg { readf, errh, writeh }
 
-            mhw         <- newMVar hw
-            mew         <- newMVar =<< newFiltHandle e
-            mfilep      <- newMVar =<< newFiltHandle r
+            when (ct > 1) $ warnA $ mp3Tool ++ " #" ++ show ct ++ ": Ready"
+            catch @SomeException (void $ waitForProcess pid) (const $ pure ())
 
-            modifyST $ \st ->
-               st { mp3pid    = Just pid
-                  , writeh    = mhw
-                  , errh      = mew
-                  , readf     = mfilep
-                  , status    = Stopped
-                  , info      = Nothing
-                  , id3       = Nothing
-                  }
+            -- Must be in this order or risk shutdown deadlock!
+            silentlyModifyHS $ \st -> st { mpgPid = Nothing }
+            void $ takeMVar mpg
 
-            catch @SomeException (void $ waitForProcess pid) (\_ -> pure ())
-            stop <- getsST doNotResuscitate
+            stop <- getsHS doNotResuscitate
             when stop exitSuccess
+            threadDelay 1_000_000  -- let threads spit errors
             warnA $ "Restarting " ++ mppath ++ " ..."
 
-        -- Delay to slow spawn loops in case of trouble.
+        -- Slow spawn loops in case of trouble.
         threadDelay 4_000_000
 
 
@@ -181,7 +179,7 @@ mpgLoop = runForever do
 -- for it to be modified again.
 refreshLoop :: IO ()
 refreshLoop = do
-    mvar <- getsST modified
+    mvar <- getsHS modified
     runForever $ takeMVar mvar >> UI.refresh
 
 ------------------------------------------------------------------------
@@ -189,11 +187,9 @@ refreshLoop = do
 -- | The clock ticks once per minute, but check more often in case of drift.
 uptimeLoop :: IO ()
 uptimeLoop = runForever $ do
-    threadDelay delay
     now <- getMonoTime
-    modifyST $ \st -> st { uptime = showTimeDiff (boottime st) now }
-  where
-    delay = 5 * 1000 * 1000 -- refresh every 5 seconds
+    modifyHS_ $ \st -> st { uptime = showTimeDiff (boottime st) now }
+    threadDelay 3_000_000
 
 ------------------------------------------------------------------------
 
@@ -217,18 +213,16 @@ showTimeDiff = showTimeDiff_ False
 
 ------------------------------------------------------------------------
 
--- | Once each half second, wake up and redraw the clock
+-- | Periodically wake up and redraw the clock
 clockLoop :: IO ()
-clockLoop = runForever $ threadDelay delay >> UI.refreshClock
-  where
-    delay = 500 * 1000 -- 0.5 second
+clockLoop = runForever $ threadDelay 125_000 *> UI.refreshClock
 
 ------------------------------------------------------------------------
 
 -- | Handle, and display errors produced by mpg123
 errorLoop :: IO ()
 errorLoop = runForever $
-    getsST errh >>= readMVar >>= hGetLine . filtHandle >>= warnA
+    readMVar mpg <&> errh >>= hGetLine . filtHandle >>= (warnA . ("mpg: " ++))
 
 ------------------------------------------------------------------------
 
@@ -236,14 +230,12 @@ errorLoop = runForever $
 -- shutdown kills the other end of the pipe, hGetLine will fail, so we
 -- take that chance to exit.
 --
-mpgInput :: (HState -> MVar FiltHandle) -> IO ()
+mpgInput :: (Mpg -> FiltHandle) -> IO ()
 mpgInput field = runForever $ do
-    mvar <- getsST field
-    fp   <- readMVar mvar
-    res  <- parser fp
+    res <- parser =<< field <$> readMVar mpg
     case res of
         Right m       -> handleMsg m
-        Left (Just e) -> (warnA.show) e
+        Left (Just e) -> (warnA . ("read: " ++) . show) e
         _             -> pure ()
 
 ------------------------------------------------------------------------
@@ -256,21 +248,17 @@ run = runForever keyLoop
 
 -- | Close most things. Important to do all the jobs:
 shutdown :: Maybe String -> IO ()
-shutdown ms =
-    do  silentlyModifyST $ \st -> st { doNotResuscitate = True }
-        discardErrors writeState
-        withST $ \st -> do
-            case mp3pid st of
-                Nothing  -> pure ()
-                Just pid -> do
-                    h <- readMVar (writeh st)
-                    send h Quit                        -- ask politely
-                    waitForProcess pid
-                    pure ()
+shutdown ms = do
+    silentlyModifyHS $ \st -> st { doNotResuscitate = True }
+    discardErrors writeState
+    mpid <- getsHS mpgPid
+    flip (maybe $ pure ()) mpid \pid -> do
+        sendMpg Quit               -- ask politely
+        void $ waitForProcess pid
 
     `finally`
 
-    do  isXterm <- getsST xterm
+    do  isXterm <- getsHS xterm
         UI.end isXterm
         when (isJust ms) $ hPutStrLn stderr (fromJust ms) >> hFlush stderr
         exitImmediately ExitSuccess
@@ -282,17 +270,17 @@ shutdown ms =
 --
 handleMsg :: Msg -> IO ()
 handleMsg (T _)                = pure ()
-handleMsg (I i)                = modifyST $ \s -> s { info = Just i }
-handleMsg (F (File (Left  _))) = modifyST $ \s -> s { id3 = Nothing }
-handleMsg (F (File (Right i))) = modifyST $ \s -> s { id3 = Just i  }
+handleMsg (I i)                = modifyHS_ $ \s -> s { info = Just i }
+handleMsg (F (File (Left  _))) = modifyHS_ $ \s -> s { id3 = Nothing }
+handleMsg (F (File (Right i))) = modifyHS_ $ \s -> s { id3 = Just i  }
 
 handleMsg (S t) = do
-    modifyST $ \s -> s { status  = t }
+    modifyHS_ $ \s -> s { status  = t }
     when (t == Stopped) playNext   -- transition to next song
 
 handleMsg (R f) = do
-    silentlyModifyST \st -> st { clock = Just f }
-    getsST clockUpdate >>= flip when UI.refreshClock
+    silentlyModifyHS \st -> st { clock = Just f }
+    getsHS clockUpdate >>= flip when UI.refreshClock
 
 ------------------------------------------------------------------------
 --
@@ -314,22 +302,20 @@ seekStart = seek $ const 0
 -- | Generic seek
 seek :: (Frame -> Int) -> IO ()
 seek fn = do
-    f <- getsST clock
+    f <- getsHS clock
     case f of
         Nothing -> pure ()
         Just g  -> do
-            withST $ \st -> do
-                h <- readMVar (writeh st)
-                send h $ Jump (fn g)
-                forceNextPacket         -- don't drop the next Frame.
-            silentlyModifyST $ \st -> st { clockUpdate = True }
+            sendMpg $ Jump (fn g)
+            forceNextPacket         -- don't drop the next Frame.
+            silentlyModifyHS $ \st -> st { clockUpdate = True }
 
 
 ------------------------------------------------------------------------
 
 -- | Generic jump
 jumpFn :: (Int -> Int) -> IO ()
-jumpFn fn = modifyST \st ->
+jumpFn fn = modifyHS_ \st ->
     st { cursor = (fn (cursor st) `min` (size st - 1)) `max` 0 }
 
 -- | Move cursor up or down
@@ -353,99 +339,110 @@ jump = jumpFn . const
 -- | Jump to relative place, 0 to 1.
 jumpRel :: Float -> IO ()
 jumpRel r | r < 0 || r >= 1 = pure ()
-          | True = modifyST $ \st ->
+          | True = modifyHS_ $ \st ->
               st { cursor = floor $ fromIntegral (size st) * r }
+
+-- | Experimental feature concept.
+blacklist :: IO ()
+blacklist = do
+    st <- getsHS id
+    appendFile ".hmp3-delete" . (++"\n") . P.unpack $
+        let fe = music st ! cursor st
+        in P.intercalate (P.singleton '/') [dname $ folders st ! fdir fe, fbase fe]
 
 ------------------------------------------------------------------------
 
--- | Load and play the song under the cursor
+-- | Operates on HState and outputs maybe a track to play.
+type PlayOp = State HState (Maybe Int)
+
+-- | Play the song under the cursor or random if that one is playing
+-- TODO these semantics are strange; maybe playNext instead of random?
 play :: IO ()
-play = modifySTM $ \st ->
-    if current st == cursor st
-    then jumpToRandom st
-    else playAtN st (const $ cursor st)
+play = runPlayOp do
+    HState { current, cursor } <- get
+    if current == cursor
+        then playRandomOp
+        else pure $ Just cursor
 
+-- | Play the song under the cursor (from the start)
 playCur :: IO ()
-playCur = modifySTM $ \st -> playAtN st (const $ cursor st)
-
-blacklist :: IO ()
-blacklist = do
-  st <- getsST id
-  appendFile ".hmp3-delete" . (++"\n") . P.unpack $
-    let fe = music st ! cursor st
-    in P.intercalate (P.singleton '/') [dname $ folders st ! fdir fe, fbase fe]
-
--- | Jump to a random song
-jumpToRandom :: HState -> IO HState
-jumpToRandom st = playAtN st . const =<< randomRIO (0, size st - 1)
+playCur = runPlayOp $ Just <$> gets cursor
 
 -- | Play the song before the current song, if we're not at the beginning
 -- If we're at the beginning, and loop mode is on, then loop to the end
 -- If we're in random mode, play the next random track
 playPrev :: IO ()
-playPrev = modifySTM \st -> case mode st of
-    Random -> jumpToRandom st
-    Single -> pure st
-    _ | current st > 0
-           -> playAtN st (subtract 1)
-    Loop   -> playAtN st (const (size st - 1))
-    Once   -> pure st
+playPrev = runPlayOp do
+    HState { mode, size, current } <- get
+    case mode of
+        Random  -> playRandomOp
+        Single  -> pure Nothing
+        _ | current > 0
+                -> pure $ Just $ current - 1
+        Loop    -> pure $ Just $ size - 1
+        Once    -> pure Nothing
 
 -- | Play the song following the current song, if we're not at the end
 -- If we're at the end, and loop mode is on, then loop to the start
 -- If we're in random mode, play the next random track
 playNext :: IO ()
-playNext = modifySTM \st -> case mode st of
-    Random -> jumpToRandom st
-    Single -> pure st
-    _ | current st < size st - 1
-           -> playAtN st (+ 1)
-    Loop   -> playAtN st (const 0)
-    Once   -> pure st
+playNext = runPlayOp do
+    HState { mode, current, size } <- get
+    let next = current + 1
+    case mode of
+        Random  -> playRandomOp
+        Single  -> pure Nothing
+        _ | next < size
+                -> pure $ Just next
+        Loop    -> pure $ Just 0
+        Once    -> pure Nothing
+
+-- | Random song
+playRandomOp :: PlayOp
+playRandomOp = do
+    HState { size, randomGen } <- get
+    let (new, gen') = randomR (0, size-1) randomGen
+    modify' \st -> st { randomGen = gen' }
+    pure $ Just new
 
 -- | Generic next song selection
--- If the cursor and current are currently the same, continue that.
-playAtN :: HState -> (Int -> Int) -> IO HState
-playAtN st fn = do
+-- If cursor is on current, drag it along.
+runPlayOp :: PlayOp -> IO ()
+runPlayOp op = do
     now <- getMonoTime
-    let m   = music st
-        i   = current st
-        new = fn i
-        fe  = m ! new
-        -- unsure of this GBH (2008)
-        f   = P.intercalate (P.singleton '/')
-                 [dname $ folders st ! fdir fe, fbase fe]
-        j   = cursor  st
-        st' = st { current = new
-                 , status  = Playing
-                 , cursor  = if i == cursor st then new else j
-                 , playHist = Seq.take 36 $ (now, new) Seq.<| playHist st
-                 }
-    h <- readMVar (writeh st)
-    send h (Load f)
-    pure st'
+    mfile <- modifyHS $ swap . runState do
+        mnew <- op
+        forM mnew \new -> do
+            HState { .. } <- get
+            let fe = music ! new
+                f  = P.intercalate (P.singleton '/')
+                        [dname $ folders ! fdir fe, fbase fe]
+            modify' \st -> st
+                { current = new
+                , status  = Playing
+                , cursor  = if current == cursor then new else cursor
+                , playHist = Seq.take 36 $ (now, new) Seq.<| playHist
+                }
+            pure f
+    forM_ mfile $ sendMpg . Load
 
 ------------------------------------------------------------------------
 
 -- | Toggle pause on the current song
 pause :: IO ()
-pause = withST $ \st -> readMVar (writeh st) >>= flip send Pause
+pause = sendMpg Pause
 
 -- | Always pause
 forcePause :: IO ()
 forcePause = do
-    st <- getsST status
+    st <- getsHS status
     when (st == Playing) pause
-
--- | Shutdown and exit
-quit :: Maybe String -> IO ()
-quit = shutdown
 
 ------------------------------------------------------------------------
 
 -- | Move cursor to currently playing song
 jumpToPlaying :: IO ()
-jumpToPlaying = modifyST $ \st -> st { cursor = current st }
+jumpToPlaying = modifyHS_ $ \st -> st { cursor = current st }
 
 -- | Move cursor to first song in next directory (or wrap)
 jumpToNextDir, jumpToPrevDir :: IO ()
@@ -454,7 +451,7 @@ jumpToPrevDir = jumpToDir (\i _   -> max (i-1) 0)
 
 -- | Generic jump to dir
 jumpToDir :: (Int -> Int -> Int) -> IO ()
-jumpToDir fn = modifyST $ \st -> if size st == 0 then st else
+jumpToDir fn = modifyHS_ $ \st -> if size st == 0 then st else
     let i   = fdir (music st ! cursor st)
         len = 1 + (snd . bounds $ folders st)
         d   = fn i len
@@ -490,7 +487,7 @@ genericJumpToMatch :: Lookup a
                    -> IO ()
 
 genericJumpToMatch re sw k sel = do
-    found <- modifySTM_ $ \st -> pure do
+    found <- modifyHS $ \st -> do
         let mre = case re of
                 Nothing -> case regex st of
                     Nothing     -> Nothing
@@ -507,30 +504,30 @@ genericJumpToMatch re sw k sel = do
                 i:_ -> (st' { cursor = sel i st }, True)
                 _   -> (st', False)
 
-    unless found $ putmsg (Fast "No match found." defaultSty) *> touchST
+    unless found $ putmsg (Fast "No match found." defaultSty) *> touchHS
 
 ------------------------------------------------------------------------
 
 -- | Show/hide the help window
 toggleHelp :: IO ()
-toggleHelp = modifyST $ \st -> st { helpVisible = not (helpVisible st) }
+toggleHelp = modifyHS_ $ \st -> st { helpVisible = not (helpVisible st) }
 
 -- | Focus the minibuffer
 toggleFocus :: IO ()
-toggleFocus = modifyST $ \st -> st { miniFocused = not (miniFocused st) }
+toggleFocus = modifyHS_ $ \st -> st { miniFocused = not (miniFocused st) }
 
 -- | Show/hide the confirm exit modal
 toggleExit :: IO ()
-toggleExit = modifyST $ \st -> st { exitVisible = not (exitVisible st) }
+toggleExit = modifyHS_ $ \st -> st { exitVisible = not (exitVisible st) }
 
 -- | History on or off
 hideHist :: IO ()
-hideHist = modifyST $ \st -> st { histVisible = Nothing }
+hideHist = modifyHS_ $ \st -> st { histVisible = Nothing }
 
 showHist :: IO ()
 showHist = do
     now <- getMonoTime
-    modifyST $ \st -> st {
+    modifyHS_ $ \st -> st {
         helpVisible = False,
         histVisible = Just $ do
             (tm, ix) <- toList $ playHist st
@@ -539,7 +536,7 @@ showHist = do
 
 -- | Toggle the mode flag
 nextMode :: IO ()
-nextMode = modifyST $ \st -> st { mode = next (mode st) }
+nextMode = modifyHS_ $ \st -> st { mode = next (mode st) }
     where
         next v = if v == maxBound then minBound else succ v
 
@@ -553,7 +550,7 @@ writeState :: IO ()
 writeState = do
     dir <- getStatePath
     createDirectoryIfMissing True dir
-    mode <- getsST mode
+    mode <- getsHS mode
     writeFile (dir </> "mode") $ show mode ++ "\n"
 
 -- | Read mode state
@@ -565,7 +562,7 @@ readState = do
     modeM <- if b
         then readMaybe <$!> readFile f
         else pure Nothing
-    pure $ fromMaybe (mode emptySt) modeM
+    pure $ fromMaybe minBound modeM
 
 ------------------------------------------------------------------------
 -- Read styles from style.conf
@@ -592,18 +589,18 @@ loadConfig = do
             Just rsty -> do
                 let sty = buildStyle rsty
                 initcolours sty
-                modifyST $ \st -> st { config = sty }
+                modifyHS_ $ \st -> st { config = sty }
       else do
-        let sty = config emptySt
-        initcolours sty
-        modifyST $ \st -> st { config = sty }
+        initcolours defaultStyle
+        modifyHS_ $ \st -> st { config = defaultStyle }
     UI.resetui
 
 ------------------------------------------------------------------------
 -- Editing the minibuffer
 
+-- TODO maybe shouldn't be silent?
 putmsg :: StringA -> IO ()
-putmsg s = silentlyModifyST $ \st -> st { minibuffer = s }
+putmsg s = silentlyModifyHS $ \st -> st { minibuffer = s }
 
 -- | Modify without triggering a refresh
 clrmsg :: IO ()
@@ -612,6 +609,7 @@ clrmsg = putmsg (Fast P.empty defaultSty)
 --
 warnA :: String -> IO ()
 warnA x = do
-    sty <- getsST config
+    sty <- getsHS config
     putmsg $ Fast (P.pack x) (warnings sty)
+    touchHS
 
