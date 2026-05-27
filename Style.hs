@@ -31,12 +31,17 @@ data UIStyle = UIStyle {
 
 ------------------------------------------------------------------------
 
--- | Colors 
-data Color
-    = RGB {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8
-    | Default
-    | Reverse
-    deriving stock (Eq,Ord)
+-- | A terminal colour: the terminal default, reverse-video, or one of the
+-- eight ANSI hues at normal or bright intensity.  (Bright is rendered with
+-- the bold attribute, which is how 8-colour terminals expose it.)
+data Color = Default | Reverse | Color !Intensity !Hue
+    deriving stock (Eq, Ord, Show)
+
+data Intensity = Normal | Bright
+    deriving stock (Eq, Ord, Show)
+
+data Hue = Black | Red | Green | Yellow | Blue | Magenta | Cyan | White
+    deriving stock (Eq, Ord, Show)
 
 -- | Foreground and background color pairs
 data Style = Style !Color !Color
@@ -50,28 +55,28 @@ data StringA
 
 ------------------------------------------------------------------------
 --
--- | Some simple colours (derivied from proxima\/src\/common\/CommonTypes.hs)
---
--- But we don't have a light blue?
+-- | Named colours for the config file and the built-in styles.  The
+-- \"dark\" name of each pair is the normal-intensity hue; the plain name
+-- is its bright variant (so @red@ is bright, @darkred@ is normal).
 --
 black, grey, darkred, red, darkgreen, green, brown, yellow          :: Color
 darkblue, blue, purple, magenta, darkcyan, cyan, white, brightwhite :: Color
-black       = RGB 0 0 0
-grey        = RGB 128 128 128
-darkred     = RGB 139 0 0
-red         = RGB 255 0 0
-darkgreen   = RGB 0 100 0
-green       = RGB 0 128 0
-brown       = RGB 165 42 42
-yellow      = RGB 255 255 0
-darkblue    = RGB 0 0 139
-blue        = RGB 0 0 255
-purple      = RGB 128 0 128
-magenta     = RGB 255 0 255
-darkcyan    = RGB 0 139 139 
-cyan        = RGB 0 255 255
-white       = RGB 165 165 165
-brightwhite = RGB 255 255 255
+black       = Color Normal Black
+grey        = Color Bright Black
+darkred     = Color Normal Red
+red         = Color Bright Red
+darkgreen   = Color Normal Green
+green       = Color Bright Green
+brown       = Color Normal Yellow
+yellow      = Color Bright Yellow
+darkblue    = Color Normal Blue
+blue        = Color Bright Blue
+purple      = Color Normal Magenta
+magenta     = Color Bright Magenta
+darkcyan    = Color Normal Cyan
+cyan        = Color Bright Cyan
+white       = Color Normal White
+brightwhite = Color Bright White
 
 defaultfg, defaultbg, reversefg, reversebg :: Color
 defaultfg   = Default
@@ -224,57 +229,39 @@ reverseA    = setReverseA   nullA
 ------------------------------------------------------------------------
 
 newtype CColor = CColor (Curses.Attr, Curses.Color)
--- 
--- | Map Style rgb rgb colours to ncurses pairs
--- TODO a generic way to turn an rgb into the nearest curses color
---
+
+-- | Map an abstract 'Style' to its ncurses foreground/background pair.
 style2curses :: Style -> (CColor, CColor)
 style2curses (Style fg bg) = (fgCursCol fg, bgCursCol bg)
 {-# INLINE style2curses #-}
 
-fgCursCol :: Color -> CColor
-fgCursCol c = case c of
-    RGB 0 0 0         -> CColor (nullA, cblack)
-    RGB 128 128 128   -> CColor (boldA, cblack)
-    RGB 139 0 0       -> CColor (nullA, cred)
-    RGB 255 0 0       -> CColor (boldA, cred)
-    RGB 0 100 0       -> CColor (nullA, cgreen)
-    RGB 0 128 0       -> CColor (boldA, cgreen)
-    RGB 165 42 42     -> CColor (nullA, cyellow)
-    RGB 255 255 0     -> CColor (boldA, cyellow)
-    RGB 0 0 139       -> CColor (nullA, cblue)
-    RGB 0 0 255       -> CColor (boldA, cblue)
-    RGB 128 0 128     -> CColor (nullA, cmagenta)
-    RGB 255 0 255     -> CColor (boldA, cmagenta)
-    RGB 0 139 139     -> CColor (nullA, ccyan)
-    RGB 0 255 255     -> CColor (boldA, ccyan)
-    RGB 165 165 165   -> CColor (nullA, cwhite)
-    RGB 255 255 255   -> CColor (boldA, cwhite)
-    Default           -> CColor (nullA, defaultColor)
-    Reverse           -> CColor (reverseA, defaultColor)
-    _                 -> CColor (nullA, cblack) -- NB
+-- | The ncurses colour for each ANSI hue.
+hueColor :: Hue -> Curses.Color
+hueColor = \case
+    Black   -> cblack
+    Red     -> cred
+    Green   -> cgreen
+    Yellow  -> cyellow
+    Blue    -> cblue
+    Magenta -> cmagenta
+    Cyan    -> ccyan
+    White   -> cwhite
 
+-- | Foreground: bright hues take the bold attribute.
+fgCursCol :: Color -> CColor
+fgCursCol = \case
+    Default        -> CColor (nullA, defaultColor)
+    Reverse        -> CColor (reverseA, defaultColor)
+    Color Bright h -> CColor (boldA, hueColor h)
+    Color Normal h -> CColor (nullA, hueColor h)
+
+-- | Background: a terminal can't embolden a background, so intensity is
+-- dropped here.
 bgCursCol :: Color -> CColor
-bgCursCol c = case c of
-    RGB 0 0 0         -> CColor (nullA, cblack)
-    RGB 128 128 128   -> CColor (nullA, cblack)
-    RGB 139 0 0       -> CColor (nullA, cred)
-    RGB 255 0 0       -> CColor (nullA, cred)
-    RGB 0 100 0       -> CColor (nullA, cgreen)
-    RGB 0 128 0       -> CColor (nullA, cgreen)
-    RGB 165 42 42     -> CColor (nullA, cyellow)
-    RGB 255 255 0     -> CColor (nullA, cyellow)
-    RGB 0 0 139       -> CColor (nullA, cblue)
-    RGB 0 0 255       -> CColor (nullA, cblue)
-    RGB 128 0 128     -> CColor (nullA, cmagenta)
-    RGB 255 0 255     -> CColor (nullA, cmagenta)
-    RGB 0 139 139     -> CColor (nullA, ccyan)
-    RGB 0 255 255     -> CColor (nullA, ccyan)
-    RGB 165 165 165   -> CColor (nullA, cwhite)
-    RGB 255 255 255   -> CColor (nullA, cwhite)
-    Default           -> CColor (nullA, defaultColor)
-    Reverse           -> CColor (reverseA, defaultColor)
-    _                 -> CColor (nullA, cwhite)    -- NB
+bgCursCol = \case
+    Default   -> CColor (nullA, defaultColor)
+    Reverse   -> CColor (reverseA, defaultColor)
+    Color _ h -> CColor (nullA, hueColor h)
 
 defaultSty :: Style
 defaultSty = Style Default Default

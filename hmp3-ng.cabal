@@ -99,6 +99,7 @@ test-suite test
       CoreSpec
       FastIOSpec
       LexerSpec
+      StyleSpec
       TreeSpec
       WidthSpec
   build-depends:
