@@ -59,52 +59,24 @@ data StringA
 -- \"dark\" name of each pair is the normal-intensity hue; the plain name
 -- is its bright variant (so @red@ is bright, @darkred@ is normal).
 --
-black, grey, darkred, red, darkgreen, green, brown, yellow          :: Color
-darkblue, blue, purple, magenta, darkcyan, cyan, white, brightwhite :: Color
-black       = Color Normal Black
-grey        = Color Bright Black
-darkred     = Color Normal Red
-red         = Color Bright Red
-darkgreen   = Color Normal Green
-green       = Color Bright Green
-brown       = Color Normal Yellow
-yellow      = Color Bright Yellow
-darkblue    = Color Normal Blue
-blue        = Color Bright Blue
-purple      = Color Normal Magenta
-magenta     = Color Bright Magenta
-darkcyan    = Color Normal Cyan
-cyan        = Color Bright Cyan
-white       = Color Normal White
-brightwhite = Color Bright White
-
-defaultfg, defaultbg, reversefg, reversebg :: Color
-defaultfg   = Default
-defaultbg   = Default
-reversefg   = Reverse
-reversebg   = Reverse
-
---
--- | map strings to colors
---
 stringToColor :: String -> Maybe Color
 stringToColor s = case map toLower s of
-    "black"         -> Just black
-    "grey"          -> Just grey
-    "darkred"       -> Just darkred
-    "red"           -> Just red
-    "darkgreen"     -> Just darkgreen
-    "green"         -> Just green
-    "brown"         -> Just brown
-    "yellow"        -> Just yellow
-    "darkblue"      -> Just darkblue
-    "blue"          -> Just blue
-    "purple"        -> Just purple
-    "magenta"       -> Just magenta
-    "darkcyan"      -> Just darkcyan
-    "cyan"          -> Just cyan
-    "white"         -> Just white
-    "brightwhite"   -> Just brightwhite
+    "black"         -> Just $ Color Normal Black
+    "grey"          -> Just $ Color Bright Black
+    "darkred"       -> Just $ Color Normal Red
+    "red"           -> Just $ Color Bright Red
+    "darkgreen"     -> Just $ Color Normal Green
+    "green"         -> Just $ Color Bright Green
+    "brown"         -> Just $ Color Normal Yellow
+    "yellow"        -> Just $ Color Bright Yellow
+    "darkblue"      -> Just $ Color Normal Blue
+    "blue"          -> Just $ Color Bright Blue
+    "purple"        -> Just $ Color Normal Magenta
+    "magenta"       -> Just $ Color Bright Magenta
+    "darkcyan"      -> Just $ Color Normal Cyan
+    "cyan"          -> Just $ Color Bright Cyan
+    "white"         -> Just $ Color Normal White
+    "brightwhite"   -> Just $ Color Bright White
     "default"       -> Just Default
     "reverse"       -> Just Reverse
     _               -> Nothing
@@ -141,7 +113,6 @@ initcolours sty = do
                selected sty, titlebar sty, progress sty,
                blockcursor sty, cursors sty, combined sty ]
         (Style fg bg) = progress sty    -- bonus style
-
     pairs <- initUiColors (ls ++ [Style bg bg, Style fg fg])
     writeIORef pairMap pairs
     -- set the background
@@ -247,6 +218,9 @@ bgCursCol = \case
 
 defaultSty :: Style
 defaultSty = Style Default Default
+
+style :: String -> String -> Style
+style a b = let f = fromJust . stringToColor in Style (f a) (f b)
 
 ------------------------------------------------------------------------
 --

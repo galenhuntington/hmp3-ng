@@ -24,7 +24,7 @@ tests = testGroup "Style"
         , testCase "brown is normal yellow"
             $ stringToColor "brown"      @?= Just (Color Normal Yellow)
         , testCase "case-insensitive"
-            $ stringToColor "ReD"        @?= Just red
+            $ stringToColor "ReD"        @?= Just (Color Bright Red)
         , testCase "default"
             $ stringToColor "default"    @?= Just Default
         , testCase "reverse"
@@ -33,3 +33,4 @@ tests = testGroup "Style"
             $ stringToColor "chartreuse" @?= Nothing
         ]
     ]
+
