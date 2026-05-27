@@ -31,9 +31,9 @@ data UIStyle = UIStyle {
 
 ------------------------------------------------------------------------
 
--- | A terminal colour: the terminal default, reverse-video, or one of the
+-- | A terminal color: the terminal default, reverse-video, or one of the
 -- eight ANSI hues at normal or bright intensity.  (Bright is rendered with
--- the bold attribute, which is how 8-colour terminals expose it.)
+-- the bold attribute, which is how 8-color terminals expose it.)
 data Color = Default | Reverse | Color !Intensity !Hue
     deriving stock (Eq, Ord, Show)
 
@@ -55,7 +55,7 @@ data StringA
 
 ------------------------------------------------------------------------
 --
--- | Named colours for the config file and the built-in styles.  The
+-- | Named colors for the config file and the built-in styles.  The
 -- \"dark\" name of each pair is the normal-intensity hue; the plain name
 -- is its bright variant (so @red@ is bright, @darkred@ is normal).
 --
@@ -235,7 +235,7 @@ style2curses :: Style -> (CColor, CColor)
 style2curses (Style fg bg) = (fgCursCol fg, bgCursCol bg)
 {-# INLINE style2curses #-}
 
--- | The ncurses colour for each ANSI hue.
+-- | The ncurses color for each ANSI hue.
 hueColor :: Hue -> Curses.Color
 hueColor = \case
     Black   -> cblack

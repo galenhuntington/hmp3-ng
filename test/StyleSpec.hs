@@ -6,8 +6,8 @@ import Test.Tasty.HUnit
 import Style
 
 -- Lock in the config-string -> Color mapping and, with it, the intensity
--- assignment of each named colour (the "dark" name is normal intensity, the
--- plain name is bright).  This guards the 8-colour table against accidental
+-- assignment of each named color (the "dark" name is normal intensity, the
+-- plain name is bright).  This guards the 8-color table against accidental
 -- transcription errors.
 
 tests :: TestTree
