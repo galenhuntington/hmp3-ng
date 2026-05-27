@@ -87,6 +87,7 @@ executable hmp3
     , base
     , bytestring
     , hmp3-ng
+    , optparse-applicative
     , unix
     , utf8-string
 

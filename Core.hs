@@ -8,6 +8,7 @@
 -- | Main module. 
 --
 module Core (
+    Options(..),
     start,
     shutdown,
     seekLeft, seekRight, upOne, downOne, pause, nextMode, playNext, playPrev,
@@ -67,8 +68,15 @@ mp3Tool =
 
 ------------------------------------------------------------------------
 
-start :: Bool -> Tree -> IO ()
-start playNow (Tree ds fs) = handle @SomeException (shutdown . Just . show) do
+-- | Command-line configuration passed in from 'Main'.  Expected to grow
+-- as more options are added.
+data Options = Options
+    { optPaused     :: !Bool             -- ^ start in a paused state
+    , optConfigPath :: !(Maybe FilePath) -- ^ override the style.conf location
+    }
+
+start :: Options -> Tree -> IO ()
+start opts (Tree ds fs) = handle @SomeException (shutdown . Just . show) do
 
     c <- UI.start -- initialise curses
 
@@ -94,12 +102,13 @@ start playNow (Tree ds fs) = handle @SomeException (shutdown . Just . show) do
         , mode         = mode
         , boottime     = now
         , config       = c
+        , configPath   = optConfigPath opts
         , threads      }
 
     loadConfig
 
     if mode == Random then runPlayOp playRandomOp else playCur
-    when (not playNow) pause
+    when (optPaused opts) pause
 
     run         -- won't restart if this fails!
 
@@ -573,7 +582,7 @@ getConfPath = getXdgDirectory XdgConfig $ "hmp3" </> "style.conf"
 
 loadConfig :: IO ()
 loadConfig = do
-    f <- getConfPath
+    f <- maybe getConfPath pure =<< getsHS configPath
     b <- doesFileExist f
     if b then do
         str' <- readFile f

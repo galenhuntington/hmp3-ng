@@ -55,6 +55,7 @@ data HState = HState {
        ,doNotResuscitate :: !Bool                -- should we just let mpg123 die?
        ,playHist        :: !(Seq (TimeSpec, Int)) -- limited history of songs played
        ,config          :: !UIStyle             -- config values
+       ,configPath      :: !(Maybe FilePath)     -- style.conf override (CLI)
 
        ,modified        :: !(MVar ())           -- Set when redrawable components of 
                                                 -- the state are modified. The ui
@@ -101,6 +102,7 @@ newEmptyHS = do
        ,randomGen
        ,playHist     = mempty
        ,config       = Config.defaultStyle
+       ,configPath   = Nothing
        ,boottime     = 0
        ,status       = Stopped
        ,mode         = minBound

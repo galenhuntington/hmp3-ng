@@ -7,15 +7,17 @@ module Main where
 
 import Base
 
-import Core     (start, shutdown)
-import Config   (help, versinfo)
-import Tree     (Tree, buildTree, isEmpty)
+import Core     (start, shutdown, Options(..))
+import qualified Config
+import Tree     (buildTree, isEmpty)
 
 import System.IO            (hPrint, stderr)
 import System.Posix.Signals (installHandler, sigTERM, sigPIPE, sigINT, sigHUP
-                            ,sigALRM, sigABRT, Handler(Ignore, Default, Catch))
+                            ,sigALRM, sigABRT, Handler(Ignore, Catch))
 
 import qualified Data.ByteString.UTF8 as UTF8
+
+import Options.Applicative
 
 -- ---------------------------------------------------------------------
 -- | Set up the signal handlers
@@ -41,60 +43,38 @@ initSignals = do
             catch (shutdown Nothing) (\ (f :: SomeException) -> hPrint stderr f)
             exitWith (ExitFailure 1) )) Nothing
 
--- XXX this function is not used
-releaseSignals :: IO ()
-releaseSignals =
-    for_ [sigINT, sigPIPE, sigHUP, sigABRT, sigTERM]
-        \sig -> installHandler sig Default Nothing
+------------------------------------------------------------------------
+-- | Command-line parsing.
+
+-- | The options together with the file/directory arguments.
+invocation :: Parser (Options, [ByteString])
+invocation = (,) <$> opts <*> files
+  where
+    opts = Options
+        <$> switch
+            (long "paused" <> short 'P'
+                <> help "Start in a paused state")
+        <*> optional (strOption
+            (long "config" <> short 'c' <> metavar "FILE"
+                <> help "Read this config file instead of the XDG default"))
+    files = some $ argument (UTF8.fromString <$> str) (metavar "FILE|DIR...")
+
+parserInfo :: ParserInfo (Options, [ByteString])
+parserInfo = info (invocation <**> versionOpt <**> helper) $
+       fullDesc
+    <> header Config.versinfo
+    <> progDesc "Play the given MP3 files and directories in a curses interface."
+  where
+    versionOpt = infoOption (unwords [Config.versinfo, Config.help])
+        (long "version" <> short 'V' <> help "Show version information")
 
 ------------------------------------------------------------------------
--- | Argument parsing.
 
--- usage string.
-usage :: [String]
-usage = ["Usage: hmp3 [-VhP] [FILE|DIR ...]"
-        ,"-V  --version  Show version information"
-        ,"-h  --help     Show this help"
-        ,"-P  --paused   Start in a paused state"
-        ]
-
--- | Parse the args
-doArgs :: [ByteString] -> IO (Bool, Tree)
-doArgs = loopArgs True where
-
-    verLine = putStrLn $ unwords [versinfo, help]
-    showUsage = traverse_ putStrLn usage
-
-    loopArgs _ [] = do
-        putStrLn "Specify at least one file or directory."
-        showUsage
-        exitFailure
-
-    loopArgs _ (s:xs)
-        | s == "-V" || s == "--version"
-        = verLine *> exitSuccess
-        | s == "-h" || s == "--help"
-        = verLine *> showUsage *> exitSuccess
-        | s == "-P" || s == "--paused"
-        = loopArgs False xs
-
-    loopArgs playNow xs = do
-        tree <- buildTree xs
-        if isEmpty tree
-            then putStrLn "Error: No music files found." *> exitFailure
-            else pure (playNow, tree)
-
--- ---------------------------------------------------------------------
--- | Static main. This is the front end to the statically linked
--- application, and the real front end, in a sense. 'dynamic_main' calls
--- this after setting preferences passed from the boot loader.
---
--- Initialise the ui getting an initial editor state, set signal
--- handlers, then jump to ui event loop with the state.
---
 main :: IO ()
 main = do
-    (playNow, files) <- doArgs . map UTF8.fromString =<< getArgs
+    (opts, args) <- execParser parserInfo
     initSignals
-    start playNow files -- never returns
-
+    tree <- buildTree args
+    if isEmpty tree
+        then putStrLn "Error: No music files found." *> exitFailure
+        else start opts tree -- never returns
