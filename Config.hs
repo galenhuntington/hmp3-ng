@@ -4,9 +4,22 @@
 
 module Config where
 
+import qualified Data.Map as M
+
 import Base
 import Style
 import Paths_hmp3_ng (version)
+
+-- XXX some styles are currently unused, but planned is a CLI option to select
+
+fixedStyles :: M.Map String UIStyle
+fixedStyles = M.fromList
+    [ ("default", defaultStyle)
+    , ("dark",    defaultStyle)
+    , ("light",   lightBgStyle)
+    , ("mono",    bwStyle)
+    , ("mutt",    muttStyle)
+    ]
 
 defaultStyle :: UIStyle
 defaultStyle  = UIStyle { window     = style "default"      "default"
@@ -19,7 +32,7 @@ defaultStyle  = UIStyle { window     = style "default"      "default"
                         , blockcursor= style "black"        "red"
                         , progress   = style "cyan"         "white" }
 
--- | A style more suitable for light backgrounds (used if HMP_HAS_LIGHT_BG=true)
+-- | A style more suitable for light backgrounds
 lightBgStyle :: UIStyle
 lightBgStyle =
            defaultStyle { selected   = style "darkblue"     "default"
