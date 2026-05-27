@@ -201,16 +201,6 @@ pairMap = unsafePerformIO $ newIORef M.empty
 defaultColor :: Curses.Color
 defaultColor = fromJust $ Curses.color "default"
 
-cblack, cred, cgreen, cyellow, cblue, cmagenta, ccyan, cwhite :: Curses.Color
-cblack     = fromJust $ Curses.color "black"
-cred       = fromJust $ Curses.color "red"
-cgreen     = fromJust $ Curses.color "green"
-cyellow    = fromJust $ Curses.color "yellow"
-cblue      = fromJust $ Curses.color "blue"
-cmagenta   = fromJust $ Curses.color "magenta"
-ccyan      = fromJust $ Curses.color "cyan"
-cwhite     = fromJust $ Curses.color "white"
-
 --
 -- Combine attribute with another attribute
 --
@@ -237,15 +227,7 @@ style2curses (Style fg bg) = (fgCursCol fg, bgCursCol bg)
 
 -- | The ncurses color for each ANSI hue.
 hueColor :: Hue -> Curses.Color
-hueColor = \case
-    Black   -> cblack
-    Red     -> cred
-    Green   -> cgreen
-    Yellow  -> cyellow
-    Blue    -> cblue
-    Magenta -> cmagenta
-    Cyan    -> ccyan
-    White   -> cwhite
+hueColor = fromJust . Curses.color . map toLower . show
 
 -- | Foreground: bright hues take the bold attribute.
 fgCursCol :: Color -> CColor
@@ -307,3 +289,4 @@ buildStyle bs = UIStyle {
     where 
         f (x,y) = Style (g x) (g y)
         g x     = fromMaybe Default $ stringToColor x
+
