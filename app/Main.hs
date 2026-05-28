@@ -58,10 +58,9 @@ invocation = (,) <$> opts <*> files
   where
     opts = Options
         <$> switch
-            (long "paused" <> short 'P'
-                <> help "Start in a paused state")
-        <*> optional (strOption
-            (long "config" <> short 'c' <> metavar "FILE"
+            (long "paused" <> short 'P' <> help "Start in a paused state")
+        <*> optional (strOption -- temporarily internal since feature needs work
+            (long "config" <> short 'c' <> metavar "FILE" <> internal
                 <> help "Read this config file instead of the XDG default"))
     files = some $ argument (UTF8.fromString <$> str) (metavar "FILE|DIR...")
 
@@ -69,18 +68,19 @@ parserInfo :: ParserInfo (Options, [ByteString])
 parserInfo = info (invocation <**> versionOpt <**> helper) $
        fullDesc
     <> header Config.versinfo
-    <> progDesc "Play the given MP3 files and directories in a curses interface."
+    <> progDesc "Play mp3 files in a curses interface."
   where
-    versionOpt = infoOption (unwords [Config.versinfo, Config.help])
-        (long "version" <> short 'V' <> help "Show version information")
+    versionOpt = infoOption Config.versinfo
+        (hidden <> long "version" <> short 'V' <> help "Show version information")
 
 ------------------------------------------------------------------------
 
 main :: IO ()
 main = do
-    (opts, args) <- execParser parserInfo
+    (opts, args) <- customExecParser (prefs showHelpOnEmpty) parserInfo
     initSignals
     tree <- buildTree args
     if isEmpty tree
         then putStrLn "Error: No music files found." *> exitFailure
         else start opts tree -- never returns
+

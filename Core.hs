@@ -68,8 +68,7 @@ mp3Tool =
 
 ------------------------------------------------------------------------
 
--- | Command-line configuration passed in from 'Main'.  Expected to grow
--- as more options are added.
+-- | Command-line configuration.
 data Options = Options
     { optPaused     :: !Bool             -- ^ start in a paused state
     , optConfigPath :: !(Maybe FilePath) -- ^ override the style.conf location
