@@ -35,7 +35,6 @@ import FastIO               (FiltHandle(..), newFiltHandle)
 import Tree hiding (File, Dir)
 import qualified Tree (File,Dir)
 import qualified UI
-import Config (defaultStyle)
 
 import Text.Regex.PCRE.Light
 import {-# SOURCE #-} Keymap (keyLoop)
@@ -590,10 +589,9 @@ loadConfig = do
                 let sty = buildStyle rsty
                 initcolours sty
                 modifyHS_ $ \st -> st { config = sty }
-      else do
-        initcolours defaultStyle
-        modifyHS_ $ \st -> st { config = defaultStyle }
-    UI.resetui
+                UI.resetui
+    else
+        pure () -- TODO in some cases show a warning
 
 ------------------------------------------------------------------------
 -- Editing the minibuffer
