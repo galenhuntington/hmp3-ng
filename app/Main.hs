@@ -13,7 +13,7 @@ import Tree     (buildTree, isEmpty)
 
 import System.IO            (hPrint, stderr)
 import System.Posix.Signals (installHandler, sigTERM, sigPIPE, sigINT, sigHUP
-                            ,sigALRM, sigABRT, Handler(Ignore, Catch))
+                            ,sigALRM, sigABRT, Handler(Ignore, Default, Catch))
 
 import qualified Data.ByteString.UTF8 as UTF8
 
@@ -42,6 +42,12 @@ initSignals = do
         installHandler sig (Catch (do
             catch (shutdown Nothing) (\ (f :: SomeException) -> hPrint stderr f)
             exitWith (ExitFailure 1) )) Nothing
+
+-- XXX this function is not used
+releaseSignals :: IO ()
+releaseSignals =
+    for_ [sigINT, sigPIPE, sigHUP, sigABRT, sigTERM]
+        \sig -> installHandler sig Default Nothing
 
 ------------------------------------------------------------------------
 -- | Command-line parsing.
