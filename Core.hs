@@ -253,15 +253,11 @@ shutdown ms = do
     discardErrors writeState
     mpid <- getsHS mpgPid
     flip (maybe $ pure ()) mpid \pid -> do
-        sendMpg Quit               -- ask politely
+        discardErrors $ sendMpg Quit
         void $ waitForProcess pid
-
-    `finally`
-
-    do  isXterm <- getsHS xterm
-        UI.end isXterm
-        when (isJust ms) $ hPutStrLn stderr (fromJust ms) >> hFlush stderr
-        exitImmediately ExitSuccess
+    UI.end =<< getsHS xterm
+    flip (maybe $ pure ()) ms \s -> hPutStrLn stderr s *> hFlush stderr
+    exitImmediately ExitSuccess
 
 ------------------------------------------------------------------------
 -- 

@@ -20,32 +20,25 @@ import qualified Data.ByteString.UTF8 as UTF8
 -- ---------------------------------------------------------------------
 -- | Set up the signal handlers
 
---
--- Notes on setStoppedChildFlag:
---      If this bit is set when installing a catching function for the SIGCHLD
---      signal, the SIGCHLD signal will be generated only when a child process
---      exits, not when a child process stops.
---
--- setStoppedChildFlag True
---
 initSignals :: IO ()
 initSignals = do
-
     -- ignore
     for_ [sigPIPE, sigALRM] \sig ->
         installHandler sig Ignore Nothing
-
     -- and exit if we get the following
     for_ [sigINT, sigHUP, sigABRT, sigTERM] \sig ->
-        installHandler sig (Catch (do
-            catch (shutdown Nothing) (\ (f :: SomeException) -> hPrint stderr f)
-            exitWith (ExitFailure 1) )) Nothing
+        installHandler sig (Catch exitHandler) Nothing
 
--- XXX this function is not used
+exitHandler :: IO ()
+exitHandler = do
+    releaseSignals  -- in case shutdown itself gets stuck
+    catch @SomeException (shutdown Nothing) (hPrint stderr)
+    exitWith $ ExitFailure 1
+
 releaseSignals :: IO ()
 releaseSignals =
-    for_ [sigINT, sigPIPE, sigHUP, sigABRT, sigTERM]
-        \sig -> installHandler sig Default Nothing
+    for_ [sigINT, sigPIPE, sigHUP, sigABRT, sigTERM] \sig ->
+        installHandler sig Default Nothing
 
 ------------------------------------------------------------------------
 -- | Argument parsing.
