@@ -60,5 +60,3 @@ package = "hmp3-ng"
 versinfo :: String
 versinfo  = package ++ " v" ++ showVersion version
 
-help :: String
-help = "- curses-based MP3 player"
