@@ -589,9 +589,9 @@ loadConfig = do
                 let sty = buildStyle rsty
                 initcolours sty
                 modifyHS_ $ \st -> st { config = sty }
-                UI.resetui
     else
         pure () -- TODO in some cases show a warning
+    UI.resetui
 
 ------------------------------------------------------------------------
 -- Editing the minibuffer
