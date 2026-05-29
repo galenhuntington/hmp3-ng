@@ -31,12 +31,17 @@ data UIStyle = UIStyle {
 
 ------------------------------------------------------------------------
 
--- | Colors 
-data Color
-    = RGB {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8
-    | Default
-    | Reverse
-    deriving stock (Eq,Ord)
+-- | A terminal color: the terminal default, reverse-video, or one of the
+-- eight ANSI hues at normal or bright intensity.  (Bright is rendered with
+-- the bold attribute, which is how 8-color terminals expose it.)
+data Color = Default | Reverse | Color !Intensity !Hue
+    deriving stock (Eq, Ord, Show)
+
+data Intensity = Normal | Bright
+    deriving stock (Eq, Ord, Show)
+
+data Hue = Black | Red | Green | Yellow | Blue | Magenta | Cyan | White
+    deriving stock (Eq, Ord, Show)
 
 -- | Foreground and background color pairs
 data Style = Style !Color !Color
@@ -50,56 +55,28 @@ data StringA
 
 ------------------------------------------------------------------------
 --
--- | Some simple colours (derivied from proxima\/src\/common\/CommonTypes.hs)
---
--- But we don't have a light blue?
---
-black, grey, darkred, red, darkgreen, green, brown, yellow          :: Color
-darkblue, blue, purple, magenta, darkcyan, cyan, white, brightwhite :: Color
-black       = RGB 0 0 0
-grey        = RGB 128 128 128
-darkred     = RGB 139 0 0
-red         = RGB 255 0 0
-darkgreen   = RGB 0 100 0
-green       = RGB 0 128 0
-brown       = RGB 165 42 42
-yellow      = RGB 255 255 0
-darkblue    = RGB 0 0 139
-blue        = RGB 0 0 255
-purple      = RGB 128 0 128
-magenta     = RGB 255 0 255
-darkcyan    = RGB 0 139 139 
-cyan        = RGB 0 255 255
-white       = RGB 165 165 165
-brightwhite = RGB 255 255 255
-
-defaultfg, defaultbg, reversefg, reversebg :: Color
-defaultfg   = Default
-defaultbg   = Default
-reversefg   = Reverse
-reversebg   = Reverse
-
---
--- | map strings to colors
+-- | Named colors for the config file and the built-in styles.  The
+-- \"dark\" name of each pair is the normal-intensity hue; the plain name
+-- is its bright variant (so @red@ is bright, @darkred@ is normal).
 --
 stringToColor :: String -> Maybe Color
 stringToColor s = case map toLower s of
-    "black"         -> Just black
-    "grey"          -> Just grey
-    "darkred"       -> Just darkred
-    "red"           -> Just red
-    "darkgreen"     -> Just darkgreen
-    "green"         -> Just green
-    "brown"         -> Just brown
-    "yellow"        -> Just yellow
-    "darkblue"      -> Just darkblue
-    "blue"          -> Just blue
-    "purple"        -> Just purple
-    "magenta"       -> Just magenta
-    "darkcyan"      -> Just darkcyan
-    "cyan"          -> Just cyan
-    "white"         -> Just white
-    "brightwhite"   -> Just brightwhite
+    "black"         -> Just $ Color Normal Black
+    "grey"          -> Just $ Color Bright Black
+    "darkred"       -> Just $ Color Normal Red
+    "red"           -> Just $ Color Bright Red
+    "darkgreen"     -> Just $ Color Normal Green
+    "green"         -> Just $ Color Bright Green
+    "brown"         -> Just $ Color Normal Yellow
+    "yellow"        -> Just $ Color Bright Yellow
+    "darkblue"      -> Just $ Color Normal Blue
+    "blue"          -> Just $ Color Bright Blue
+    "purple"        -> Just $ Color Normal Magenta
+    "magenta"       -> Just $ Color Bright Magenta
+    "darkcyan"      -> Just $ Color Normal Cyan
+    "cyan"          -> Just $ Color Bright Cyan
+    "white"         -> Just $ Color Normal White
+    "brightwhite"   -> Just $ Color Bright White
     "default"       -> Just Default
     "reverse"       -> Just Reverse
     _               -> Nothing
@@ -136,7 +113,6 @@ initcolours sty = do
                selected sty, titlebar sty, progress sty,
                blockcursor sty, cursors sty, combined sty ]
         (Style fg bg) = progress sty    -- bonus style
-
     pairs <- initUiColors (ls ++ [Style bg bg, Style fg fg])
     writeIORef pairMap pairs
     -- set the background
@@ -196,16 +172,6 @@ pairMap = unsafePerformIO $ newIORef M.empty
 defaultColor :: Curses.Color
 defaultColor = fromJust $ Curses.color "default"
 
-cblack, cred, cgreen, cyellow, cblue, cmagenta, ccyan, cwhite :: Curses.Color
-cblack     = fromJust $ Curses.color "black"
-cred       = fromJust $ Curses.color "red"
-cgreen     = fromJust $ Curses.color "green"
-cyellow    = fromJust $ Curses.color "yellow"
-cblue      = fromJust $ Curses.color "blue"
-cmagenta   = fromJust $ Curses.color "magenta"
-ccyan      = fromJust $ Curses.color "cyan"
-cwhite     = fromJust $ Curses.color "white"
-
 --
 -- Combine attribute with another attribute
 --
@@ -224,60 +190,37 @@ reverseA    = setReverseA   nullA
 ------------------------------------------------------------------------
 
 newtype CColor = CColor (Curses.Attr, Curses.Color)
--- 
--- | Map Style rgb rgb colours to ncurses pairs
--- TODO a generic way to turn an rgb into the nearest curses color
---
+
+-- | Map an abstract 'Style' to its ncurses foreground/background pair.
 style2curses :: Style -> (CColor, CColor)
 style2curses (Style fg bg) = (fgCursCol fg, bgCursCol bg)
 {-# INLINE style2curses #-}
 
-fgCursCol :: Color -> CColor
-fgCursCol c = case c of
-    RGB 0 0 0         -> CColor (nullA, cblack)
-    RGB 128 128 128   -> CColor (boldA, cblack)
-    RGB 139 0 0       -> CColor (nullA, cred)
-    RGB 255 0 0       -> CColor (boldA, cred)
-    RGB 0 100 0       -> CColor (nullA, cgreen)
-    RGB 0 128 0       -> CColor (boldA, cgreen)
-    RGB 165 42 42     -> CColor (nullA, cyellow)
-    RGB 255 255 0     -> CColor (boldA, cyellow)
-    RGB 0 0 139       -> CColor (nullA, cblue)
-    RGB 0 0 255       -> CColor (boldA, cblue)
-    RGB 128 0 128     -> CColor (nullA, cmagenta)
-    RGB 255 0 255     -> CColor (boldA, cmagenta)
-    RGB 0 139 139     -> CColor (nullA, ccyan)
-    RGB 0 255 255     -> CColor (boldA, ccyan)
-    RGB 165 165 165   -> CColor (nullA, cwhite)
-    RGB 255 255 255   -> CColor (boldA, cwhite)
-    Default           -> CColor (nullA, defaultColor)
-    Reverse           -> CColor (reverseA, defaultColor)
-    _                 -> CColor (nullA, cblack) -- NB
+-- | The ncurses color for each ANSI hue.
+hueColor :: Hue -> Curses.Color
+hueColor = fromJust . Curses.color . map toLower . show
 
+-- | Foreground: bright hues take the bold attribute.
+fgCursCol :: Color -> CColor
+fgCursCol = \case
+    Default        -> CColor (nullA, defaultColor)
+    Reverse        -> CColor (reverseA, defaultColor)
+    Color Bright h -> CColor (boldA, hueColor h)
+    Color Normal h -> CColor (nullA, hueColor h)
+
+-- | Background: a terminal can't embolden a background, so intensity is
+-- dropped here.
 bgCursCol :: Color -> CColor
-bgCursCol c = case c of
-    RGB 0 0 0         -> CColor (nullA, cblack)
-    RGB 128 128 128   -> CColor (nullA, cblack)
-    RGB 139 0 0       -> CColor (nullA, cred)
-    RGB 255 0 0       -> CColor (nullA, cred)
-    RGB 0 100 0       -> CColor (nullA, cgreen)
-    RGB 0 128 0       -> CColor (nullA, cgreen)
-    RGB 165 42 42     -> CColor (nullA, cyellow)
-    RGB 255 255 0     -> CColor (nullA, cyellow)
-    RGB 0 0 139       -> CColor (nullA, cblue)
-    RGB 0 0 255       -> CColor (nullA, cblue)
-    RGB 128 0 128     -> CColor (nullA, cmagenta)
-    RGB 255 0 255     -> CColor (nullA, cmagenta)
-    RGB 0 139 139     -> CColor (nullA, ccyan)
-    RGB 0 255 255     -> CColor (nullA, ccyan)
-    RGB 165 165 165   -> CColor (nullA, cwhite)
-    RGB 255 255 255   -> CColor (nullA, cwhite)
-    Default           -> CColor (nullA, defaultColor)
-    Reverse           -> CColor (reverseA, defaultColor)
-    _                 -> CColor (nullA, cwhite)    -- NB
+bgCursCol = \case
+    Default   -> CColor (nullA, defaultColor)
+    Reverse   -> CColor (reverseA, defaultColor)
+    Color _ h -> CColor (nullA, hueColor h)
 
 defaultSty :: Style
 defaultSty = Style Default Default
+
+style :: String -> String -> Style
+style a b = let f = fromJust . stringToColor in Style (f a) (f b)
 
 ------------------------------------------------------------------------
 --
@@ -320,3 +263,4 @@ buildStyle bs = UIStyle {
     where 
         f (x,y) = Style (g x) (g y)
         g x     = fromMaybe Default $ stringToColor x
+

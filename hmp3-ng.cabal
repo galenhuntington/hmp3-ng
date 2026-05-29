@@ -97,9 +97,11 @@ test-suite test
   main-is: Main.hs
   hs-source-dirs: test
   other-modules:
+      ConfigSpec
       CoreSpec
       FastIOSpec
       LexerSpec
+      StyleSpec
       TreeSpec
       WidthSpec
   build-depends:

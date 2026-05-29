@@ -77,11 +77,7 @@ start = do
         _        -> pure () -- handled elsewhere
 
     colorify <- Curses.hasColors
-    light    <- isLightBg
-
-    let sty | colorify && light = lightBgStyle
-            | colorify          = defaultStyle
-            | otherwise         = bwStyle 
+    let sty = if colorify then defaultStyle else bwStyle
 
     initcolours sty
     Curses.keypad Curses.stdScr True    -- grab the keyboard
@@ -169,14 +165,6 @@ refresh = runDraw $ redraw <> Draw Curses.refresh
 
 refreshClock :: IO ()
 refreshClock = runDraw $ redrawJustClock <> Draw Curses.refresh
-
---
--- | Some evil to work out if the background is light, or dark. Assume dark.
---
-isLightBg :: IO Bool
-isLightBg = handle @SomeException (\_ -> pure False) do
-    e <- getEnv "HMP_HAS_LIGHT_BG"
-    pure $ map toLower e == "true"
 
 ------------------------------------------------------------------------
 
