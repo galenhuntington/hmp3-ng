@@ -180,40 +180,11 @@ data DrawData = DD {
     }
 
 --
--- | A class for renderable objects, given the application state, and
--- for printing the object as a list of strings
+-- | Renderable widgets are plain functions @DrawData -> ...@, returning
+-- whatever payload that widget produces (a 'StringA', a 'ByteString',
+-- a list of lines, etc.).  Composition is ordinary function application
+-- and ordinary list/value construction.
 --
-class Element a where draw :: DrawData -> a
-
---
--- | The elements of the play mode widget
---
-data PlayScreen = PlayScreen !PPlaying !ProgressBar !PTimes 
-
--- | How does this all work? Firstly, we mostly want to draw fast strings
--- directly to the screen. To break the drawing problem down, you need
--- to write an instance of Element for each element in the ui. Larger
--- and larger elements then combine these items together. 
---
--- Obviously to write the element instance, you need a new type for each
--- element, to disinguish them. As follows:
-
-newtype PlayList = PlayList [StringA]
-
-newtype PPlaying    = PPlaying    StringA
-newtype PVersion    = PVersion    ByteString
-newtype PMode       = PMode       String
-newtype PMode2      = PMode2      String
-newtype ProgressBar = ProgressBar StringA
-newtype PTimes      = PTimes      StringA
-
-newtype PInfo       = PInfo       ByteString
-newtype PId3        = PId3        ByteString
-newtype PTime       = PTime       ByteString
-
-newtype PlayTitle = PlayTitle StringA
-newtype PlayInfo  = PlayInfo  ByteString
-newtype PlayModes = PlayModes String
 
 data HelpModal
 data HistModal
@@ -224,57 +195,45 @@ class ModalElement a where
 
 ------------------------------------------------------------------------
 
-instance Element PlayScreen where
-    draw dd = PlayScreen (draw dd) (draw dd) (draw dd)
-
--- | Decode the play screen
-printPlayScreen :: PlayScreen -> [StringA]
-printPlayScreen (PlayScreen (PPlaying a) 
-                            (ProgressBar b) 
-                            (PTimes c)) = [a , b , c]
+-- | The three lines of the play-mode widget.
+playScreen :: DrawData -> [StringA]
+playScreen dd = [pPlaying dd, progressBar dd, pTimes dd]
 
 ------------------------------------------------------------------------
 
-instance (Element a, Element b) => Element (a, b) where
-    draw dd = (draw dd, draw dd)
+-- | Info about the current track
+pPlaying :: DrawData -> StringA
+pPlaying dd =
+    FancyS $ map (, defaultSty) $ "  " : line
+  where
+    x = sizeW $ drawSize dd
+    a = pId3 dd
+    b = pInfo dd
+    line | gap >= 0 = a : spaces gap : right
+         | True     = toMaxWidth lim a : right
+        where lim = x - 5 - (if showId3 then P.length b else -1)
+              gap = lim - displayWidth a
+              showId3 = x > 59
+              right = if showId3 then [" ", b] else []
 
-------------------------------------------------------------------------
-
--- Info about the current track
-instance Element PPlaying where
-    draw dd =
-        PPlaying . FancyS $ map (, defaultSty) $ "  " : line
-      where
-        x       = sizeW $ drawSize dd
-        PId3 a  = draw dd
-        PInfo b = draw dd
-        line | gap >= 0 = a : spaces gap : right
-             | True     = toMaxWidth lim a : right
-            where lim = x - 5 - (if showId3 then P.length b else -1)
-                  gap = lim - displayWidth a
-                  showId3 = x > 59
-                  right = if showId3 then [" ", b] else []
-
--- | Id3 Info
-instance Element PId3 where
-    draw DD{drawState=st} = case id3 st of
-        Just i  -> PId3 $ id3str i
-        Nothing -> PId3 $ case size st of
-                                0 -> "(empty)"
-                                _ -> fbase $ music st ! current st
+-- | Id3 info
+pId3 :: DrawData -> ByteString
+pId3 DD{drawState=st} = case id3 st of
+    Just i  -> id3str i
+    Nothing -> case size st of
+        0 -> "(empty)"
+        _ -> fbase $ music st ! current st
 
 -- | mp3 information
-instance Element PInfo where
-    draw DD{drawState=st} = PInfo case info st of
-        Nothing  -> "(empty)"
-        Just i   -> userinfo i
+pInfo :: DrawData -> ByteString
+pInfo DD{drawState=st} = case info st of
+    Nothing -> "(empty)"
+    Just i  -> userinfo i
 
 modalWidth :: Int -> Int
 modalWidth w = max (min w 3) $ round $ fromIntegral w * (0.8::Float)
 
 ------------------------------------------------------------------------
-
--- instance ModalElement me => Element (Modal me) where draw = drawModal
 
 instance ModalElement HelpModal where
     drawModal sty swd st = do
@@ -328,214 +287,197 @@ instance ModalElement ExitModal where
 ------------------------------------------------------------------------
 
 -- | The time used and time left
-instance Element PTimes where
-    draw DD { drawFrame=Just Frame {..}, drawSize=Size{sizeW=x} } =
-        PTimes $ FancyS $ map (, defaultSty)
-            if x - 4 < P.length elapsed
-            then [" "]
-            else ["  ", elapsed]
-                    ++ (guard (distance > 0) *> [gap, remaining])
-      where
-        elapsed   = P.pack $ printf "%d:%02d" l_m l_s
-        remaining = P.pack $ printf "-%d:%02d" r_m r_s
-        (l_m,l_s) = toMS currentTime
-        (r_m,r_s) = toMS timeLeft
-        gap       = spaces distance
-        distance  = x - 4 - P.length elapsed - P.length remaining
-        toMS :: RealFrac a => a -> (Int, Int)
-        toMS = flip quotRem 60 . floor
-    draw _ = PTimes $ Fast (spaces 5) defaultSty
+pTimes :: DrawData -> StringA
+pTimes DD { drawFrame=Just Frame {..}, drawSize=Size{sizeW=x} } =
+    FancyS $ map (, defaultSty)
+        if x - 4 < P.length elapsed
+        then [" "]
+        else ["  ", elapsed]
+                ++ (guard (distance > 0) *> [gap, remaining])
+  where
+    elapsed   = P.pack $ printf "%d:%02d" l_m l_s
+    remaining = P.pack $ printf "-%d:%02d" r_m r_s
+    (l_m, l_s) = toMS currentTime
+    (r_m, r_s) = toMS timeLeft
+    gap        = spaces distance
+    distance   = x - 4 - P.length elapsed - P.length remaining
+    toMS :: RealFrac a => a -> (Int, Int)
+    toMS = flip quotRem 60 . floor
+pTimes _ = Fast (spaces 5) defaultSty
 
 ------------------------------------------------------------------------
 
 -- | A progress bar
-instance Element ProgressBar where
-    draw dd@DD{drawSize=Size{sizeW=w}, drawState=st} = case drawFrame dd of
-      Nothing -> ProgressBar . FancyS $
-              [("  ", defaultSty), (spaces (w-4), bgs)]
-        where
-          (Style _ bg) = progress (config st)
-          bgs          = Style bg bg
-      Just Frame {..} -> ProgressBar . FancyS $
-          [ ("  ", defaultSty)
-          , (spaces distance, fgs)
-          , (spaces (width - distance), bgs)]
-        where
-          width    = w - 4
-          total    = curr + left
-          distance = round ((curr / total) * fromIntegral width)
-          curr     = realToFrac currentTime :: Float
-          left     = realToFrac timeLeft
-          (Style fg bg) = progress (config st)
-          bgs           = Style bg bg
-          fgs           = Style fg fg
+progressBar :: DrawData -> StringA
+progressBar dd@DD{drawSize=Size{sizeW=w}, drawState=st} = case drawFrame dd of
+    Nothing -> FancyS [("  ", defaultSty), (spaces (w-4), bgs)]
+      where
+        Style _ bg = progress (config st)
+        bgs        = Style bg bg
+    Just Frame {..} -> FancyS
+        [ ("  ", defaultSty)
+        , (spaces distance, fgs)
+        , (spaces (width - distance), bgs) ]
+      where
+        width    = w - 4
+        total    = curr + left
+        distance = round ((curr / total) * fromIntegral width)
+        curr     = realToFrac currentTime :: Float
+        left     = realToFrac timeLeft
+        Style fg bg = progress (config st)
+        bgs         = Style bg bg
+        fgs         = Style fg fg
 
 ------------------------------------------------------------------------
 
 -- | Version info
-instance Element PVersion where
-    draw _ = PVersion $ P.pack versinfo
+pVersion :: ByteString
+pVersion = P.pack versinfo
 
 -- | Uptime
-instance Element PTime where
-    draw dd = PTime . uptime $ drawState dd
+pTime :: DrawData -> ByteString
+pTime = uptime . drawState
 
 -- | Play mode
-instance Element PMode where
-    draw dd = PMode case status $ drawState dd of
-                        Stopped -> "◼"
-                        Paused  -> "⏸"
-                        Playing -> "▶"
+pMode :: DrawData -> String
+pMode dd = case status (drawState dd) of
+    Stopped -> "◼"
+    Paused  -> "⏸"
+    Playing -> "▶"
 
 -- | Loop, normal, or random
-instance Element PMode2 where
-    draw dd = PMode2 case mode $ drawState dd of
-                        Random  -> "rand"
-                        Loop    -> "loop"
-                        Once    -> "once"
-                        Single  -> "sing"
+pMode2 :: DrawData -> String
+pMode2 dd = case mode (drawState dd) of
+    Random -> "rand"
+    Loop   -> "loop"
+    Once   -> "once"
+    Single -> "sing"
 
 ------------------------------------------------------------------------
 
-instance Element PlayModes where
-    draw dd = PlayModes $ m ++ ' ' : m'
+-- | The two play-mode glyphs (e.g. "▶ rand") rendered together.
+playModes :: DrawData -> String
+playModes dd = pMode dd ++ ' ' : pMode2 dd
+
+-- | "x/n dir(s)  y/m file(s)" cursor position read-out.
+playInfo :: DrawData -> ByteString
+playInfo dd = mconcat
+       -- TODO pregenerate as template
+       [ spaces (P.length numd - P.length curd)
+       , curd, "/", numd, " dir", onPlural (snd . bounds $ folders st) "" "s"
+       , " "
+       , spaces (P.length numf - P.length curf)
+       , curf, "/", numf, " file", onPlural (size st) "" "s"
+       ]
+  where
+    st   = drawState dd
+    tobs = P.pack . show
+    onPlural 1 s _ = s
+    onPlural _ _ p = p
+    curf  = tobs $ 1 + cursor st
+    numf  = tobs $ size st
+    mydir = fdir $ music st ! cursor st
+    curd  = tobs $ 1 + mydir
+    numd  = tobs $ 1 + snd (bounds $ folders st)
+
+-- | The top title bar: cursor position + play modes + uptime + version.
+playTitle :: DrawData -> StringA
+playTitle dd =
+    FancyS $ map (, hl)
+        if gap >= 2
+        then [mconcat [" ", inf, spaces gapl], modesBS,
+                mconcat [spaces gapr, time, " ", ver, " "]]
+        else let gap' = x - modlen; gapl' = gap' `div` 2
+             in if gap' >= 2
+                then [spaces gapl', modesBS, spaces $ gap' - gapl']
+                else [" ", u $ take (x-2) modes, " "]
+  where
+    inf     = playInfo dd
+    time    = pTime dd
+    modes   = playModes dd
+    ver     = pVersion
+    modesBS = u modes
+
+    x       = sizeW $ drawSize dd
+    lsize   = 1 + P.length inf
+    rsize   = 2 + P.length time + P.length ver
+    side    = (x - modlen) `div` 2
+    gap     = x - modlen - lsize - rsize
+    gapl    = 1 `max` ((side - lsize) `min` gap)
+    gapr    = 1 `max` (gap - gapl)
+    modlen  = 6 -- length modes
+    hl      = titlebar . config $ drawState dd
+
+-- | The scrolling playlist (title + visible tracks + filler + minibuffer).
+playList :: DrawData -> [StringA]
+playList dd@DD{ drawSize=Size y x, drawPos=Pos{posY=o}, drawState=st } =
+    playTitle dd
+    : list
+    ++ replicate (height - length list - 2) (Fast P.empty defaultSty)
+    ++ [minibuffer st]
+  where
+    songs  = music st
+    this   = current st
+    curr   = cursor  st
+    height = y - o
+
+    -- number of screens down, and then offset
+    buflen = height - 2
+    (screens, select) = quotRem curr buflen -- keep cursor in screen
+
+    playing = let top = screens * buflen
+                  bot = (screens + 1) * buflen
+              in if this >= top && this < bot
+                    then this - top -- playing song is visible
+                    else (-1)
+
+    -- visible slice of the playlist
+    visible = slice off (off + buflen) songs
+        where off = screens * buflen
+
+    -- TODO rewrite as fold
+    visible' :: [(Maybe Int, ByteString)]
+    visible' = loop (-1) visible where
+        loop _ []     = []
+        loop n (v:vs) =
+            let r = if fdir v > n then Just (fdir v) else Nothing
+            in (r, toMaxWidth (x - indent - 1) $ fbase v)
+                    : loop (fdir v) vs
+
+    list   = [ drawIt . color $ n | n <- zip visible' [0..] ]
+
+    indent = (round $ (0.334 :: Float) * fromIntegral x) :: Int
+
+    color :: ((Maybe Int, ByteString), Int)
+                -> (Maybe Int, Style, [ByteString])
+    color ((m, s), i)
+        | i == select && i == playing = f sty3
+        | i == select                 = f sty2
+        | i == playing                = f sty1
+        | otherwise                   = (m, defaultSty, [s])
         where
-            PMode  m  = draw dd
-            PMode2 m' = draw dd
+            f sty = (m, sty,
+                [s, spaces (x - indent - 1 - displayWidth s)])
 
-instance Element PlayInfo where
-    draw dd = PlayInfo $ mconcat [
-           -- TODO pregenerate as template
-           spaces (P.length numd - P.length curd)
-         , curd
-         , "/", numd
-         , " dir"
-         , onPlural (snd . bounds $ folders st) "" "s"
-         , " "
-         , spaces (P.length numf - P.length curf)
-         , curf
-         , "/", numf
-         , " file"
-         , onPlural (size st) "" "s"
-         ]
+    sty1 = selected . config $ st
+    sty2 = cursors  . config $ st
+    sty3 = combined . config $ st
+
+    drawIt :: (Maybe Int, Style, [ByteString]) -> StringA
+    drawIt (Nothing, sty, v) =
+        FancyS $ map (, sty) $ spaces (1 + indent) : v
+
+    drawIt (Just i, sty, v) = FancyS
+        $ (d, sty')
+        : (spaces (indent + 1 - displayWidth d), sty')
+        : map (, sty) v
       where
-        st = drawState dd
-        tobs = P.pack . show
-        onPlural 1 s _ = s
-        onPlural _ _ p = p
-        curf = tobs $ 1 + cursor st
-        numf = tobs $ size st
-        mydir = fdir $ music st ! cursor st
-        curd = tobs $ 1 + mydir
-        numd = tobs $ 1 + snd (bounds $ folders st)
+        sty' = if sty == sty2 || sty == sty3 then sty2 else sty1
+        d = toMaxWidth (indent - 1) $ basenameP
+                $ case size st of
+                    0 -> "(empty)"
+                    _ -> dname $ folders st ! i
 
-instance Element PlayTitle where
-    draw dd =
-        PlayTitle $ FancyS $ map (,hl)
-            if gap >= 2
-            then [mconcat [" ", inf, spaces gapl], modesBS,
-                    mconcat [spaces gapr, time, " ", ver, " "]]
-            else let gap' = x - modlen; gapl' = gap' `div` 2
-                 in if gap' >= 2
-                    then [spaces gapl', modesBS, spaces $ gap' - gapl']
-                    else [" ", u $ take (x-2) modes, " "]
-      where
-        PlayInfo inf    = draw dd
-        PTime time      = draw dd
-        PlayModes modes = draw dd
-        PVersion ver    = draw dd
-        modesBS         = u modes
-
-        x       = sizeW $ drawSize dd
-        lsize   = 1 + P.length inf
-        rsize   = 2 + P.length time + P.length ver
-        side    = (x - modlen) `div` 2
-        gap     = x - modlen - lsize - rsize
-        gapl    = 1 `max` ((side - lsize) `min` gap)
-        gapr    = 1 `max` (gap - gapl)
-        modlen  = 6 -- length modes
-        hl      = titlebar . config $ drawState dd
-
--- | Playlist
-instance Element PlayList where
-    draw dd@DD{ drawSize=Size y x, drawPos=Pos{posY=o}, drawState=st } =
-        PlayList $
-            title
-            : list
-            ++ replicate (height - length list - 2) (Fast P.empty defaultSty)
-            ++ [minibuffer st]
-        where
-            PlayTitle title = draw dd
-
-            songs  = music st
-            this   = current st
-            curr   = cursor  st
-            height = y - o
-
-            -- number of screens down, and then offset
-            buflen   = height - 2
-            (screens, select) = quotRem curr buflen -- keep cursor in screen
-
-            playing  = let top = screens * buflen
-                           bot = (screens + 1) * buflen
-                       in if this >= top && this < bot
-                            then this - top -- playing song is visible
-                            else (-1)
-
-            -- visible slice of the playlist
-            visible = slice off (off + buflen) songs
-                where off = screens * buflen
-
-            -- TODO rewrite as fold
-            visible' :: [(Maybe Int, ByteString)]
-            visible' = loop (-1) visible where
-                loop _ []     = []
-                loop n (v:vs) =
-                    let r = if fdir v > n then Just (fdir v) else Nothing
-                    in (r, toMaxWidth (x - indent - 1) $ fbase v)
-                            : loop (fdir v) vs
-
-            list   = [ drawIt . color $ n | n <- zip visible' [0..] ]
-
-            indent = (round $ (0.334 :: Float) * fromIntegral x) :: Int
-
-            color :: ((Maybe Int, ByteString), Int)
-                        -> (Maybe Int, Style, [ByteString])
-            color ((m,s),i)
-                | i == select && i == playing = f sty3
-                | i == select                 = f sty2
-                | i == playing                = f sty1
-                | otherwise                   = (m, defaultSty, [s])
-                where
-                    f sty = (m, sty,
-                        [s, spaces (x - indent - 1 - displayWidth s)])
-
-            sty1 = selected . config $ st
-            sty2 = cursors  . config $ st
-            sty3 = combined . config $ st
-
-            drawIt :: (Maybe Int, Style, [ByteString]) -> StringA
-            drawIt (Nothing, sty, v) =
-                FancyS $ map (, sty) $ spaces (1 + indent) : v
-
-            drawIt (Just i, sty, v) = FancyS
-                $ (d, sty')
-                : (spaces (indent + 1 - displayWidth d), sty')
-                : map (, sty) v
-              where
-                sty' = if sty == sty2 || sty == sty3 then sty2 else sty1
-                d = toMaxWidth (indent - 1) $ basenameP
-                        $ case size st of
-                            0 -> "(empty)"
-                            _ -> dname $ folders st ! i
-
---
--- | Decode the list of current tracks
---
-printPlayList :: PlayList -> [StringA]
-printPlayList (PlayList s) = s
-{-# INLINE printPlayList #-}
-                
 ------------------------------------------------------------------------
 
 spaces :: Int -> ByteString
@@ -548,18 +490,14 @@ spaces = flip P.replicate ' '
 --
 redrawJustClock :: Draw
 redrawJustClock = Draw $ discardErrors do
-   st      <- getsHS id
-   let fr = clock st
+   st     <- getsHS id
    (h, w) <- screenSize
-   let sz = Size h w
-   let (ProgressBar bar) = draw $ DD sz undefined st fr :: ProgressBar
-       (PTimes times)    = {-# SCC "redrawJustClock.times" #-}
-                           draw $ DD sz undefined st fr :: PTimes
+   let dd = DD (Size h w) undefined st (clock st)
    Curses.wMove Curses.stdScr 1 0   -- hardcoded!
-   drawLine w bar
+   drawLine w (progressBar dd)
    Curses.wMove Curses.stdScr 2 0   -- hardcoded!
-   drawLine w times
-   when (h<45) $ renderModals st sz -- small screen modals paint over clock
+   drawLine w ({-# SCC "redrawJustClock.times" #-} pTimes dd)
+   when (h < 45) $ renderModals st (Size h w) -- small screen modals paint over clock
 
 ------------------------------------------------------------------------
 --
@@ -591,13 +529,10 @@ redraw :: Draw
 redraw = Draw $ discardErrors do
    -- linux ncurses, in particular, seems to complain a lot. this is an easy solution
    s <- getsHS id    -- another refresh could be triggered?
-   let f = clock s
    (h, w) <- screenSize
-   let sz = Size h w
-
-   let a = let x = printPlayScreen (draw $ DD sz (Pos 0 0) s f :: PlayScreen)
-               y = printPlayList (draw $ DD sz (Pos (length x) 0) s f :: PlayList)
-           in x ++ y
+   let sz     = Size h w
+       screen = playScreen (DD sz (Pos 0 0) s (clock s))
+       a      = screen ++ playList (DD sz (Pos (length screen) 0) s (clock s))
 
    when (xterm s) $ setXterm s
    
@@ -684,8 +619,7 @@ setXtermTitle strs = do
 
 ------------------------------------------------------------------------
 
--- set xterm title (should have an instance Element)
--- Don't need to do this on each refresh...
+-- set xterm title.  Don't need to do this on each refresh...
 setXterm :: HState -> IO ()
 setXterm s = setXtermTitle $ case status s of
     Playing -> case id3 s of
