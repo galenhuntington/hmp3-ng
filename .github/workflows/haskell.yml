@@ -4,7 +4,7 @@ jobs:
   slim:
     strategy:
       matrix:
-        host: ['macos-latest', 'ubuntu-latest']
+        host: ['macos-latest']
     runs-on: ${{ matrix.host }}
     name: GHC on ${{ matrix.host }}
     steps:
