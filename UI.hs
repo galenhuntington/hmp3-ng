@@ -172,19 +172,13 @@ refreshClock = runDraw $ redrawJustClock <> Draw Curses.refresh
 data Pos  = Pos  { posY, _posX :: !Int }
 data Size = Size { _sizeH, sizeW :: !Int }
 
+-- | Renderable widgets are functions @DrawData -> ...@.
 data DrawData = DD {
     drawSize  :: Size,
     drawPos   :: Pos,
     drawState :: HState,
     drawFrame :: Maybe Frame
     }
-
---
--- | Renderable widgets are plain functions @DrawData -> ...@, returning
--- whatever payload that widget produces (a 'StringA', a 'ByteString',
--- a list of lines, etc.).  Composition is ordinary function application
--- and ordinary list/value construction.
---
 
 data HelpModal
 data HistModal
@@ -408,7 +402,7 @@ playTitle dd =
     modlen  = 6 -- length modes
     hl      = titlebar . config $ drawState dd
 
--- | The scrolling playlist (title + visible tracks + filler + minibuffer).
+-- | The scrolling playlist (title + visible tracks + minibuffer).
 playList :: DrawData -> [StringA]
 playList dd@DD{ drawSize=Size y x, drawPos=Pos{posY=o}, drawState=st } =
     playTitle dd
@@ -526,8 +520,7 @@ renderModals s sz = do
 -- | Draw the screen
 --
 redraw :: Draw
-redraw = Draw $ discardErrors do
-   -- linux ncurses, in particular, seems to complain a lot. this is an easy solution
+redraw = Draw $ discardErrors {- TODO unclear what errors are discarded? -} do
    s <- getsHS id    -- another refresh could be triggered?
    (h, w) <- screenSize
    let sz     = Size h w
@@ -551,6 +544,7 @@ redraw = Draw $ discardErrors do
    drawLine (w-1) (last a)
    when (miniFocused s) do -- a fake cursor
         drawLine 1 (Fast (spaces 1) (blockcursor . config $ s ))
+        -- XXX is this TODO from 2005 still relevant?
         -- todo rendering bug here when deleting backwards in minibuffer
 
 ------------------------------------------------------------------------
