@@ -2,10 +2,13 @@ on: [push]
 name: build
 jobs:
   slim:
-    runs-on: 'ubuntu-slim'
-    name: GHC on Ubuntu Slim
+    strategy:
+      matrix:
+        host: ['macos-latest', 'ubuntu-latest']
+    runs-on: {{ matrix.host }}
+    name: GHC on {{ matrix.host }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: haskell-actions/setup@v2
       - run: cabal build all
       - run: cabal test all --test-show-details=streaming
