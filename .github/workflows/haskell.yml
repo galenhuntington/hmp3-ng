@@ -1,25 +1,12 @@
 on: [push]
 name: build
 jobs:
-  cabal:
-    runs-on: 'ubuntu-22.04'
-    strategy:
-      matrix:
-        ghc: ['9.6', '9.8', '9.10', 'latest']
-    name: GHC ${{ matrix.ghc }}
+  slim:
+    runs-on: 'ubuntu-slim'
+    name: GHC on Ubuntu Slim
     steps:
       - uses: actions/checkout@v4
       - uses: haskell-actions/setup@v2
-        with:
-          ghc-version: ${{ matrix.ghc }}
       - run: cabal build all
       - run: cabal test all --test-show-details=streaming
-  stack:
-    runs-on: 'ubuntu-22.04'
-    name: Stack
-    steps:
-      - uses: actions/checkout@v4
-      - uses: haskell-actions/setup@v2
-        with:
-          enable-stack: true
-      - run: stack test
+
