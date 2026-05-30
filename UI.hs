@@ -494,9 +494,9 @@ redrawJustClock = Draw $ discardErrors do
    (h, w) <- screenSize
    let dd = DD (Size h w) undefined st (clock st)
    Curses.wMove Curses.stdScr 1 0   -- hardcoded!
-   drawLine w (progressBar dd)
+   drawLine w $ progressBar dd
    Curses.wMove Curses.stdScr 2 0   -- hardcoded!
-   drawLine w ({-# SCC "redrawJustClock.times" #-} pTimes dd)
+   drawLine w $ pTimes dd
    when (h < 45) $ renderModals st (Size h w) -- small screen modals paint over clock
 
 ------------------------------------------------------------------------
