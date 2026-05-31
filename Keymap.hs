@@ -18,7 +18,7 @@ import Base hiding ((!?))
 
 import Core
 import Config       (package)
-import State        (getsHS, touchHS, modifyHS_, HState(histVisible, searchHist))
+import State        (getsHS, touchHS, modifyHS_, Modal(..), HistDisplay, HState(..))
 import Style        (defaultSty, StringA(Fast))
 import qualified UI (getKey, resetui)
 
@@ -48,11 +48,14 @@ keyLoop = go mainMode where
 
 mainMode :: KeyMap
 mainMode = KeyMap dispatch where
-    dispatch 'q'  = forcePause *> toggleExit *> touchHS $> confirmQuitMode
+    dispatch 'q'  = forcePause *> openModal ExitModal $> confirmQuitMode
     dispatch c
         | c `elem` ['/', '?', '\\', '|']
                                = enterSearch c
-        | c `elem` ['H', ';']  = showHist *> touchHS $> historyMode
+        | c `elem` ['H', ';']  = do
+            h <- showHist
+            touchHS
+            pure $ historyMode h
         | c >= '1' && c <= '9' =
             jumpRel (0.1 * fromIntegral (fromEnum c - 48)) $> mainMode
         | True                 = sequence_ (M.lookup c keyMap) $> mainMode
@@ -125,12 +128,10 @@ zipDown z                       = z
 ------------------------------------------------------------------------
 -- Song-history popup
 
-historyMode :: KeyMap
-historyMode = KeyMap \c -> do
-    for_ (M.lookup c historyKeys) \k -> do
-        phm <- getsHS histVisible
-        for_ (phm >>= (!? k)) (jump . fst . snd)
-    hideHist
+historyMode :: HistDisplay -> KeyMap
+historyMode hist = KeyMap \c -> do
+    for_ (M.lookup c historyKeys >>= (hist !?)) (jump . fst . snd)
+    closeModal
     touchHS
     pure mainMode
   where
@@ -147,7 +148,7 @@ historyMode = KeyMap \c -> do
 confirmQuitMode :: KeyMap
 confirmQuitMode = KeyMap \case
     'y' -> shutdown Nothing $> undefined -- shutdown never returns
-    _   -> toggleExit *> touchHS $> mainMode
+    _   -> closeModal *> touchHS $> mainMode
 
 
 ------------------------------------------------------------------------
@@ -216,4 +217,7 @@ keyTable =
 -- Compiled dispatch table for normal-mode single-key commands.
 keyMap :: M.Map Char (IO ())
 keyMap = M.fromList [ (c, a) | (_, cs, a) <- keyTable, c <- cs ]
+
+toggleHelp :: IO ()
+toggleHelp = mapModal \m -> if isNothing m then Just HelpModal else Nothing
 

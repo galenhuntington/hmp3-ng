@@ -499,9 +499,10 @@ renderModal st (Size h w) mkr = do
 renderModals :: HState -> Size -> IO ()
 renderModals st sz = do
     let render = renderModal st sz
-    when (helpVisible st) $ render helpModal
-    whenJust (histVisible st) $ render . histModal
-    when (exitVisible st) $ render exitModal
+    whenJust (modal st) $ render . \case
+        HelpModal   -> helpModal
+        HistModal h -> histModal h
+        ExitModal   -> exitModal
 
 ------------------------------------------------------------------------
 --

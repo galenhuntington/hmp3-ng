@@ -42,9 +42,7 @@ data HState = HState {
        ,info            :: !(Maybe Info)         -- mp3 info
        ,status          :: !Status
        ,minibuffer      :: !StringA              -- contents of minibuffer
-       ,helpVisible     :: !Bool                 -- is the help window shown?
-       ,histVisible     :: !(Maybe HistDisplay)  -- history pop-up if shown
-       ,exitVisible     :: !Bool                 -- confirm exit modal shown
+       ,modal           :: !(Maybe Modal)        -- modal visible
        ,miniFocused     :: !Bool                 -- is the mini buffer focused?
        ,mode            :: !Mode
        ,uptime          :: !ByteString
@@ -97,9 +95,7 @@ newEmptyHS = do
        ,searchHist   = []
 
        ,clockUpdate      = False
-       ,helpVisible      = False
-       ,histVisible      = Nothing
-       ,exitVisible      = False
+       ,modal            = Nothing
        ,miniFocused      = False
        ,xterm            = False
        ,doNotResuscitate = False    -- mpg123 should be restarted

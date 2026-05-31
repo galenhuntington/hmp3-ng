@@ -12,17 +12,16 @@ module Core (
     start,
     shutdown,
     seekLeft, seekRight, upOne, downOne, pause, nextMode, playNext, playPrev,
-    forcePause, putmsg, clrmsg, toggleHelp, play, playCur,
+    forcePause, putmsg, clrmsg, play, playCur,
     jumpToPlaying, jump, jumpRel,
     upPage, downPage,
     seekStart,
     blacklist,
-    showHist, hideHist,
+    mapModal, openModal, closeModal, showHist,
     jumpToMatchDir, jumpToMatchFile,
     toggleFocus, jumpToNextDir, jumpToPrevDir,
     loadConfig,
     discardErrors,
-    toggleExit,
     showTimeDiff_,
 ) where
 
@@ -511,37 +510,36 @@ genericJumpToMatch re sw k sel = do
 
 ------------------------------------------------------------------------
 
--- | Show/hide the help window
-toggleHelp :: IO ()
-toggleHelp = modifyHS_ $ \st -> st { helpVisible = not (helpVisible st) }
+-- | General modal map function, to handle toggling, etc.
+mapModal :: (Maybe Modal -> Maybe Modal) -> IO ()
+mapModal f = modifyHS_ $ \st -> st { modal = f $ modal st }
+
+-- | Close down open modal (if any).
+closeModal :: IO ()
+closeModal = mapModal $ const Nothing
+
+-- | Open specified modal.
+openModal :: Modal -> IO ()
+openModal m = mapModal $ const $ Just m
 
 -- | Focus the minibuffer
 toggleFocus :: IO ()
 toggleFocus = modifyHS_ $ \st -> st { miniFocused = not (miniFocused st) }
 
--- | Show/hide the confirm exit modal
-toggleExit :: IO ()
-toggleExit = modifyHS_ $ \st -> st { exitVisible = not (exitVisible st) }
-
--- | History on or off
-hideHist :: IO ()
-hideHist = modifyHS_ $ \st -> st { histVisible = Nothing }
-
-showHist :: IO ()
+-- | Show history.  Also, return history as value.
+showHist :: IO HistDisplay
 showHist = do
     now <- getMonoTime
-    modifyHS_ $ \st -> st {
-        helpVisible = False,
-        histVisible = Just $ do
-            (tm, ix) <- toList $ playHist st
-            pure (showTimeDiff_ True tm now, (ix, fbase $ music st ! ix))
-        }
+    modifyHS \st ->
+        let hist = [
+                (showTimeDiff_ True tm now, (ix, fbase $ music st ! ix))
+                | (tm, ix) <- toList $ playHist st ]
+        in (st { modal = Just $ HistModal hist }, hist)
 
 -- | Toggle the mode flag
 nextMode :: IO ()
-nextMode = modifyHS_ $ \st -> st { mode = next (mode st) }
-    where
-        next v = if v == maxBound then minBound else succ v
+nextMode = modifyHS_ $ \st -> st { mode = next (mode st) } where
+    next v = if v == maxBound then minBound else succ v
 
 ------------------------------------------------------------------------
 
