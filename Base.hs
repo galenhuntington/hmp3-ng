@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
 
--- Copyright (c) 2020-2025 Galen Huntington
+-- Copyright (c) 2020-2026 Galen Huntington
 -- SPDX-License-Identifier: GPL-2.0-or-later
 
 module Base (module Prelude, module X, module Base) where
