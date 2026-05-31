@@ -52,8 +52,7 @@ u = UTF8.fromString
 
 
 newtype Draw = Draw (IO ())
-instance Semigroup Draw where Draw x <> Draw y = Draw $ x >> y
-instance Monoid Draw where mempty = Draw $ pure ()
+    deriving newtype (Semigroup, Monoid)
 
 runDraw :: Draw -> IO ()
 runDraw (Draw d) = withDrawLock d
@@ -484,9 +483,9 @@ redrawJustClock = Draw $ discardErrors do
     (h, w) <- screenSize
     let dd = DD (Size h w) undefined st (clock st)
     Curses.wMove Curses.stdScr 1 0   -- hardcoded!
-    drawLine w $ progressBar dd
+    drawLine $ progressBar dd
     Curses.wMove Curses.stdScr 2 0   -- hardcoded!
-    drawLine w $ pTimes dd
+    drawLine $ pTimes dd
     when (h < 45) $ renderModals st (Size h w) -- small screen modals paint over clock
 
 ------------------------------------------------------------------------
@@ -502,7 +501,7 @@ renderModal st (Size h w) = do
            sty = modals $ config st
        Curses.wMove Curses.stdScr voffset hoffset
        for_ (take mlines modal') \t -> do
-            drawLine w $ Fast (toWidth mw t) sty
+            drawLine $ Fast (toWidth mw t) sty
             (y', _) <- Curses.getYX Curses.stdScr
             Curses.wMove Curses.stdScr (y'+1) hoffset
 
@@ -528,7 +527,7 @@ redraw = Draw $ discardErrors {- TODO unclear what errors are discarded? -} do
 
     gotoTop
     for_ (take (h-1) (init a)) \t -> do
-        drawLine w t
+        drawLine t
         (y, x) <- Curses.getYX Curses.stdScr
         fillLine
         maybeLineDown t h y x
@@ -538,9 +537,9 @@ redraw = Draw $ discardErrors {- TODO unclear what errors are discarded? -} do
     Curses.wMove Curses.stdScr (h-1) 0
     fillLine
     Curses.wMove Curses.stdScr (h-1) 0
-    drawLine (w-1) (last a)
+    drawLine (last a)
     when (miniFocused st) do -- a fake cursor
-        drawLine 1 (Fast (spaces 1) (blockcursor . config $ st ))
+        drawLine (Fast (spaces 1) (blockcursor . config $ st ))
         -- XXX is this TODO from 2005 still relevant?
         -- todo rendering bug here when deleting backwards in minibuffer
 
@@ -548,9 +547,9 @@ redraw = Draw $ discardErrors {- TODO unclear what errors are discarded? -} do
 --
 -- | Draw a coloured (or not) string to the screen
 --
-drawLine :: Int -> StringA -> IO ()
-drawLine _ (Fast ps sty) = drawSegment ps sty
-drawLine _ (FancyS ls)   = traverse_ (uncurry drawSegment) ls
+drawLine :: StringA -> IO ()
+drawLine (Fast ps sty) = drawSegment ps sty
+drawLine (FancyS ls)   = traverse_ (uncurry drawSegment) ls
 
 -- | Write a single styled UTF-8 segment.  Safe because C only reads the bytes.
 drawSegment :: ByteString -> Style -> IO ()

@@ -31,13 +31,14 @@ common opts
       OverloadedStrings
       ScopedTypeVariables
       TypeApplications
-      DerivingStrategies
+      DerivingVia
       RecordWildCards
       LambdaCase
       MultiWayIf
       StandaloneDeriving
       NumericUnderscores
       NamedFieldPuns
+      GeneralizedNewtypeDeriving
   ghc-options: -Wall -funbox-strict-fields
 
 library
