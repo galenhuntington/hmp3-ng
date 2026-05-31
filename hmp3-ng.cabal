@@ -26,20 +26,22 @@ source-repository head
 common opts
   default-language: Haskell2010
   default-extensions:
-      BangPatterns
       BlockArguments
-      OverloadedStrings
-      ScopedTypeVariables
-      TypeApplications
-      DerivingVia
-      RecordWildCards
-      LambdaCase
       MultiWayIf
-      StandaloneDeriving
-      NumericUnderscores
-      NamedFieldPuns
+      OverloadedStrings
+      RecordWildCards
+      -- In GHC2024
+      DerivingStrategies
+      LambdaCase
+      -- In GHC2021 (soon!)
+      BangPatterns
       GeneralizedNewtypeDeriving
+      NamedFieldPuns
+      NumericUnderscores
+      ScopedTypeVariables
+      StandaloneDeriving
       TupleSections
+      TypeApplications
   ghc-options: -Wall -funbox-strict-fields
 
 library
