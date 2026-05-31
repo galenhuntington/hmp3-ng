@@ -43,7 +43,7 @@ data HState = HState {
        ,status          :: !Status
        ,minibuffer      :: !StringA              -- contents of minibuffer
        ,helpVisible     :: !Bool                 -- is the help window shown?
-       ,histVisible     :: !(Maybe [(ByteString, (Int, ByteString))]) -- history pop-up if shown
+       ,histVisible     :: !(Maybe HistDisplay)  -- history pop-up if shown
        ,exitVisible     :: !Bool                 -- confirm exit modal shown
        ,miniFocused     :: !Bool                 -- is the mini buffer focused?
        ,mode            :: !Mode
@@ -62,6 +62,11 @@ data HState = HState {
                                                 -- refresh thread waits on this.
        ,drawLock        :: !(MVar ())           -- simple semaphore for display
     }
+
+-- Each is (timestamp, (song-index, song-name)).
+type HistDisplay = [(ByteString, (Int, ByteString))]
+
+data Modal = HelpModal | ExitModal | HistModal !HistDisplay
 
 ------------------------------------------------------------------------
 --

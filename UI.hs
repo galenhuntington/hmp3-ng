@@ -248,7 +248,7 @@ helpModal swd = (wd, [f cs h | (h, cs, _) <- keyTable ]) where
 
 ------------------------------------------------------------------------
 
-histModal :: [(ByteString, (Int, ByteString))] -> ModalMaker
+histModal :: HistDisplay -> ModalMaker
 histModal hist swd = do
     let wd = commonModalWidth swd
         mtlen = maximum $ map (displayWidth . fst) hist
