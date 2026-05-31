@@ -461,10 +461,7 @@ spaces :: Int -> ByteString
 spaces = flip P.replicate ' '
 
 ------------------------------------------------------------------------
---
 -- | Now write out just the clock line
--- Speed things up a bit, just use read State.
---
 redrawJustClock :: Draw
 redrawJustClock = Draw $ discardErrors do
     st     <- getsHS id
@@ -477,9 +474,7 @@ redrawJustClock = Draw $ discardErrors do
     when (h < 45) $ renderModals st (Size h w) -- small screen modals paint over clock
 
 ------------------------------------------------------------------------
---
--- work for drawing help. draw the help screen if it is up
---
+-- | General modal renderer.
 renderModal :: HState -> Size -> ModalMaker -> IO ()
 renderModal st (Size h w) mkr = do
     let (mw, modal') = mkr w
@@ -493,10 +488,10 @@ renderModal st (Size h w) mkr = do
         (y', _) <- Curses.getYX Curses.stdScr
         Curses.wMove Curses.stdScr (y'+1) hoffset
 
+-- | Choose modal to render based on state.
 renderModals :: HState -> Size -> IO ()
-renderModals st sz = do
-    let render = renderModal st sz
-    whenJust (modal st) $ render . \case
+renderModals st sz =
+    whenJust (modal st) $ renderModal st sz . \case
         HelpModal h -> helpModal h
         HistModal h -> histModal h
         ExitModal   -> exitModal
@@ -506,7 +501,7 @@ renderModals st sz = do
 -- | Draw the screen
 --
 redraw :: Draw
-redraw = Draw $ discardErrors {- TODO unclear what errors are discarded? -} do
+redraw = Draw $ discardErrors {- TODO what errors are discarded? -} do
     st <- getsHS id    -- another refresh could be triggered?
     (h, w) <- screenSize
     let sz     = Size h w

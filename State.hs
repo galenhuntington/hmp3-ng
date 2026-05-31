@@ -61,7 +61,7 @@ data HState = HState {
        ,drawLock        :: !(MVar ())           -- simple semaphore for display
     }
 
--- Each is (timestamp, (song-index, song-name)).
+-- Each is (timestamp-string, (song-index, song-name)).
 type HistDisplay = [(ByteString, (Int, ByteString))]
 
 -- (list-of-keys, description)
