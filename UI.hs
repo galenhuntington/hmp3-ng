@@ -197,9 +197,7 @@ playScreen dd = [pPlaying dd, progressBar dd, pTimes dd]
 
 -- | Info about the current track
 pPlaying :: DrawData -> StringA
-pPlaying dd =
-    FancyS $ map (, defaultSty) $ "  " : line
-  where
+pPlaying dd = FancyS $ map (, defaultSty) $ "  " : line where
     x = sizeW $ drawSize dd
     a = pId3 dd
     b = pInfo dd
@@ -356,13 +354,13 @@ playModes dd = pMode dd ++ ' ' : pMode2 dd
 -- | "x/n dir(s)  y/m file(s)" cursor position read-out.
 playInfo :: DrawData -> ByteString
 playInfo dd = mconcat
-       -- TODO pregenerate as template
-       [ spaces (P.length numd - P.length curd)
-       , curd, "/", numd, " dir", onPlural (snd . bounds $ folders st) "" "s"
-       , " "
-       , spaces (P.length numf - P.length curf)
-       , curf, "/", numf, " file", onPlural (size st) "" "s"
-       ]
+    -- TODO pregenerate as template
+    [ spaces (P.length numd - P.length curd)
+    , curd, "/", numd, " dir", onPlural (snd . bounds $ folders st) "" "s"
+    , " "
+    , spaces (P.length numf - P.length curf)
+    , curf, "/", numf, " file", onPlural (size st) "" "s"
+    ]
   where
     st   = drawState dd
     tobs = P.pack . show
@@ -484,14 +482,14 @@ spaces = flip P.replicate ' '
 --
 redrawJustClock :: Draw
 redrawJustClock = Draw $ discardErrors do
-   st     <- getsHS id
-   (h, w) <- screenSize
-   let dd = DD (Size h w) undefined st (clock st)
-   Curses.wMove Curses.stdScr 1 0   -- hardcoded!
-   drawLine w $ progressBar dd
-   Curses.wMove Curses.stdScr 2 0   -- hardcoded!
-   drawLine w $ pTimes dd
-   when (h < 45) $ renderModals st (Size h w) -- small screen modals paint over clock
+    st     <- getsHS id
+    (h, w) <- screenSize
+    let dd = DD (Size h w) undefined st (clock st)
+    Curses.wMove Curses.stdScr 1 0   -- hardcoded!
+    drawLine w $ progressBar dd
+    Curses.wMove Curses.stdScr 2 0   -- hardcoded!
+    drawLine w $ pTimes dd
+    when (h < 45) $ renderModals st (Size h w) -- small screen modals paint over clock
 
 ------------------------------------------------------------------------
 --
@@ -521,28 +519,28 @@ renderModals s sz = do
 --
 redraw :: Draw
 redraw = Draw $ discardErrors {- TODO unclear what errors are discarded? -} do
-   s <- getsHS id    -- another refresh could be triggered?
-   (h, w) <- screenSize
-   let sz     = Size h w
-       screen = playScreen (DD sz (Pos 0 0) s (clock s))
-       a      = screen ++ playList (DD sz (Pos (length screen) 0) s (clock s))
+    s <- getsHS id    -- another refresh could be triggered?
+    (h, w) <- screenSize
+    let sz     = Size h w
+        screen = playScreen (DD sz (Pos 0 0) s (clock s))
+        a      = screen ++ playList (DD sz (Pos (length screen) 0) s (clock s))
 
-   when (xterm s) $ setXterm s
-   
-   gotoTop
-   for_ (take (h-1) (init a)) \t -> do
-       drawLine w t
-       (y, x) <- Curses.getYX Curses.stdScr
-       fillLine
-       maybeLineDown t h y x
-   renderModals s sz
+    when (xterm s) $ setXterm s
 
-   -- minibuffer
-   Curses.wMove Curses.stdScr (h-1) 0
-   fillLine 
-   Curses.wMove Curses.stdScr (h-1) 0
-   drawLine (w-1) (last a)
-   when (miniFocused s) do -- a fake cursor
+    gotoTop
+    for_ (take (h-1) (init a)) \t -> do
+        drawLine w t
+        (y, x) <- Curses.getYX Curses.stdScr
+        fillLine
+        maybeLineDown t h y x
+    renderModals s sz
+
+    -- minibuffer
+    Curses.wMove Curses.stdScr (h-1) 0
+    fillLine
+    Curses.wMove Curses.stdScr (h-1) 0
+    drawLine (w-1) (last a)
+    when (miniFocused s) do -- a fake cursor
         drawLine 1 (Fast (spaces 1) (blockcursor . config $ s ))
         -- XXX is this TODO from 2005 still relevant?
         -- todo rendering bug here when deleting backwards in minibuffer
