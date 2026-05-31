@@ -184,8 +184,8 @@ data HelpModal
 data HistModal
 data ExitModal
 class ModalElement a where
-    -- takes style, window width, state; returns (width, list of lines)
-    drawModal :: Style -> Int -> HState -> Maybe (Int, [StringA])
+    -- takes window width, state; returns (width, list of lines)
+    drawModal :: Int -> HState -> Maybe (Int, [ByteString])
 
 ------------------------------------------------------------------------
 
@@ -228,13 +228,13 @@ modalWidth w = max (min w 3) $ round $ fromIntegral w * (0.8::Float)
 ------------------------------------------------------------------------
 
 instance ModalElement HelpModal where
-    drawModal sty swd st = do
+    drawModal swd st = do
         guard $ helpVisible st
-        pure (wd, [ Fast (f cs h) sty | (h, cs, _) <- keyTable ])
+        pure (wd, [f cs h | (h, cs, _) <- keyTable ])
       where
         wd = modalWidth swd
         f :: [Char] -> String -> ByteString
-        f cs ps = toWidth wd $ toWidth clen cmds <> u ps where
+        f cs ps = toWidth clen cmds <> u ps where
             clen = max 4 $ round $ fromIntegral wd * (0.2::Float)
             cmds = P.unwords ("" : map pprIt cs)
             pprIt c = case c of
@@ -257,24 +257,22 @@ instance ModalElement HelpModal where
 ------------------------------------------------------------------------
 
 instance ModalElement HistModal where
-    drawModal sty swd st = flip fmap (histVisible st) \hist -> do
+    drawModal swd st = flip fmap (histVisible st) \hist -> do
         let wd = modalWidth swd
             mtlen = maximum $ map (displayWidth . fst) hist
             tlen = min (mtlen + 1) $ wd `div` 3
         (wd,) $ flip map (zip (['0'..'9']++['a'..'z']) hist) \ (c, (time, (_, song))) ->
             let tstr = toMaxWidth tlen $ P.replicate (tlen - displayWidth time) ' ' <> time
-            in Fast (toWidth wd $ " " <> P.singleton c <> " " <> tstr <> " " <> song) sty
+            in mconcat [" ", P.singleton c, " ", tstr, " ", song]
 
 ------------------------------------------------------------------------
 
 instance ModalElement ExitModal where
-    drawModal sty swd st = do
+    drawModal swd st = do
         guard $ exitVisible st
         let wd = modalWidth swd `min` 19
-            blank = Fast (toWidth wd "") sty
             padl = P.replicate ((wd - 9) `div` 2) ' '
-            msg = toWidth wd $ padl <> "Exit (y)?"
-        pure (wd, [blank, Fast msg sty, blank])
+        pure (wd, ["", padl <> "Exit (y)?", ""])
 
 ------------------------------------------------------------------------
 
@@ -497,13 +495,14 @@ redrawJustClock = Draw $ discardErrors do
 --
 renderModal :: forall me. ModalElement me => HState -> Size -> IO ()
 renderModal st (Size h w) = do
-   for_ (drawModal @me (modals $ config st) w st) \(mw, modal') -> do
+   for_ (drawModal @me w st) \(mw, modal') -> do
        let hoffset = max 0 $ (w - mw) `div` 2
            mlines  = min h $ length modal'
            voffset = (h - mlines) `div` 2
+           sty = modals $ config st
        Curses.wMove Curses.stdScr voffset hoffset
        for_ (take mlines modal') \t -> do
-            drawLine w t
+            drawLine w $ Fast (toWidth mw t) sty
             (y', _) <- Curses.getYX Curses.stdScr
             Curses.wMove Curses.stdScr (y'+1) hoffset
 
