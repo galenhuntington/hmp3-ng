@@ -17,9 +17,9 @@ module Keymap (keyLoop, keyTable, unkey, charToKey) where
 import Base hiding ((!?))
 
 import Core
-import Config       (package)
-import State        (getsHS, touchHS, modifyHS_, Modal(..), HState(..))
-import Style        (defaultSty, StringA(Fast))
+import Config (package)
+import State (getsHS, touchHS, modifyHS_, KeysHelp, Modal(..), HState(..))
+import Style (defaultSty, StringA(Fast))
 import qualified UI (getKey, resetui)
 
 import UI.HSCurses.Curses (Key(..), decodeKey)
@@ -218,7 +218,7 @@ keyTable =
 keyMap :: M.Map Char (IO ())
 keyMap = M.fromList [ (c, a) | (_, cs, a) <- keyTable, c <- cs ]
 
-keysHelp :: [([Char], ByteString)]
+keysHelp :: [KeysHelp]
 keysHelp = [ (keys, desc) | (desc, keys, _) <- keyTable ]
 
 toggleHelp :: IO ()
