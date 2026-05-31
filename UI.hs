@@ -519,13 +519,13 @@ renderModals s sz = do
 --
 redraw :: Draw
 redraw = Draw $ discardErrors {- TODO unclear what errors are discarded? -} do
-    s <- getsHS id    -- another refresh could be triggered?
+    st <- getsHS id    -- another refresh could be triggered?
     (h, w) <- screenSize
     let sz     = Size h w
-        screen = playScreen (DD sz (Pos 0 0) s (clock s))
-        a      = screen ++ playList (DD sz (Pos (length screen) 0) s (clock s))
+        screen = playScreen (DD sz (Pos 0 0) st (clock st))
+        a      = screen ++ playList (DD sz (Pos (length screen) 0) st (clock st))
 
-    when (xterm s) $ setXterm s
+    when (xterm st) $ setXterm st
 
     gotoTop
     for_ (take (h-1) (init a)) \t -> do
@@ -533,15 +533,15 @@ redraw = Draw $ discardErrors {- TODO unclear what errors are discarded? -} do
         (y, x) <- Curses.getYX Curses.stdScr
         fillLine
         maybeLineDown t h y x
-    renderModals s sz
+    renderModals st sz
 
     -- minibuffer
     Curses.wMove Curses.stdScr (h-1) 0
     fillLine
     Curses.wMove Curses.stdScr (h-1) 0
     drawLine (w-1) (last a)
-    when (miniFocused s) do -- a fake cursor
-        drawLine 1 (Fast (spaces 1) (blockcursor . config $ s ))
+    when (miniFocused st) do -- a fake cursor
+        drawLine 1 (Fast (spaces 1) (blockcursor . config $ st ))
         -- XXX is this TODO from 2005 still relevant?
         -- todo rendering bug here when deleting backwards in minibuffer
 
