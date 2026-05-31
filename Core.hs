@@ -259,11 +259,11 @@ shutdown ms = do
     silentlyModifyHS $ \st -> st { doNotResuscitate = True }
     discardErrors writeState
     mpid <- getsHS mpgPid
-    flip (maybe $ pure ()) mpid \pid -> do
+    whenJust mpid \pid -> do
         discardErrors $ sendMpg Quit
         void $ waitForProcess pid
     UI.end =<< getsHS xterm
-    flip (maybe $ pure ()) ms \s -> hPutStrLn stderr s *> hFlush stderr
+    whenJust ms \s -> hPutStrLn stderr s *> hFlush stderr
     exitImmediately ExitSuccess
 
 ------------------------------------------------------------------------

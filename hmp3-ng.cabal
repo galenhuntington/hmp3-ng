@@ -39,6 +39,7 @@ common opts
       NumericUnderscores
       NamedFieldPuns
       GeneralizedNewtypeDeriving
+      TupleSections
   ghc-options: -Wall -funbox-strict-fields
 
 library
