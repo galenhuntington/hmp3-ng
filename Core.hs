@@ -17,7 +17,7 @@ module Core (
     upPage, downPage,
     seekStart,
     blacklist,
-    mapModal, openModal, closeModal, showHist,
+    setsModal, closeModal, showHist,
     jumpToMatchDir, jumpToMatchFile,
     toggleFocus, jumpToNextDir, jumpToPrevDir,
     loadConfig,
@@ -510,31 +510,25 @@ genericJumpToMatch re sw k sel = do
 
 ------------------------------------------------------------------------
 
--- | General modal map function, to handle toggling, etc.
-mapModal :: (Maybe Modal -> Maybe Modal) -> IO ()
-mapModal f = modifyHS_ $ \st -> st { modal = f $ modal st }
+-- | General modal setting.
+setsModal :: (HState -> Maybe Modal) -> IO ()
+setsModal f = modifyHS_ $ \st -> st { modal = f st }
 
 -- | Close any open modal.
 closeModal :: IO ()
-closeModal = mapModal $ const Nothing
-
--- | Open specified modal.
-openModal :: Modal -> IO ()
-openModal m = mapModal $ const $ Just m
-
--- | Focus the minibuffer
-toggleFocus :: IO ()
-toggleFocus = modifyHS_ $ \st -> st { miniFocused = not (miniFocused st) }
+closeModal = setsModal $ const Nothing
 
 -- | Show history.
 showHist :: IO ()
 showHist = do
     now <- getMonoTime
-    modifyHS_ \st -> st {
-        modal = Just $ HistModal [
-            (showTimeDiff_ True tm now, (ix, fbase $ music st ! ix))
-                | (tm, ix) <- toList $ playHist st ]
-        }
+    setsModal \st -> Just $ HistModal [
+        (showTimeDiff_ True tm now, (ix, fbase $ music st ! ix))
+            | (tm, ix) <- toList $ playHist st ]
+
+-- | Focus the minibuffer
+toggleFocus :: IO ()
+toggleFocus = modifyHS_ $ \st -> st { miniFocused = not (miniFocused st) }
 
 -- | Toggle the mode flag
 nextMode :: IO ()

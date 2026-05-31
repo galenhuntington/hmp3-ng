@@ -49,7 +49,8 @@ keyLoop = go mainMode where
 
 mainMode :: KeyMap
 mainMode = KeyMap dispatch where
-    dispatch 'q'  = forcePause *> openModal ExitModal $> confirmQuitMode
+    dispatch 'q'  =
+        forcePause *> setsModal (const $ Just ExitModal) $> confirmQuitMode
     dispatch c
         | c `elem` ['/', '?', '\\', '|']
                                = enterSearch c
@@ -221,6 +222,6 @@ keysHelp :: [([Char], ByteString)]
 keysHelp = [ (keys, desc) | (desc, keys, _) <- keyTable ]
 
 toggleHelp :: IO ()
-toggleHelp = mapModal \m ->
-    if isNothing m then Just $ HelpModal keysHelp else Nothing
+toggleHelp = setsModal \st ->
+    if isNothing $ modal st then Just $ HelpModal keysHelp else Nothing
 
