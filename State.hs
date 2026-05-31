@@ -65,7 +65,7 @@ data HState = HState {
 type HistDisplay = [(ByteString, (Int, ByteString))]
 
 -- Each is (list-of-keys, description)
-type KeysHelp = ([Char], String)
+type KeysHelp = ([Char], ByteString)
 
 data Modal = HelpModal ![KeysHelp] | ExitModal | HistModal !HistDisplay
 

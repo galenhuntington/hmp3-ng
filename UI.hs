@@ -225,8 +225,8 @@ commonModalWidth w = max (min w 3) $ round $ fromIntegral w * (0.8::Float)
 helpModal :: [KeysHelp] -> ModalMaker
 helpModal help swd = (wd, map showLine help) where
     wd = commonModalWidth swd
-    showLine :: ([Char], String) -> ByteString
-    showLine (cs, ps) = toWidth clen cmds <> u ps where
+    showLine :: ([Char], ByteString) -> ByteString
+    showLine (cs, ps) = toWidth clen cmds <> ps where
         clen = max 4 $ round $ fromIntegral wd * (0.2::Float)
         cmds = P.unwords ("" : map pprIt cs)
         pprIt c = case c of

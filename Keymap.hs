@@ -25,6 +25,7 @@ import qualified UI (getKey, resetui)
 import UI.HSCurses.Curses (Key(..), decodeKey)
 
 import qualified Data.ByteString.Char8 as P
+import qualified Data.ByteString.UTF8 as UTF8
 import qualified Data.Map.Strict as M
 
 
@@ -178,7 +179,7 @@ delete' = ['\BS', '\DEL', unkey KeyBackspace]
 ------------------------------------------------------------------------
 -- The keymap with help descriptions and actions.
 
-keyTable :: [(String, [Char], IO ())]
+keyTable :: [(ByteString, [Char], IO ())]
 keyTable =
     [ ("Move up",                                 ['k',unkey KeyUp],    upOne)
     , ("Move down",                               ['j',unkey KeyDown],  downOne)
@@ -210,7 +211,7 @@ keyTable =
     , ("Search backwards for file",               ['?'],                placeholder)
     , ("Search for directory matching regex",     ['\\'],               placeholder)
     , ("Search backwards for directory",          ['|'],                placeholder)
-    , ("Quit " ++ package,                        ['q'],                placeholder)
+    , ("Quit " <> UTF8.fromString package,        ['q'],                placeholder)
     ]
   where placeholder = pure () -- handled separately
 
@@ -218,7 +219,7 @@ keyTable =
 keyMap :: M.Map Char (IO ())
 keyMap = M.fromList [ (c, a) | (_, cs, a) <- keyTable, c <- cs ]
 
-keysHelp :: [([Char], String)]
+keysHelp :: [([Char], ByteString)]
 keysHelp = [ (keys, desc) | (desc, keys, _) <- keyTable ]
 
 toggleHelp :: IO ()
