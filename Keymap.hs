@@ -218,6 +218,10 @@ keyTable =
 keyMap :: M.Map Char (IO ())
 keyMap = M.fromList [ (c, a) | (_, cs, a) <- keyTable, c <- cs ]
 
+keysHelp :: [([Char], String)]
+keysHelp = [ (keys, desc) | (desc, keys, _) <- keyTable ]
+
 toggleHelp :: IO ()
-toggleHelp = mapModal \m -> if isNothing m then Just HelpModal else Nothing
+toggleHelp = mapModal \m ->
+    if isNothing m then Just $ HelpModal keysHelp else Nothing
 

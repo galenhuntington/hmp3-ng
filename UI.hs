@@ -30,7 +30,7 @@ import Syntax
 import Config
 import Width                    (displayWidth, toMaxWidth, toWidth)
 import qualified UI.HSCurses.Curses as Curses
-import {-# SOURCE #-} Keymap    (keyTable, unkey, charToKey)
+import {-# SOURCE #-} Keymap    (unkey, charToKey)
 
 import Data.Array               ((!), bounds, Array)
 import Data.Array.Base          (unsafeAt)
@@ -222,11 +222,11 @@ commonModalWidth w = max (min w 3) $ round $ fromIntegral w * (0.8::Float)
 
 ------------------------------------------------------------------------
 
-helpModal :: ModalMaker
-helpModal swd = (wd, [f cs h | (h, cs, _) <- keyTable ]) where
+helpModal :: [KeysHelp] -> ModalMaker
+helpModal help swd = (wd, map showLine help) where
     wd = commonModalWidth swd
-    f :: [Char] -> String -> ByteString
-    f cs ps = toWidth clen cmds <> u ps where
+    showLine :: ([Char], String) -> ByteString
+    showLine (cs, ps) = toWidth clen cmds <> u ps where
         clen = max 4 $ round $ fromIntegral wd * (0.2::Float)
         cmds = P.unwords ("" : map pprIt cs)
         pprIt c = case c of
@@ -500,7 +500,7 @@ renderModals :: HState -> Size -> IO ()
 renderModals st sz = do
     let render = renderModal st sz
     whenJust (modal st) $ render . \case
-        HelpModal   -> helpModal
+        HelpModal h -> helpModal h
         HistModal h -> histModal h
         ExitModal   -> exitModal
 
