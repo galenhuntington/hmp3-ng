@@ -527,14 +527,14 @@ toggleFocus :: IO ()
 toggleFocus = modifyHS_ $ \st -> st { miniFocused = not (miniFocused st) }
 
 -- | Show history.  Also, return history as value.
-showHist :: IO HistDisplay
+showHist :: IO ()
 showHist = do
     now <- getMonoTime
-    modifyHS \st ->
-        let hist = [
-                (showTimeDiff_ True tm now, (ix, fbase $ music st ! ix))
+    modifyHS_ \st -> st {
+        modal = Just $ HistModal [
+            (showTimeDiff_ True tm now, (ix, fbase $ music st ! ix))
                 | (tm, ix) <- toList $ playHist st ]
-        in (st { modal = Just $ HistModal hist }, hist)
+        }
 
 -- | Toggle the mode flag
 nextMode :: IO ()

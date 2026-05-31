@@ -18,7 +18,7 @@ import Base hiding ((!?))
 
 import Core
 import Config       (package)
-import State        (getsHS, touchHS, modifyHS_, Modal(..), HistDisplay, HState(..))
+import State        (getsHS, touchHS, modifyHS_, Modal(..), HState(..))
 import Style        (defaultSty, StringA(Fast))
 import qualified UI (getKey, resetui)
 
@@ -53,10 +53,7 @@ mainMode = KeyMap dispatch where
     dispatch c
         | c `elem` ['/', '?', '\\', '|']
                                = enterSearch c
-        | c `elem` ['H', ';']  = do
-            h <- showHist
-            touchHS
-            pure $ historyMode h
+        | c `elem` ['H', ';']  = showHist *> touchHS $> historyMode
         | c >= '1' && c <= '9' =
             jumpRel (0.1 * fromIntegral (fromEnum c - 48)) $> mainMode
         | True                 = sequence_ (M.lookup c keyMap) $> mainMode
@@ -129,8 +126,9 @@ zipDown z                       = z
 ------------------------------------------------------------------------
 -- Song-history popup
 
-historyMode :: HistDisplay -> KeyMap
-historyMode hist = KeyMap \c -> do
+historyMode :: KeyMap
+historyMode = KeyMap \c -> do
+    hist <- getsHS $ (\case Just (HistModal h) -> h; _ -> []) . modal
     for_ (M.lookup c historyKeys >>= (hist !?)) (jump . fst . snd)
     closeModal
     touchHS
