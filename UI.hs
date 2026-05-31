@@ -1,4 +1,4 @@
-{-# LANGUAGE ForeignFunctionInterface, AllowAmbiguousTypes #-}
+{-# LANGUAGE ForeignFunctionInterface #-}
 
 -- Copyright (c) 2004-5 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- Copyright (c) 2019-2026 Galen Huntington
@@ -179,12 +179,8 @@ data DrawData = DD {
     drawFrame :: Maybe Frame
     }
 
-data HelpModal
-data HistModal
-data ExitModal
-class ModalElement a where
-    -- takes window width, state; returns (width, list of lines)
-    drawModal :: Int -> HState -> (Int, [ByteString])
+-- screen width -> (modal width, list of lines)
+type ModalMaker = Int -> (Int, [ByteString])
 
 ------------------------------------------------------------------------
 
@@ -226,49 +222,47 @@ commonModalWidth w = max (min w 3) $ round $ fromIntegral w * (0.8::Float)
 
 ------------------------------------------------------------------------
 
-instance ModalElement HelpModal where
-    drawModal swd _ = (wd, [f cs h | (h, cs, _) <- keyTable ]) where
-        wd = commonModalWidth swd
-        f :: [Char] -> String -> ByteString
-        f cs ps = toWidth clen cmds <> u ps where
-            clen = max 4 $ round $ fromIntegral wd * (0.2::Float)
-            cmds = P.unwords ("" : map pprIt cs)
-            pprIt c = case c of
-                '\n' -> "Enter"
-                '\f' -> "^L"
-                '\\' -> "\\"
-                ' '  -> "Space"
-                _ -> case charToKey c of
-                    Curses.KeyUp        -> u"↑"
-                    Curses.KeyDown      -> u"↓"
-                    Curses.KeyPPage     -> "PgUp"
-                    Curses.KeyNPage     -> "PgDn"
-                    Curses.KeyLeft      -> u"←"
-                    Curses.KeyRight     -> u"→"
-                    Curses.KeyEnd       -> "End"
-                    Curses.KeyHome      -> "Home"
-                    Curses.KeyBackspace -> "Backspace"
-                    _ -> u[c]
+helpModal :: ModalMaker
+helpModal swd = (wd, [f cs h | (h, cs, _) <- keyTable ]) where
+    wd = commonModalWidth swd
+    f :: [Char] -> String -> ByteString
+    f cs ps = toWidth clen cmds <> u ps where
+        clen = max 4 $ round $ fromIntegral wd * (0.2::Float)
+        cmds = P.unwords ("" : map pprIt cs)
+        pprIt c = case c of
+            '\n' -> "Enter"
+            '\f' -> "^L"
+            '\\' -> "\\"
+            ' '  -> "Space"
+            _ -> case charToKey c of
+                Curses.KeyUp        -> u"↑"
+                Curses.KeyDown      -> u"↓"
+                Curses.KeyPPage     -> "PgUp"
+                Curses.KeyNPage     -> "PgDn"
+                Curses.KeyLeft      -> u"←"
+                Curses.KeyRight     -> u"→"
+                Curses.KeyEnd       -> "End"
+                Curses.KeyHome      -> "Home"
+                Curses.KeyBackspace -> "Backspace"
+                _ -> u[c]
 
 ------------------------------------------------------------------------
 
-instance ModalElement HistModal where
-    drawModal swd st = do
-        let wd = commonModalWidth swd
-            hist = fromJust $ histVisible st
-            mtlen = maximum $ map (displayWidth . fst) hist
-            tlen = min (mtlen + 1) $ wd `div` 3
-        (wd,) $ flip map (zip (['0'..'9']++['a'..'z']) hist) \ (c, (time, (_, song))) ->
-            let tstr = toMaxWidth tlen $ P.replicate (tlen - displayWidth time) ' ' <> time
-            in mconcat [" ", P.singleton c, " ", tstr, " ", song]
+histModal :: [(ByteString, (Int, ByteString))] -> ModalMaker
+histModal hist swd = do
+    let wd = commonModalWidth swd
+        mtlen = maximum $ map (displayWidth . fst) hist
+        tlen = min (mtlen + 1) $ wd `div` 3
+    (wd,) $ flip map (zip (['0'..'9']++['a'..'z']) hist) \ (c, (time, (_, song))) ->
+        let tstr = toMaxWidth tlen $ P.replicate (tlen - displayWidth time) ' ' <> time
+        in mconcat [" ", P.singleton c, " ", tstr, " ", song]
 
 ------------------------------------------------------------------------
 
-instance ModalElement ExitModal where
-    drawModal swd _ = do
-        let wd = commonModalWidth swd `min` 19
-            padl = P.replicate ((wd - 9) `div` 2) ' '
-        (wd, ["", padl <> "Exit (y)?", ""])
+exitModal :: ModalMaker
+exitModal swd = (wd, ["", padl <> "Exit (y)?", ""]) where
+    wd = commonModalWidth swd `min` 19
+    padl = P.replicate ((wd - 9) `div` 2) ' '
 
 ------------------------------------------------------------------------
 
@@ -489,24 +483,25 @@ redrawJustClock = Draw $ discardErrors do
 --
 -- work for drawing help. draw the help screen if it is up
 --
-renderModal :: forall me. ModalElement me => HState -> Size -> IO ()
-renderModal st (Size h w) = do
-   let (mw, modal') = drawModal @me w st
-       hoffset = max 0 $ (w - mw) `div` 2
-       mlines  = min h $ length modal'
-       voffset = (h - mlines) `div` 2
-       sty = modals $ config st
-   Curses.wMove Curses.stdScr voffset hoffset
-   for_ (take mlines modal') \t -> do
+renderModal :: HState -> Size -> ModalMaker -> IO ()
+renderModal st (Size h w) mkr = do
+    let (mw, modal') = mkr w
+        hoffset = max 0 $ (w - mw) `div` 2
+        mlines  = min h $ length modal'
+        voffset = (h - mlines) `div` 2
+        sty = modals $ config st
+    Curses.wMove Curses.stdScr voffset hoffset
+    for_ (take mlines modal') \t -> do
         drawLine $ Fast (toWidth mw t) sty
         (y', _) <- Curses.getYX Curses.stdScr
         Curses.wMove Curses.stdScr (y'+1) hoffset
 
 renderModals :: HState -> Size -> IO ()
 renderModals st sz = do
-   when (helpVisible st) $ renderModal @HelpModal st sz
-   whenJust (histVisible st) $ const $ renderModal @HistModal st sz
-   when (exitVisible st) $ renderModal @ExitModal st sz
+    let render = renderModal st sz
+    when (helpVisible st) $ render helpModal
+    whenJust (histVisible st) $ render . histModal
+    when (exitVisible st) $ render exitModal
 
 ------------------------------------------------------------------------
 --
