@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP #-}
 
 -- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- Copyright (c) 2008, 2019-2026 Galen Huntington
@@ -43,6 +43,7 @@ import qualified Data.ByteString.Char8 as P
 import qualified Data.Sequence as Seq
 
 import Data.Array               ((!), bounds, Array)
+import Data.Proxy
 import Data.Tuple               (swap)
 import Control.Monad.State.Strict
 import System.Directory         (doesFileExist, findExecutable, createDirectoryIfMissing,
@@ -124,12 +125,12 @@ runForever fn = catch (forever fn) handler where
 -- I don't know why these are ignored, but preserving old logic.
 -- For profiling, make sure to return True for anything:
 exitTime :: SomeException -> Bool
-exitTime e | is @IOException e = False -- ignore
-           | is @ErrorCall e   = False -- ignore
+exitTime e | is @IOException Proxy e = False -- ignore
+           | is @ErrorCall Proxy e   = False -- ignore
            -- "user errors" were caught before, but are no longer a thing
-           | otherwise         = True
-    where is :: forall e. Exception e => SomeException -> Bool
-          is = isJust . fromException @e
+           | otherwise               = True
+    where is :: forall e. Exception e => Proxy e -> SomeException -> Bool
+          is _ = isJust . fromException @e
 
 ------------------------------------------------------------------------
 
