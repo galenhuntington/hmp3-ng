@@ -415,7 +415,6 @@ playList dd@DD{ drawSize=Size y x, drawPos=Pos{posY=o}, drawState=st } =
     visible = slice off (off + buflen) songs
         where off = screens * buflen
 
-    -- TODO rewrite as fold
     visible' :: [(Maybe Int, ByteString)]
     visible' = loop (-1) visible where
         loop _ []     = []

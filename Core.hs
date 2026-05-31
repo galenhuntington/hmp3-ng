@@ -514,7 +514,7 @@ genericJumpToMatch re sw k sel = do
 mapModal :: (Maybe Modal -> Maybe Modal) -> IO ()
 mapModal f = modifyHS_ $ \st -> st { modal = f $ modal st }
 
--- | Close down open modal (if any).
+-- | Close any open modal.
 closeModal :: IO ()
 closeModal = mapModal $ const Nothing
 
@@ -526,7 +526,7 @@ openModal m = mapModal $ const $ Just m
 toggleFocus :: IO ()
 toggleFocus = modifyHS_ $ \st -> st { miniFocused = not (miniFocused st) }
 
--- | Show history.  Also, return history as value.
+-- | Show history.
 showHist :: IO ()
 showHist = do
     now <- getMonoTime

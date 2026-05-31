@@ -64,7 +64,7 @@ data HState = HState {
 -- Each is (timestamp, (song-index, song-name)).
 type HistDisplay = [(ByteString, (Int, ByteString))]
 
--- Each is (list-of-keys, description)
+-- (list-of-keys, description)
 type KeysHelp = ([Char], ByteString)
 
 data Modal = HelpModal ![KeysHelp] | ExitModal | HistModal !HistDisplay
