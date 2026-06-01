@@ -1,12 +1,15 @@
 on: [push]
 name: build
 jobs:
-  slim:
+  cabal:
     strategy:
       matrix:
-        host: ['macos-latest']
+        host: ['ubuntu-22.04']
+        ghc: ['8.10', '9.0']
     runs-on: ${{ matrix.host }}
     name: GHC on ${{ matrix.host }}
+      with:
+        ghc-version: ${{ matrix.ghc }}
     steps:
       - uses: actions/checkout@v6
       - uses: haskell-actions/setup@v2
