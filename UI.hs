@@ -1,5 +1,3 @@
-{-# LANGUAGE ForeignFunctionInterface, TupleSections, AllowAmbiguousTypes #-}
-
 -- Copyright (c) 2004-5 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- Copyright (c) 2019-2026 Galen Huntington
 -- SPDX-License-Identifier: GPL-2.0-or-later
@@ -30,7 +28,7 @@ import Syntax
 import Config
 import Width                    (displayWidth, toMaxWidth, toWidth)
 import qualified UI.HSCurses.Curses as Curses
-import {-# SOURCE #-} Keymap    (keyTable, unkey, charToKey)
+import {-# SOURCE #-} Keymap    (unkey, charToKey)
 
 import Data.Array               ((!), bounds, Array)
 import Data.Array.Base          (unsafeAt)
@@ -52,8 +50,7 @@ u = UTF8.fromString
 
 
 newtype Draw = Draw (IO ())
-instance Semigroup Draw where Draw x <> Draw y = Draw $ x >> y
-instance Monoid Draw where mempty = Draw $ pure ()
+    deriving newtype (Semigroup, Monoid)
 
 runDraw :: Draw -> IO ()
 runDraw (Draw d) = withDrawLock d
@@ -180,12 +177,8 @@ data DrawData = DD {
     drawFrame :: Maybe Frame
     }
 
-data HelpModal
-data HistModal
-data ExitModal
-class ModalElement a where
-    -- takes style, window width, state; returns (width, list of lines)
-    drawModal :: Style -> Int -> HState -> Maybe (Int, [StringA])
+-- screen width -> (modal width, list of lines)
+type ModalMaker = Int -> (Int, [ByteString])
 
 ------------------------------------------------------------------------
 
@@ -222,59 +215,52 @@ pInfo DD{drawState=st} = case info st of
     Nothing -> "(empty)"
     Just i  -> userinfo i
 
-modalWidth :: Int -> Int
-modalWidth w = max (min w 3) $ round $ fromIntegral w * (0.8::Float)
+commonModalWidth :: Int -> Int
+commonModalWidth w = max (min w 3) $ round $ fromIntegral w * (0.8::Float)
 
 ------------------------------------------------------------------------
 
-instance ModalElement HelpModal where
-    drawModal sty swd st = do
-        guard $ helpVisible st
-        pure (wd, [ Fast (f cs h) sty | (h, cs, _) <- keyTable ])
-      where
-        wd = modalWidth swd
-        f :: [Char] -> String -> ByteString
-        f cs ps = toWidth wd $ toWidth clen cmds <> u ps where
-            clen = max 4 $ round $ fromIntegral wd * (0.2::Float)
-            cmds = P.unwords ("" : map pprIt cs)
-            pprIt c = case c of
-                '\n' -> "Enter"
-                '\f' -> "^L"
-                '\\' -> "\\"
-                ' '  -> "Space"
-                _ -> case charToKey c of
-                    Curses.KeyUp        -> u"↑"
-                    Curses.KeyDown      -> u"↓"
-                    Curses.KeyPPage     -> "PgUp"
-                    Curses.KeyNPage     -> "PgDn"
-                    Curses.KeyLeft      -> u"←"
-                    Curses.KeyRight     -> u"→"
-                    Curses.KeyEnd       -> "End"
-                    Curses.KeyHome      -> "Home"
-                    Curses.KeyBackspace -> "Backspace"
-                    _ -> u[c]
+helpModal :: [KeysHelp] -> ModalMaker
+helpModal help swd = (wd, map showLine help) where
+    wd = commonModalWidth swd
+    showLine :: ([Char], ByteString) -> ByteString
+    showLine (cs, ps) = toWidth clen cmds <> ps where
+        clen = max 4 $ round $ fromIntegral wd * (0.2::Float)
+        cmds = P.unwords ("" : map pprIt cs)
+        pprIt c = case c of
+            '\n' -> "Enter"
+            '\f' -> "^L"
+            '\\' -> "\\"
+            ' '  -> "Space"
+            _ -> case charToKey c of
+                Curses.KeyUp        -> u"↑"
+                Curses.KeyDown      -> u"↓"
+                Curses.KeyPPage     -> "PgUp"
+                Curses.KeyNPage     -> "PgDn"
+                Curses.KeyLeft      -> u"←"
+                Curses.KeyRight     -> u"→"
+                Curses.KeyEnd       -> "End"
+                Curses.KeyHome      -> "Home"
+                Curses.KeyBackspace -> "Backspace"
+                _ -> u[c]
 
 ------------------------------------------------------------------------
 
-instance ModalElement HistModal where
-    drawModal sty swd st = flip fmap (histVisible st) \hist -> do
-        let wd = modalWidth swd
-            mtlen = maximum $ map (displayWidth . fst) hist
-            tlen = min (mtlen + 1) $ wd `div` 3
-        (wd,) $ flip map (zip (['0'..'9']++['a'..'z']) hist) \ (c, (time, (_, song))) ->
-            let tstr = toMaxWidth tlen $ P.replicate (tlen - displayWidth time) ' ' <> time
-            in Fast (toWidth wd $ " " <> P.singleton c <> " " <> tstr <> " " <> song) sty
+histModal :: HistDisplay -> ModalMaker
+histModal hist swd = do
+    let wd = commonModalWidth swd
+        mtlen = maximum $ 0 : map (displayWidth . fst) hist
+        tlen = min (mtlen + 1) $ wd `div` 3
+    (wd,) $ flip map (zip (['0'..'9']++['a'..'z']) hist) \ (c, (time, (_, song))) ->
+        let tstr = toMaxWidth tlen $ P.replicate (tlen - displayWidth time) ' ' <> time
+        in mconcat [" ", P.singleton c, " ", tstr, " ", song]
 
 ------------------------------------------------------------------------
 
-instance ModalElement ExitModal where
-    drawModal sty swd st = do
-        guard $ exitVisible st
-        let wd = modalWidth swd `min` 19
-            blank = Fast (toWidth wd "") sty
-            padl = P.replicate ((wd - 9) `div` 2) ' '
-            msg = toWidth wd $ padl <> "Exit (y)?"
-        pure (wd, [blank, Fast msg sty, blank])
+exitModal :: ModalMaker
+exitModal swd = (wd, ["", padl <> "Exit (y)?", ""]) where
+    wd = commonModalWidth swd `min` 19
+    padl = P.replicate ((wd - 9) `div` 2) ' '
 
 ------------------------------------------------------------------------
 
@@ -427,7 +413,6 @@ playList dd@DD{ drawSize=Size y x, drawPos=Pos{posY=o}, drawState=st } =
     visible = slice off (off + buflen) songs
         where off = screens * buflen
 
-    -- TODO rewrite as fold
     visible' :: [(Maybe Int, ByteString)]
     visible' = loop (-1) visible where
         loop _ []     = []
@@ -476,49 +461,47 @@ spaces :: Int -> ByteString
 spaces = flip P.replicate ' '
 
 ------------------------------------------------------------------------
---
 -- | Now write out just the clock line
--- Speed things up a bit, just use read State.
---
 redrawJustClock :: Draw
 redrawJustClock = Draw $ discardErrors do
     st     <- getsHS id
     (h, w) <- screenSize
     let dd = DD (Size h w) undefined st (clock st)
     Curses.wMove Curses.stdScr 1 0   -- hardcoded!
-    drawLine w $ progressBar dd
+    drawLine $ progressBar dd
     Curses.wMove Curses.stdScr 2 0   -- hardcoded!
-    drawLine w $ pTimes dd
+    drawLine $ pTimes dd
     when (h < 45) $ renderModals st (Size h w) -- small screen modals paint over clock
 
 ------------------------------------------------------------------------
---
--- work for drawing help. draw the help screen if it is up
---
-renderModal :: forall me. ModalElement me => HState -> Size -> IO ()
-renderModal st (Size h w) = do
-   for_ (drawModal @me (modals $ config st) w st) \(mw, modal') -> do
-       let hoffset = max 0 $ (w - mw) `div` 2
-           mlines  = min h $ length modal'
-           voffset = (h - mlines) `div` 2
-       Curses.wMove Curses.stdScr voffset hoffset
-       for_ (take mlines modal') \t -> do
-            drawLine w t
-            (y', _) <- Curses.getYX Curses.stdScr
-            Curses.wMove Curses.stdScr (y'+1) hoffset
+-- | General modal renderer.
+renderModal :: HState -> Size -> ModalMaker -> IO ()
+renderModal st (Size h w) mkr = do
+    let (mw, modal') = mkr w
+        hoffset = max 0 $ (w - mw) `div` 2
+        mlines  = min h $ length modal'
+        voffset = (h - mlines) `div` 2
+        sty = modals $ config st
+    Curses.wMove Curses.stdScr voffset hoffset
+    for_ (take mlines modal') \t -> do
+        drawLine $ Fast (toWidth mw t) sty
+        (y', _) <- Curses.getYX Curses.stdScr
+        Curses.wMove Curses.stdScr (y'+1) hoffset
 
+-- | Choose modal to render based on state.
 renderModals :: HState -> Size -> IO ()
-renderModals s sz = do
-   renderModal @HelpModal s sz
-   renderModal @HistModal s sz
-   renderModal @ExitModal s sz
+renderModals st sz =
+    whenJust (modal st) $ renderModal st sz . \case
+        HelpModal h -> helpModal h
+        HistModal h -> histModal h
+        ExitModal   -> exitModal
 
 ------------------------------------------------------------------------
 --
 -- | Draw the screen
 --
 redraw :: Draw
-redraw = Draw $ discardErrors {- TODO unclear what errors are discarded? -} do
+redraw = Draw $ discardErrors {- TODO what errors are discarded? -} do
     st <- getsHS id    -- another refresh could be triggered?
     (h, w) <- screenSize
     let sz     = Size h w
@@ -529,7 +512,7 @@ redraw = Draw $ discardErrors {- TODO unclear what errors are discarded? -} do
 
     gotoTop
     for_ (take (h-1) (init a)) \t -> do
-        drawLine w t
+        drawLine t
         (y, x) <- Curses.getYX Curses.stdScr
         fillLine
         maybeLineDown t h y x
@@ -539,9 +522,9 @@ redraw = Draw $ discardErrors {- TODO unclear what errors are discarded? -} do
     Curses.wMove Curses.stdScr (h-1) 0
     fillLine
     Curses.wMove Curses.stdScr (h-1) 0
-    drawLine (w-1) (last a)
+    drawLine (last a)
     when (miniFocused st) do -- a fake cursor
-        drawLine 1 (Fast (spaces 1) (blockcursor . config $ st ))
+        drawLine (Fast (spaces 1) (blockcursor . config $ st ))
         -- XXX is this TODO from 2005 still relevant?
         -- todo rendering bug here when deleting backwards in minibuffer
 
@@ -549,9 +532,9 @@ redraw = Draw $ discardErrors {- TODO unclear what errors are discarded? -} do
 --
 -- | Draw a coloured (or not) string to the screen
 --
-drawLine :: Int -> StringA -> IO ()
-drawLine _ (Fast ps sty) = drawSegment ps sty
-drawLine _ (FancyS ls)   = traverse_ (uncurry drawSegment) ls
+drawLine :: StringA -> IO ()
+drawLine (Fast ps sty) = drawSegment ps sty
+drawLine (FancyS ls)   = traverse_ (uncurry drawSegment) ls
 
 -- | Write a single styled UTF-8 segment.  Safe because C only reads the bytes.
 drawSegment :: ByteString -> Style -> IO ()

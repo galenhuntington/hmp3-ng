@@ -42,9 +42,7 @@ data HState = HState {
        ,info            :: !(Maybe Info)         -- mp3 info
        ,status          :: !Status
        ,minibuffer      :: !StringA              -- contents of minibuffer
-       ,helpVisible     :: !Bool                 -- is the help window shown?
-       ,histVisible     :: !(Maybe [(ByteString, (Int, ByteString))]) -- history pop-up if shown
-       ,exitVisible     :: !Bool                 -- confirm exit modal shown
+       ,modal           :: !(Maybe Modal)        -- modal visible
        ,miniFocused     :: !Bool                 -- is the mini buffer focused?
        ,mode            :: !Mode
        ,uptime          :: !ByteString
@@ -62,6 +60,14 @@ data HState = HState {
                                                 -- refresh thread waits on this.
        ,drawLock        :: !(MVar ())           -- simple semaphore for display
     }
+
+-- Each is (timestamp-string, (song-index, song-name)).
+type HistDisplay = [(ByteString, (Int, ByteString))]
+
+-- (list-of-keys, description)
+type KeysHelp = ([Char], ByteString)
+
+data Modal = HelpModal ![KeysHelp] | ExitModal | HistModal !HistDisplay
 
 ------------------------------------------------------------------------
 --
@@ -92,9 +98,7 @@ newEmptyHS = do
        ,searchHist   = []
 
        ,clockUpdate      = False
-       ,helpVisible      = False
-       ,histVisible      = Nothing
-       ,exitVisible      = False
+       ,modal            = Nothing
        ,miniFocused      = False
        ,xterm            = False
        ,doNotResuscitate = False    -- mpg123 should be restarted

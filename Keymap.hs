@@ -17,14 +17,15 @@ module Keymap (keyLoop, keyTable, unkey, charToKey) where
 import Base hiding ((!?))
 
 import Core
-import Config       (package)
-import State        (getsHS, touchHS, modifyHS_, HState(histVisible, searchHist))
-import Style        (defaultSty, StringA(Fast))
+import Config (package)
+import State (getsHS, touchHS, modifyHS_, KeysHelp, Modal(..), HState(..))
+import Style (defaultSty, StringA(Fast))
 import qualified UI (getKey, resetui)
 
 import UI.HSCurses.Curses (Key(..), decodeKey)
 
 import qualified Data.ByteString.Char8 as P
+import qualified Data.ByteString.UTF8 as UTF8
 import qualified Data.Map.Strict as M
 
 
@@ -48,7 +49,8 @@ keyLoop = go mainMode where
 
 mainMode :: KeyMap
 mainMode = KeyMap dispatch where
-    dispatch 'q'  = forcePause *> toggleExit *> touchHS $> confirmQuitMode
+    dispatch 'q'  =
+        forcePause *> setsModal (const $ Just ExitModal) $> confirmQuitMode
     dispatch c
         | c `elem` ['/', '?', '\\', '|']
                                = enterSearch c
@@ -127,10 +129,9 @@ zipDown z                       = z
 
 historyMode :: KeyMap
 historyMode = KeyMap \c -> do
-    for_ (M.lookup c historyKeys) \k -> do
-        phm <- getsHS histVisible
-        for_ (phm >>= (!? k)) (jump . fst . snd)
-    hideHist
+    hist <- getsHS $ (\case Just (HistModal h) -> h; _ -> []) . modal
+    for_ (M.lookup c historyKeys >>= (hist !?)) (jump . fst . snd)
+    closeModal
     touchHS
     pure mainMode
   where
@@ -147,7 +148,7 @@ historyMode = KeyMap \c -> do
 confirmQuitMode :: KeyMap
 confirmQuitMode = KeyMap \case
     'y' -> shutdown Nothing $> undefined -- shutdown never returns
-    _   -> toggleExit *> touchHS $> mainMode
+    _   -> closeModal *> touchHS $> mainMode
 
 
 ------------------------------------------------------------------------
@@ -177,7 +178,7 @@ delete' = ['\BS', '\DEL', unkey KeyBackspace]
 ------------------------------------------------------------------------
 -- The keymap with help descriptions and actions.
 
-keyTable :: [(String, [Char], IO ())]
+keyTable :: [(ByteString, [Char], IO ())]
 keyTable =
     [ ("Move up",                                 ['k',unkey KeyUp],    upOne)
     , ("Move down",                               ['j',unkey KeyDown],  downOne)
@@ -209,11 +210,18 @@ keyTable =
     , ("Search backwards for file",               ['?'],                placeholder)
     , ("Search for directory matching regex",     ['\\'],               placeholder)
     , ("Search backwards for directory",          ['|'],                placeholder)
-    , ("Quit " ++ package,                        ['q'],                placeholder)
+    , ("Quit " <> UTF8.fromString package,        ['q'],                placeholder)
     ]
   where placeholder = pure () -- handled separately
 
 -- Compiled dispatch table for normal-mode single-key commands.
 keyMap :: M.Map Char (IO ())
 keyMap = M.fromList [ (c, a) | (_, cs, a) <- keyTable, c <- cs ]
+
+keysHelp :: [KeysHelp]
+keysHelp = [ (keys, desc) | (desc, keys, _) <- keyTable ]
+
+toggleHelp :: IO ()
+toggleHelp = setsModal \st ->
+    if isNothing $ modal st then Just $ HelpModal keysHelp else Nothing
 

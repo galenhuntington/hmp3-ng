@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP #-}
 
 -- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- Copyright (c) 2008, 2019-2026 Galen Huntington
@@ -12,17 +12,16 @@ module Core (
     start,
     shutdown,
     seekLeft, seekRight, upOne, downOne, pause, nextMode, playNext, playPrev,
-    forcePause, putmsg, clrmsg, toggleHelp, play, playCur,
+    forcePause, putmsg, clrmsg, play, playCur,
     jumpToPlaying, jump, jumpRel,
     upPage, downPage,
     seekStart,
     blacklist,
-    showHist, hideHist,
+    setsModal, closeModal, showHist,
     jumpToMatchDir, jumpToMatchFile,
     toggleFocus, jumpToNextDir, jumpToPrevDir,
     loadConfig,
     discardErrors,
-    toggleExit,
     showTimeDiff_,
 ) where
 
@@ -44,6 +43,7 @@ import qualified Data.ByteString.Char8 as P
 import qualified Data.Sequence as Seq
 
 import Data.Array               ((!), bounds, Array)
+import Data.Proxy
 import Data.Tuple               (swap)
 import Control.Monad.State.Strict
 import System.Directory         (doesFileExist, findExecutable, createDirectoryIfMissing,
@@ -125,12 +125,12 @@ runForever fn = catch (forever fn) handler where
 -- I don't know why these are ignored, but preserving old logic.
 -- For profiling, make sure to return True for anything:
 exitTime :: SomeException -> Bool
-exitTime e | is @IOException e = False -- ignore
-           | is @ErrorCall e   = False -- ignore
+exitTime e | is @IOException Proxy e = False -- ignore
+           | is @ErrorCall Proxy e   = False -- ignore
            -- "user errors" were caught before, but are no longer a thing
-           | otherwise         = True
-    where is :: forall e. Exception e => SomeException -> Bool
-          is = isJust . fromException @e
+           | otherwise               = True
+    where is :: forall e. Exception e => Proxy e -> SomeException -> Bool
+          is _ = isJust . fromException @e
 
 ------------------------------------------------------------------------
 
@@ -259,11 +259,11 @@ shutdown ms = do
     silentlyModifyHS $ \st -> st { doNotResuscitate = True }
     discardErrors writeState
     mpid <- getsHS mpgPid
-    flip (maybe $ pure ()) mpid \pid -> do
+    whenJust mpid \pid -> do
         discardErrors $ sendMpg Quit
         void $ waitForProcess pid
     UI.end =<< getsHS xterm
-    flip (maybe $ pure ()) ms \s -> hPutStrLn stderr s *> hFlush stderr
+    whenJust ms \s -> hPutStrLn stderr s *> hFlush stderr
     exitImmediately ExitSuccess
 
 ------------------------------------------------------------------------
@@ -511,37 +511,30 @@ genericJumpToMatch re sw k sel = do
 
 ------------------------------------------------------------------------
 
--- | Show/hide the help window
-toggleHelp :: IO ()
-toggleHelp = modifyHS_ $ \st -> st { helpVisible = not (helpVisible st) }
+-- | General modal setting.
+setsModal :: (HState -> Maybe Modal) -> IO ()
+setsModal f = modifyHS_ $ \st -> st { modal = f st }
+
+-- | Close any open modal.
+closeModal :: IO ()
+closeModal = setsModal $ const Nothing
+
+-- | Show history.
+showHist :: IO ()
+showHist = do
+    now <- getMonoTime
+    setsModal \st -> Just $ HistModal [
+        (showTimeDiff_ True tm now, (ix, fbase $ music st ! ix))
+            | (tm, ix) <- toList $ playHist st ]
 
 -- | Focus the minibuffer
 toggleFocus :: IO ()
 toggleFocus = modifyHS_ $ \st -> st { miniFocused = not (miniFocused st) }
 
--- | Show/hide the confirm exit modal
-toggleExit :: IO ()
-toggleExit = modifyHS_ $ \st -> st { exitVisible = not (exitVisible st) }
-
--- | History on or off
-hideHist :: IO ()
-hideHist = modifyHS_ $ \st -> st { histVisible = Nothing }
-
-showHist :: IO ()
-showHist = do
-    now <- getMonoTime
-    modifyHS_ $ \st -> st {
-        helpVisible = False,
-        histVisible = Just $ do
-            (tm, ix) <- toList $ playHist st
-            pure (showTimeDiff_ True tm now, (ix, fbase $ music st ! ix))
-        }
-
 -- | Toggle the mode flag
 nextMode :: IO ()
-nextMode = modifyHS_ $ \st -> st { mode = next (mode st) }
-    where
-        next v = if v == maxBound then minBound else succ v
+nextMode = modifyHS_ $ \st -> st { mode = next (mode st) } where
+    next v = if v == maxBound then minBound else succ v
 
 ------------------------------------------------------------------------
 

@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
 
--- Copyright (c) 2020-2025 Galen Huntington
+-- Copyright (c) 2020-2026 Galen Huntington
 -- SPDX-License-Identifier: GPL-2.0-or-later
 
 module Base (module Prelude, module X, module Base) where
@@ -51,4 +51,7 @@ sequenceWhile :: Monad m => (a -> Bool) -> [m a] -> m [a]
 sequenceWhile _ [] = pure []
 sequenceWhile p (m:ms) = m >>= \a ->
     if p a then (a:) <$> sequenceWhile p ms else pure []
+
+whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
+whenJust = flip $ maybe $ pure ()
 
