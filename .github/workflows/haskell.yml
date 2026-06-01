@@ -8,10 +8,10 @@ jobs:
         ghc: ['8.10', '9.0']
     runs-on: ${{ matrix.host }}
     name: GHC on ${{ matrix.host }}
-      with:
-        ghc-version: ${{ matrix.ghc }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ghc-version: ${{ matrix.ghc }}
       - uses: haskell-actions/setup@v2
       - run: cabal build all
       - run: cabal test all --test-show-details=streaming
