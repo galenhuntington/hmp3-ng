@@ -249,7 +249,7 @@ helpModal help swd = (wd, map showLine help) where
 histModal :: HistDisplay -> ModalMaker
 histModal hist swd = do
     let wd = commonModalWidth swd
-        mtlen = maximum $ map (displayWidth . fst) hist
+        mtlen = maximum $ 0 : map (displayWidth . fst) hist
         tlen = min (mtlen + 1) $ wd `div` 3
     (wd,) $ flip map (zip (['0'..'9']++['a'..'z']) hist) \ (c, (time, (_, song))) ->
         let tstr = toMaxWidth tlen $ P.replicate (tlen - displayWidth time) ' ' <> time
