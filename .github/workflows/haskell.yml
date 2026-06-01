@@ -5,7 +5,7 @@ jobs:
     strategy:
       matrix:
         host: ['ubuntu-22.04']
-        ghc: ['8.10', '9.0']
+        ghc: ['8.4', '8.8']
     runs-on: ${{ matrix.host }}
     name: GHC on ${{ matrix.host }}
     steps:
