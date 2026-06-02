@@ -21,7 +21,6 @@ module UI (
 import Base
 
 import Style
-import FastIO                   (basenameP)
 import Tree                     (File(fdir, fbase), Dir(dname))
 import State
 import Syntax
@@ -32,6 +31,7 @@ import {-# SOURCE #-} Keymap    (unkey, charToKey)
 
 import Data.Array               ((!), bounds, Array)
 import Data.Array.Base          (unsafeAt)
+import System.Posix.FilePath    (takeFileName)
 import System.IO                (stderr, hFlush)
 import System.Posix.Signals     (raiseSignal, sigTSTP, installHandler, Handler(..))
 
@@ -450,7 +450,7 @@ playList dd@DD{ drawSize=Size y x, drawPos=Pos{posY=o}, drawState=st } =
         : map (, sty) v
       where
         sty' = if sty == sty2 || sty == sty3 then sty2 else sty1
-        d = toMaxWidth (indent - 1) $ basenameP
+        d = toMaxWidth (indent - 1) $ takeFileName
                 $ case size st of
                     0 -> "(empty)"
                     _ -> dname $ folders st ! i

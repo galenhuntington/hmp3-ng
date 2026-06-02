@@ -31,7 +31,6 @@ import Syntax
 import Lexer                (parser)
 import State
 import Style
-import FastIO               (FiltHandle(..), newFiltHandle)
 import Tree hiding (File, Dir)
 import qualified Tree (File,Dir)
 import qualified UI

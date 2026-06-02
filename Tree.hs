@@ -10,15 +10,18 @@ module Tree where
 
 import Base hiding (partition)
 
-import FastIO
 import qualified Data.ByteString.Char8 as P
 import qualified Data.Map.Strict as M
 
 import Data.Array
 import System.IO        (hPrint, stderr)
+import System.Posix.FilePath         (RawFilePath, takeFileName, takeDirectory
+                                     , dropTrailingPathSeparator, takeExtension)
+import System.Posix.Files.ByteString     (getFileStatus, isDirectory, fileAccess)
+import System.Posix.Directory.ByteString (openDirStream, readDirStream, closeDirStream)
 
 
-type FilePathP = ByteString
+type FilePathP = RawFilePath
 
 -- | A filesystem hierarchy is flattened to just the end nodes
 type DirArray = Array Int Dir
@@ -71,7 +74,7 @@ isEmpty (Tree _ files) = null files
 
 -- | Create nodes based on dirname for orphan files on cmdline
 doOrphans :: [FilePathP] -> [(FilePathP, [FilePathP])]
-doOrphans = map \f -> (dirnameP f, [basenameP f])
+doOrphans = map \f -> (takeDirectory f, [takeFileName f])
 
 -- | Merge entries with the same root node into a single node
 merge :: [(FilePathP, [FilePathP])] -> [(FilePathP, [FilePathP])]
@@ -84,7 +87,7 @@ make (i,n,acc1,acc2) (d,fs) =
         fs'= map makeFile fs
     in (i+1, n', dir:acc1, reverse fs' ++ acc2)
   where
-    makeFile f = File (basenameP f) i
+    makeFile f = File (takeFileName f) i
 
 ------------------------------------------------------------------------
 
@@ -96,7 +99,7 @@ make (i,n,acc1,acc2) (d,fs) =
 expandDir :: FilePathP -> IO (Maybe (FilePathP, [FilePathP]),  [FilePathP])
 expandDir !f = do
     ls_raw <- handle @SomeException (\e -> hPrint stderr e $> [])
-                $ packedGetDirectoryContents f
+                $ getDirContents f
     let ls = (map \s -> P.intercalate (P.singleton '/') [f,s])
                 . sort . filter validFiles $ ls_raw
     (fs',ds) <- partition ls
@@ -105,7 +108,7 @@ expandDir !f = do
     pure (v,ds)
   where
     validFiles = not . P.isPrefixOf "."
-    onlyMp3s   = P.isSuffixOf ".mp3" . P.map toLower
+    onlyMp3s   = (== ".mp3") . P.map toLower . takeExtension
 
 --
 -- | Given an the next index into the files array, a directory name, and
@@ -114,7 +117,7 @@ expandDir !f = do
 --
 listToDir :: Int -> FilePathP -> [FilePathP] -> (Dir, Int)
 listToDir n d fs =
-        let dir = Dir { dname = packedFileNameEndClean d
+        let dir = Dir { dname = dropTrailingPathSeparator d
                       , dsize = len
                       , dlo   = n
                       , dhi   = n + len - 1
@@ -129,8 +132,26 @@ partition :: [FilePathP] -> IO ([FilePathP], [FilePathP])
 partition [] = pure ([],[])
 partition (a:xs) = do
     (fs,ds) <- partition xs
-    x <- doesFileExist a
+    x <- isFile a
     if x then do y <- isReadable a
                  pure if y then (a:fs, ds) else (fs, ds)
          else pure (fs, a:ds)
+
+------------------------------------------------------------------------
+-- Raw-bytes filesystem queries (POSIX), formerly in FastIO.
+
+-- | A directory's entries (excluding "." and ".."), as raw paths.
+getDirContents :: RawFilePath -> IO [RawFilePath]
+getDirContents fp = bracket (openDirStream fp) closeDirStream
+    $ \ds -> fmap (filter (\p -> p /= "." && p /= ".."))
+        $ sequenceWhile (not . P.null) $ repeat $ readDirStream ds
+
+-- | Does the path name an existing non-directory?  (False on any error.)
+isFile :: RawFilePath -> IO Bool
+isFile fp = catch @SomeException
+   (not . isDirectory <$> getFileStatus fp)
+   (\_ -> pure False)
+
+isReadable :: RawFilePath -> IO Bool
+isReadable fp = fileAccess fp True False False
 

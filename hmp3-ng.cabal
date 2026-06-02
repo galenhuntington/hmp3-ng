@@ -51,7 +51,6 @@ library
       Base
       Config
       Core
-      FastIO
       Keymap
       Lexer
       State
@@ -77,6 +76,7 @@ library
     , hscurses
     , mtl
     , pcre-light >=0.3
+    , posix-paths
     , process
     , random
     , unix >=2.7
@@ -103,7 +103,6 @@ test-suite test
   other-modules:
       ConfigSpec
       CoreSpec
-      FastIOSpec
       LexerSpec
       StyleSpec
       TreeSpec
