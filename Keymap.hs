@@ -48,21 +48,33 @@ keyLoop = go mainMode where
 -- Top-level normal mode
 
 mainMode :: KeyMap
-mainMode = KeyMap dispatch where
-    dispatch 'q'  =
-        forcePause *> setsModal (const $ Just ExitModal) $> confirmQuitMode
-    dispatch c
-        | c `elem` ['/', '?', '\\', '|']
-                               = enterSearch c
-        | c `elem` ['H', ';']  = showHist *> touchHS $> historyMode
-        | c >= '1' && c <= '9' =
-            jumpRel (0.1 * fromIntegral (fromEnum c - 48)) $> mainMode
-        | True                 = sequence_ (M.lookup c keyMap) $> mainMode
+mainMode = KeyMap \c -> getsHS modal >>= \case
 
-    enterSearch stype = do
-        toggleFocus
-        hist <- getsHS searchHist
-        searchMode stype $ Zipper "" hist []
+    Just ExitModal -> case c of
+        'y' -> shutdown Nothing $> undefined -- shutdown never returns
+        _   -> closeModal *> touchHS $> mainMode
+
+    Just (HistModal hist) -> do
+        let xs !? n = listToMaybe $ drop n xs -- Compat: List.!? added in GHC 9.8
+        for_ (M.lookup c historyKeyMap >>= (hist !?)) (jump . fst . snd)
+        closeModal *> touchHS $> mainMode
+
+    _ -> if
+        | c `elem` ['/', '?', '\\', '|'] -> do
+            toggleFocus
+            hist <- getsHS searchHist
+            searchMode c $ Zipper "" hist []
+        | c == 'q' ->
+            forcePause *> setsModal (const $ Just ExitModal) $> mainMode
+        | c `elem` ['H', ';'] ->
+            showHist *> touchHS $> mainMode
+        | c >= '1' && c <= '9' ->
+            jumpRel (0.1 * fromIntegral (fromEnum c - 48)) $> mainMode
+        | True -> sequence_ (M.lookup c keyMap) $> mainMode
+
+
+historyKeyMap :: M.Map Char Int
+historyKeyMap = M.fromList $ zip (['0'..'9'] ++ ['a'..'z']) [0..]
 
 
 ------------------------------------------------------------------------
@@ -122,33 +134,6 @@ zipUp   (Zipper c (nx:rest) f)  = Zipper nx rest (c:f)
 zipUp   z                       = z
 zipDown (Zipper c b (pv:rest))  = Zipper pv (c:b) rest
 zipDown z                       = z
-
-
-------------------------------------------------------------------------
--- Song-history popup
-
-historyMode :: KeyMap
-historyMode = KeyMap \c -> do
-    hist <- getsHS $ (\case Just (HistModal h) -> h; _ -> []) . modal
-    for_ (M.lookup c historyKeys >>= (hist !?)) (jump . fst . snd)
-    closeModal
-    touchHS
-    pure mainMode
-  where
-    historyKeys :: M.Map Char Int
-    historyKeys = M.fromList $ zip (['0'..'9'] ++ ['a'..'z']) [0..]
-
-    -- Compatibility: List.!? only added in GHC 9.8
-    xs !? n = listToMaybe $ drop n xs
-
-
-------------------------------------------------------------------------
--- Confirm-quit modal
-
-confirmQuitMode :: KeyMap
-confirmQuitMode = KeyMap \case
-    'y' -> shutdown Nothing $> undefined -- shutdown never returns
-    _   -> closeModal *> touchHS $> mainMode
 
 
 ------------------------------------------------------------------------
