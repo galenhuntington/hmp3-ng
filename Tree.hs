@@ -14,7 +14,6 @@ import qualified Data.ByteString.Char8 as P
 import qualified Data.Map.Strict as M
 
 import Data.Array
-import System.IO (hPrint, stderr)
 import System.Posix.FilePath
 import System.Posix.Files.ByteString (getFileStatus, isDirectory, fileAccess)
 import System.Posix.Directory.Traversals (getDirectoryContents)
@@ -97,9 +96,8 @@ make (i,n,acc1,acc2) (d,fs) =
 --
 expandDir :: RawFilePath -> IO (Maybe (RawFilePath, [RawFilePath]),  [RawFilePath])
 expandDir !f = do
-    ls_raw <- handle @SomeException (\e -> hPrint stderr e $> [])
-        $ map snd <$> getDirectoryContents f
-    let ls = map (f </>) $ sort $ filter notHidden ls_raw
+    ls <- map (f </>) . sort . filter notHidden . map snd
+        <$> getDirectoryContents f
     (fs', ds) <- sift ls
     let fs = filter isMp3 fs'
         v = guard (not $ null fs) *> Just (f, fs)
