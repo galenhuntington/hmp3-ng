@@ -175,7 +175,7 @@ keyTable =
     , ("Seek left within song",                   [unkey KeyLeft],      seekLeft)
     , ("Seek right within song",                  [unkey KeyRight],     seekRight)
     , ("Toggle pause",                            [' '],                pause)
-    , ("Play song under cursor",                  ['\n'],               play)
+    , ("Play from cursor",                        ['\n'],               playCursor)
     , ("Play previous track",                     ['K'],                playPrev)
     , ("Play next track",                         ['J'],                playNext)
     , ("Toggle the help screen",                  ['h'],                toggleHelp)

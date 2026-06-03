@@ -12,7 +12,7 @@ module Core (
     start,
     shutdown,
     seekLeft, seekRight, upOne, downOne, pause, nextMode, playNext, playPrev,
-    forcePause, putmsg, clrmsg, play, playCur,
+    forcePause, putmsg, clrmsg, playCursor, playCur,
     jumpToPlaying, jump, jumpRel,
     upPage, downPage,
     seekStart,
@@ -277,7 +277,7 @@ handleMsg (F (File (Left  _))) = modifyHS_ $ \s -> s { id3 = Nothing }
 handleMsg (F (File (Right i))) = modifyHS_ $ \s -> s { id3 = Just i  }
 
 handleMsg (S t) = do
-    modifyHS_ $ \s -> s { status  = t }
+    modifyHS_ $ \s -> s { status = t }
     when (t == Stopped) playNext   -- transition to next song
 
 handleMsg (R f) = do
@@ -357,14 +357,11 @@ blacklist = do
 -- | Operates on HState and outputs maybe a track to play.
 type PlayOp = State HState (Maybe Int)
 
--- | Play the song under the cursor or random if that one is playing
--- TODO these semantics are strange; maybe playNext instead of random?
-play :: IO ()
-play = runPlayOp do
+-- | Play the song under the cursor or next if that one is current
+playCursor :: IO ()
+playCursor = runPlayOp do
     HState { current, cursor } <- get
-    if current == cursor
-        then playRandomOp
-        else pure $ Just cursor
+    if current == cursor then playNextOp else pure $ Just cursor
 
 -- | Play the song under the cursor (from the start)
 playCur :: IO ()
@@ -388,7 +385,10 @@ playPrev = runPlayOp do
 -- If we're at the end, and loop mode is on, then loop to the start
 -- If we're in random mode, play the next random track
 playNext :: IO ()
-playNext = runPlayOp do
+playNext = runPlayOp playNextOp
+
+playNextOp :: PlayOp
+playNextOp = do
     HState { mode, current, size } <- get
     let next = current + 1
     case mode of
