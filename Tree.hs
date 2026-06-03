@@ -137,9 +137,6 @@ partition (a:xs) = do
                  pure if y then (a:fs, ds) else (fs, ds)
          else pure (fs, a:ds)
 
-------------------------------------------------------------------------
--- Raw-bytes filesystem queries (POSIX), formerly in FastIO.
-
 -- | A directory's entries (excluding "." and ".."), as raw paths.
 getDirContents :: RawFilePath -> IO [RawFilePath]
 getDirContents fp = bracket (openDirStream fp) closeDirStream
