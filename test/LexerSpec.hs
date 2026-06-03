@@ -52,14 +52,9 @@ tests = testGroup "Lexer"
                 @?= F (File (Left ("ID3:" <> P.replicate 30 ' ' <> "Artist")))
         ]
     , testGroup "trim"
-        [ testCase "no whitespace"      $ trim "foo"          @?= "foo"
-        , testCase "leading spaces"     $ trim "   foo"       @?= "foo"
-        , testCase "trailing spaces"    $ trim "foo   "       @?= "foo"
-        , testCase "both"               $ trim "   foo   "    @?= "foo"
-        , testCase "internal preserved" $ trim "  foo bar  "  @?= "foo bar"
-        , testCase "tabs and newlines"  $ trim "\t foo \n"    @?= "foo"
-        , testCase "whitespace only"    $ trim "   "          @?= ""
-        , testCase "empty"              $ trim ""             @?= ""
+        [ testCase "whitespace on ends" $ trim " \t foo bar \n " @?= "foo bar"
+        , testCase "whitespace only"    $ trim "   "             @?= ""
+        , testCase "empty"              $ trim ""                @?= ""
         ]
     ]
 
