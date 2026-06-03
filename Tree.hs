@@ -46,7 +46,9 @@ data Tree = Tree !DirArray !FileArray
 --
 buildTree :: [RawFilePath] -> IO Tree
 buildTree fs = do
-    (os, dirs) <- sift fs    -- note we will lose the ordering of files given on cmd line.
+    -- note we will lose the ordering of files given on cmd line.
+    (os, dirs) <- catch @SomeException (sift fs)
+        \e -> print e *> exitWith (ExitFailure 1)
 
     let loop []     = pure []
         loop (a:xs) = do
@@ -126,8 +128,7 @@ sift :: [RawFilePath] -> IO ([RawFilePath], [RawFilePath])
 sift []     = pure ([], [])
 sift (p:ps) = do
     it@(fs,ds) <- sift ps
-    st <- getFileStatus p
-    let isDir = isDirectory st
+    isDir <- isDirectory <$> getFileStatus p
     perm <- fileAccess p True False isDir
     pure if
         | not perm -> it
