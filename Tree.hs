@@ -137,11 +137,11 @@ partition (a:xs) = do
                  pure if y then (a:fs, ds) else (fs, ds)
          else pure (fs, a:ds)
 
--- | A directory's entries (excluding "." and ".."), as raw paths.
+-- | A directory's non-hidden entries, as raw paths.
 getDirContents :: RawFilePath -> IO [RawFilePath]
-getDirContents fp = bracket (openDirStream fp) closeDirStream
-    $ \ds -> fmap (filter (\p -> p /= "." && p /= ".."))
-        $ sequenceWhile (not . P.null) $ repeat $ readDirStream ds
+getDirContents fp = bracket (openDirStream fp) closeDirStream \ds ->
+    filter (not . (P.isPrefixOf "."))
+        <$> sequenceWhile (not . P.null) $ repeat $ readDirStream ds
 
 -- | Does the path name an existing non-directory?  (False on any error.)
 isFile :: RawFilePath -> IO Bool
