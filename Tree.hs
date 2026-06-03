@@ -128,17 +128,14 @@ listToDir n d fs =
 -- | break a list of file paths into a pair of sublists corresponding
 -- to the paths that point to files and to directories.
 sift :: [RawFilePath] -> IO ([RawFilePath], [RawFilePath])
-sift [] = pure ([],[])
-sift (a:xs) = do
-    it@(fs,ds) <- sift xs
-    st <- getFileStatus a
-    if  | isRegularFile st -> do
-            y <- isReadable a
-            pure if y then (a:fs, ds) else it
-        | isDirectory st ->
-            pure (fs, a:ds)
-        | True -> pure it  -- skip
-
-isReadable :: RawFilePath -> IO Bool
-isReadable fp = fileAccess fp True False False
+sift []     = pure ([], [])
+sift (p:ps) = do
+    it@(fs,ds) <- sift ps
+    st <- getFileStatus p
+    perm <- fileAccess p True False (isDirectory st)
+    pure if
+        | not perm         -> it
+        | isRegularFile st -> (p:fs, ds)
+        | isDirectory st   -> (fs, p:ds)
+        | True             -> it
 
