@@ -6,7 +6,7 @@
 -- functions for manipulating file trees
 --
 
-module Tree where
+module Tree (module Tree, RawFilePath) where
 
 import Base hiding (partition)
 
@@ -17,7 +17,8 @@ import Data.Array
 import System.IO        (hPrint, stderr)
 import System.Posix.FilePath         (RawFilePath, takeFileName, takeDirectory
                                      , dropTrailingPathSeparator, takeExtension)
-import System.Posix.Files.ByteString     (getFileStatus, isDirectory, fileAccess)
+import System.Posix.Files.ByteString     (getFileStatus, isRegularFile,
+                                            isDirectory, fileAccess)
 import System.Posix.Directory.Traversals (getDirectoryContents)
 
 
@@ -129,17 +130,14 @@ listToDir n d fs =
 partition :: [RawFilePath] -> IO ([RawFilePath], [RawFilePath])
 partition [] = pure ([],[])
 partition (a:xs) = do
-    (fs,ds) <- partition xs
-    x <- isPlainFile a
-    if x then do y <- isReadable a
-                 pure if y then (a:fs, ds) else (fs, ds)
-         else pure (fs, a:ds)
-
--- | Does the path name an existing non-directory?  (False on any error.)
-isPlainFile :: RawFilePath -> IO Bool
-isPlainFile fp = catch @SomeException
-   (not . isDirectory <$> getFileStatus fp)
-   (\_ -> pure False)
+    it@(fs,ds) <- partition xs
+    st <- getFileStatus a
+    if  | isRegularFile st -> do
+            y <- isReadable a
+            pure if y then (a:fs, ds) else it
+        | isDirectory st ->
+            pure (fs, a:ds)
+        | True -> pure it  -- skip
 
 isReadable :: RawFilePath -> IO Bool
 isReadable fp = fileAccess fp True False False
