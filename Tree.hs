@@ -8,7 +8,7 @@
 
 module Tree (module Tree, RawFilePath) where
 
-import Base hiding (partition)
+import Base
 
 import qualified Data.ByteString.Char8 as P
 import qualified Data.Map.Strict as M
@@ -48,7 +48,7 @@ data Tree = Tree !DirArray !FileArray
 --
 buildTree :: [RawFilePath] -> IO Tree
 buildTree fs = do
-    (os, dirs) <- partition fs    -- note we will lose the ordering of files given on cmd line.
+    (os, dirs) <- sift fs    -- note we will lose the ordering of files given on cmd line.
 
     let loop []     = pure []
         loop (a:xs) = do
@@ -101,9 +101,9 @@ expandDir !f = do
         $ filter (not . (P.isPrefixOf ".")) . map snd <$> getDirectoryContents f
     let ls = (map \s -> P.intercalate (P.singleton '/') [f,s])
                 . sort . filter validFiles $ ls_raw
-    (fs',ds) <- partition ls
+    (fs',ds) <- sift ls
     let fs = filter onlyMp3s fs'
-        v = if null fs then Nothing else Just (f,fs)
+        v = guard (not $ null fs) *> Just (f,fs)
     pure (v,ds)
   where
     validFiles = not . P.isPrefixOf "."
@@ -127,10 +127,10 @@ listToDir n d fs =
 
 -- | break a list of file paths into a pair of sublists corresponding
 -- to the paths that point to files and to directories.
-partition :: [RawFilePath] -> IO ([RawFilePath], [RawFilePath])
-partition [] = pure ([],[])
-partition (a:xs) = do
-    it@(fs,ds) <- partition xs
+sift :: [RawFilePath] -> IO ([RawFilePath], [RawFilePath])
+sift [] = pure ([],[])
+sift (a:xs) = do
+    it@(fs,ds) <- sift xs
     st <- getFileStatus a
     if  | isRegularFile st -> do
             y <- isReadable a
