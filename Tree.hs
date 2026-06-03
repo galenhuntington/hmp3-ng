@@ -132,14 +132,14 @@ partition :: [FilePathP] -> IO ([FilePathP], [FilePathP])
 partition [] = pure ([],[])
 partition (a:xs) = do
     (fs,ds) <- partition xs
-    x <- isFile a
+    x <- isPlainFile a
     if x then do y <- isReadable a
                  pure if y then (a:fs, ds) else (fs, ds)
          else pure (fs, a:ds)
 
 -- | Does the path name an existing non-directory?  (False on any error.)
-isFile :: RawFilePath -> IO Bool
-isFile fp = catch @SomeException
+isPlainFile :: RawFilePath -> IO Bool
+isPlainFile fp = catch @SomeException
    (not . isDirectory <$> getFileStatus fp)
    (\_ -> pure False)
 
