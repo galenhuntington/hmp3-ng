@@ -18,7 +18,7 @@ import System.IO        (hPrint, stderr)
 import System.Posix.FilePath         (RawFilePath, takeFileName, takeDirectory
                                      , dropTrailingPathSeparator, takeExtension)
 import System.Posix.Files.ByteString     (getFileStatus, isDirectory, fileAccess)
-import System.Posix.Directory.ByteString (openDirStream, readDirStream, closeDirStream)
+import System.Posix.Directory.Traversals (getDirectoryContents)
 
 
 type FilePathP = RawFilePath
@@ -99,7 +99,7 @@ make (i,n,acc1,acc2) (d,fs) =
 expandDir :: FilePathP -> IO (Maybe (FilePathP, [FilePathP]),  [FilePathP])
 expandDir !f = do
     ls_raw <- handle @SomeException (\e -> hPrint stderr e $> [])
-                $ getDirContents f
+        $ filter (not . (P.isPrefixOf ".")) . map snd <$> getDirectoryContents f
     let ls = (map \s -> P.intercalate (P.singleton '/') [f,s])
                 . sort . filter validFiles $ ls_raw
     (fs',ds) <- partition ls
@@ -136,12 +136,6 @@ partition (a:xs) = do
     if x then do y <- isReadable a
                  pure if y then (a:fs, ds) else (fs, ds)
          else pure (fs, a:ds)
-
--- | A directory's non-hidden entries, as raw paths.
-getDirContents :: RawFilePath -> IO [RawFilePath]
-getDirContents fp = bracket (openDirStream fp) closeDirStream \ds ->
-    filter (not . (P.isPrefixOf "."))
-        <$> sequenceWhile (not . P.null) $ repeat $ readDirStream ds
 
 -- | Does the path name an existing non-directory?  (False on any error.)
 isFile :: RawFilePath -> IO Bool

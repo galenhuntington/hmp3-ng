@@ -47,11 +47,6 @@ getMonoTime = getTime
     Monotonic
 #endif
 
-sequenceWhile :: Monad m => (a -> Bool) -> [m a] -> m [a]
-sequenceWhile _ [] = pure []
-sequenceWhile p (m:ms) = m >>= \a ->
-    if p a then (a:) <$> sequenceWhile p ms else pure []
-
 whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
 whenJust = flip $ maybe $ pure ()
 
