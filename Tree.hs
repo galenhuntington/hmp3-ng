@@ -14,11 +14,9 @@ import qualified Data.ByteString.Char8 as P
 import qualified Data.Map.Strict as M
 
 import Data.Array
-import System.IO        (hPrint, stderr)
-import System.Posix.FilePath         (RawFilePath, takeFileName, takeDirectory
-                                     , dropTrailingPathSeparator, takeExtension)
-import System.Posix.Files.ByteString     (getFileStatus, isRegularFile,
-                                            isDirectory, fileAccess)
+import System.IO (hPrint, stderr)
+import System.Posix.FilePath
+import System.Posix.Files.ByteString (getFileStatus, isDirectory, fileAccess)
 import System.Posix.Directory.Traversals (getDirectoryContents)
 
 
@@ -90,7 +88,7 @@ make (i,n,acc1,acc2) (d,fs) =
 
 ------------------------------------------------------------------------
 
--- | Expand a single directory into a maybe a  pair of the dir name and any files
+-- | Expand a single directory into a maybe a pair of the dir name and any files
 -- Return any extra directories to search in
 --
 -- Assumes no evil sym links
@@ -98,44 +96,41 @@ make (i,n,acc1,acc2) (d,fs) =
 expandDir :: RawFilePath -> IO (Maybe (RawFilePath, [RawFilePath]),  [RawFilePath])
 expandDir !f = do
     ls_raw <- handle @SomeException (\e -> hPrint stderr e $> [])
-        $ filter (not . (P.isPrefixOf ".")) . map snd <$> getDirectoryContents f
-    let ls = (map \s -> P.intercalate (P.singleton '/') [f,s])
-                . sort . filter validFiles $ ls_raw
-    (fs',ds) <- sift ls
-    let fs = filter onlyMp3s fs'
-        v = guard (not $ null fs) *> Just (f,fs)
-    pure (v,ds)
+        $ map snd <$> getDirectoryContents f
+    let ls = map (f </>) $ sort $ filter notHidden ls_raw
+    (fs', ds) <- sift ls
+    let fs = filter isMp3 fs'
+        v = guard (not $ null fs) *> Just (f, fs)
+    pure (v, ds)
   where
-    validFiles = not . P.isPrefixOf "."
-    onlyMp3s   = (== ".mp3") . P.map toLower . takeExtension
+    notHidden = not . P.isPrefixOf "."
+    isMp3     = (== ".mp3") . P.map toLower . takeExtension
 
---
--- | Given an the next index into the files array, a directory name, and
+-- | Given an index into the files array, a directory name, and
 -- a list of files in that dir, build a Dir and return the next index
 -- into the array
---
 listToDir :: Int -> RawFilePath -> [RawFilePath] -> (Dir, Int)
-listToDir n d fs =
-        let dir = Dir { dname = dropTrailingPathSeparator d
-                      , dsize = len
-                      , dlo   = n
-                      , dhi   = n + len - 1
-                      } in (dir, n')
-    where
-        len = length fs
-        n'  = n + len
+listToDir n d fs = (dir, n') where
+    dir = Dir
+        { dname = dropTrailingPathSeparator d
+        , dsize = len
+        , dlo   = n
+        , dhi   = n + len - 1
+        }
+    len = length fs
+    n'  = n + len
 
--- | break a list of file paths into a pair of sublists corresponding
--- to the paths that point to files and to directories.
+-- | Break a pair of sublists of files and directories, filtering
+-- out ones without permission.
 sift :: [RawFilePath] -> IO ([RawFilePath], [RawFilePath])
 sift []     = pure ([], [])
 sift (p:ps) = do
     it@(fs,ds) <- sift ps
     st <- getFileStatus p
-    perm <- fileAccess p True False (isDirectory st)
+    let isDir = isDirectory st
+    perm <- fileAccess p True False isDir
     pure if
-        | not perm         -> it
-        | isRegularFile st -> (p:fs, ds)
-        | isDirectory st   -> (fs, p:ds)
-        | True             -> it
+        | not perm -> it
+        | isDir    -> (fs, p:ds)
+        | True     -> (p:fs, ds)
 
