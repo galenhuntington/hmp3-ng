@@ -4,7 +4,6 @@ import Test.Tasty
 
 import qualified ConfigSpec
 import qualified CoreSpec
-import qualified FastIOSpec
 import qualified LexerSpec
 import qualified StyleSpec
 import qualified TreeSpec
@@ -14,7 +13,6 @@ main :: IO ()
 main = defaultMain $ testGroup "hmp3-ng"
     [ ConfigSpec.tests
     , CoreSpec.tests
-    , FastIOSpec.tests
     , LexerSpec.tests
     , StyleSpec.tests
     , TreeSpec.tests

@@ -6,19 +6,18 @@
 -- functions for manipulating file trees
 --
 
-module Tree where
+module Tree (module Tree, RawFilePath) where
 
-import Base hiding (partition)
+import Base
 
-import FastIO
 import qualified Data.ByteString.Char8 as P
 import qualified Data.Map.Strict as M
 
 import Data.Array
-import System.IO        (hPrint, stderr)
+import System.Posix.FilePath
+import System.Posix.Files.ByteString (getFileStatus, isDirectory, fileAccess)
+import System.Posix.Directory.Traversals (getDirectoryContents)
 
-
-type FilePathP = ByteString
 
 -- | A filesystem hierarchy is flattened to just the end nodes
 type DirArray = Array Int Dir
@@ -29,14 +28,14 @@ type FileArray = Array Int File
 -- | A directory entry is the directory name, and a list of bound
 -- indicies into the Files array.
 data Dir  =
-    Dir { dname :: !FilePathP        -- ^ directory name
+    Dir { dname :: !RawFilePath        -- ^ directory name
         , dsize :: !Int              -- ^ number of file entries
         , dlo   :: !Int              -- ^ index of first entry
         , dhi   :: !Int }            -- ^ index of last entry
 
 -- Most data is allocated in this structure
 data File =
-    File { fbase :: !FilePathP      -- ^ basename of file
+    File { fbase :: !RawFilePath      -- ^ basename of file
          , fdir  :: !Int }          -- ^ index of Dir entry 
 
 data Tree = Tree !DirArray !FileArray
@@ -44,9 +43,11 @@ data Tree = Tree !DirArray !FileArray
 --
 -- | Given the start directories, populate the dirs and files arrays
 --
-buildTree :: [FilePathP] -> IO Tree
+buildTree :: [RawFilePath] -> IO Tree
 buildTree fs = do
-    (os, dirs) <- partition fs    -- note we will lose the ordering of files given on cmd line.
+    -- note we will lose the ordering of files given on cmd line.
+    (os, dirs) <- catch @SomeException (sift fs)
+        \e -> print e *> exitWith (ExitFailure 1)
 
     let loop []     = pure []
         loop (a:xs) = do
@@ -70,67 +71,65 @@ isEmpty :: Tree -> Bool
 isEmpty (Tree _ files) = null files
 
 -- | Create nodes based on dirname for orphan files on cmdline
-doOrphans :: [FilePathP] -> [(FilePathP, [FilePathP])]
-doOrphans = map \f -> (dirnameP f, [basenameP f])
+doOrphans :: [RawFilePath] -> [(RawFilePath, [RawFilePath])]
+doOrphans = map \f -> (takeDirectory f, [takeFileName f])
 
 -- | Merge entries with the same root node into a single node
-merge :: [(FilePathP, [FilePathP])] -> [(FilePathP, [FilePathP])]
+merge :: [(RawFilePath, [RawFilePath])] -> [(RawFilePath, [RawFilePath])]
 merge = M.assocs . M.fromListWith (flip (++))
 
 -- | fold builder, for generating Dirs and Files
-make :: (Int,Int,[Dir],[File]) -> (FilePathP,[FilePathP]) -> (Int,Int,[Dir],[File])
+make :: (Int,Int,[Dir],[File]) -> (RawFilePath,[RawFilePath]) -> (Int,Int,[Dir],[File])
 make (i,n,acc1,acc2) (d,fs) =
     let (dir, n') = listToDir n d fs
         fs'= map makeFile fs
     in (i+1, n', dir:acc1, reverse fs' ++ acc2)
   where
-    makeFile f = File (basenameP f) i
+    makeFile f = File (takeFileName f) i
 
 ------------------------------------------------------------------------
 
--- | Expand a single directory into a maybe a  pair of the dir name and any files
+-- | Expand a single directory into a maybe a pair of the dir name and any files
 -- Return any extra directories to search in
 --
 -- Assumes no evil sym links
 --
-expandDir :: FilePathP -> IO (Maybe (FilePathP, [FilePathP]),  [FilePathP])
+expandDir :: RawFilePath -> IO (Maybe (RawFilePath, [RawFilePath]),  [RawFilePath])
 expandDir !f = do
-    ls_raw <- handle @SomeException (\e -> hPrint stderr e $> [])
-                $ packedGetDirectoryContents f
-    let ls = (map \s -> P.intercalate (P.singleton '/') [f,s])
-                . sort . filter validFiles $ ls_raw
-    (fs',ds) <- partition ls
-    let fs = filter onlyMp3s fs'
-        v = if null fs then Nothing else Just (f,fs)
-    pure (v,ds)
+    ls <- map (f </>) . sort . filter notHidden . map snd
+        <$> getDirectoryContents f
+    (fs', ds) <- sift ls
+    let fs = filter isMp3 fs'
+        v = guard (not $ null fs) *> Just (f, fs)
+    pure (v, ds)
   where
-    validFiles = not . P.isPrefixOf "."
-    onlyMp3s   = P.isSuffixOf ".mp3" . P.map toLower
+    notHidden = not . P.isPrefixOf "."
+    isMp3     = (== ".mp3") . P.map toLower . takeExtension
 
---
--- | Given an the next index into the files array, a directory name, and
+-- | Given an index into the files array, a directory name, and
 -- a list of files in that dir, build a Dir and return the next index
 -- into the array
---
-listToDir :: Int -> FilePathP -> [FilePathP] -> (Dir, Int)
-listToDir n d fs =
-        let dir = Dir { dname = packedFileNameEndClean d
-                      , dsize = len
-                      , dlo   = n
-                      , dhi   = n + len - 1
-                      } in (dir, n')
-    where
-        len = length fs
-        n'  = n + len
+listToDir :: Int -> RawFilePath -> [RawFilePath] -> (Dir, Int)
+listToDir n d fs = (dir, n') where
+    dir = Dir
+        { dname = dropTrailingPathSeparator d
+        , dsize = len
+        , dlo   = n
+        , dhi   = n + len - 1
+        }
+    len = length fs
+    n'  = n + len
 
--- | break a list of file paths into a pair of sublists corresponding
--- to the paths that point to files and to directories.
-partition :: [FilePathP] -> IO ([FilePathP], [FilePathP])
-partition [] = pure ([],[])
-partition (a:xs) = do
-    (fs,ds) <- partition xs
-    x <- doesFileExist a
-    if x then do y <- isReadable a
-                 pure if y then (a:fs, ds) else (fs, ds)
-         else pure (fs, a:ds)
+-- | Break a pair of sublists of files and directories, filtering
+-- out ones without permission.
+sift :: [RawFilePath] -> IO ([RawFilePath], [RawFilePath])
+sift []     = pure ([], [])
+sift (p:ps) = do
+    it@(fs,ds) <- sift ps
+    isDir <- isDirectory <$> getFileStatus p
+    perm <- fileAccess p True False isDir
+    pure if
+        | not perm -> it
+        | isDir    -> (fs, p:ds)
+        | True     -> (p:fs, ds)
 

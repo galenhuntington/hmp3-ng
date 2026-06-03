@@ -5,7 +5,7 @@ import Test.Tasty.HUnit
 
 import qualified Data.ByteString.Char8 as P
 
-import Lexer (doP, doF, doS, doI)
+import Lexer (doP, doF, doS, doI, trim)
 import Syntax
 
 tests :: TestTree
@@ -50,6 +50,11 @@ tests = testGroup "Lexer"
             -- present an empty track name, the parser exposes the raw line.
             doI ("ID3:" <> field30 "" <> field30 "Artist")
                 @?= F (File (Left ("ID3:" <> P.replicate 30 ' ' <> "Artist")))
+        ]
+    , testGroup "trim"
+        [ testCase "whitespace on ends" $ trim " \t foo bar \n " @?= "foo bar"
+        , testCase "whitespace only"    $ trim "   "             @?= ""
+        , testCase "empty"              $ trim ""                @?= ""
         ]
     ]
 

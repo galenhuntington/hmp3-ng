@@ -31,7 +31,6 @@ import Syntax
 import Lexer                (parser)
 import State
 import Style
-import FastIO               (FiltHandle(..), newFiltHandle)
 import Tree hiding (File, Dir)
 import qualified Tree (File,Dir)
 import qualified UI
@@ -466,7 +465,7 @@ jumpToDir fn = modifyHS_ $ \st -> if size st == 0 then st else
 -- a bit of bounded parametric polymorphism so we can abstract over record selectors
 -- in the regex search stuff below
 --
-class Lookup a       where extract :: a -> FilePathP
+class Lookup a       where extract :: a -> RawFilePath
 instance Lookup Tree.Dir  where extract = dname
 instance Lookup Tree.File where extract = fbase
 

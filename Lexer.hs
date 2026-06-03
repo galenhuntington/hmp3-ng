@@ -4,12 +4,12 @@
 
 -- Lexer for mpg123 messages
 
-module Lexer ( parser, doP, doF, doS, doI ) where
+module Lexer ( parser, doP, doF, doS, doI, trim ) where
 
 import Base
 
 import Syntax   (Msg(..),Status(..),Frame(..),Info(..),Id3(..),File(..),Tag(..))
-import FastIO   (FiltHandle(..), checkF, getPacket, trim)
+import State    (FiltHandle(..), checkF, getPacket)
 
 import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString.UTF8 as UTF8
@@ -17,6 +17,10 @@ import Control.Monad.Except
 import Control.Monad.Trans (lift)
 
 ------------------------------------------------------------------------
+
+-- | Strip leading and trailing whitespace.
+trim :: ByteString -> ByteString
+trim = P.dropWhileEnd isSpace . P.dropSpace
 
 readPS :: ByteString -> Int
 readPS = fst . fromJust . P.readInt
