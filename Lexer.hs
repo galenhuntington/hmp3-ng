@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
+
 -- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- Copyright (c) 2008, 2019-2026 Galen Huntington
 -- SPDX-License-Identifier: GPL-2.0-or-later
@@ -7,9 +9,7 @@
 module Lexer ( parser, doP, doF, doS, doI, trim ) where
 
 import Base
-
-import Syntax   (Msg(..),Status(..),Frame(..),Info(..),Id3(..),File(..),Tag(..))
-import State    (FiltHandle(..), checkF, getPacket)
+import Syntax (Msg(..),Status(..),Frame(..),Info(..),Id3(..),File(..),Tag(..))
 
 import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString.UTF8 as UTF8
@@ -129,9 +129,9 @@ doI s = let f = trim s
 
 ------------------------------------------------------------------------
 
-parser :: FiltHandle -> IO (Either (Maybe String) Msg)
+parser :: Handle -> IO (Either (Maybe String) Msg)
 parser h = runExceptT do
-    x <- lift $ getPacket h
+    x <- lift $ P.hGetLine h
     -- bad packets are generally just \n in ID3 (and not of interest anyway)
     let skip = throwError Nothing
 
@@ -145,9 +145,7 @@ parser h = runExceptT do
         'R' -> pure $ T Tag
         'I' -> pure $ doI m
         'S' -> pure $ doS m
-        'F' -> do
-            b <- lift $ checkF h
-            if b then pure $ doF m else skip
+        'F' -> pure $ doF m
         'P' -> pure $ doP m
         'E' -> throwError $ Just $ "mpg123 error: " ++ P.unpack m
         _   -> skip
