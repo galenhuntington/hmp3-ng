@@ -465,7 +465,7 @@ jumpToDir fn = modifyHS_ $ \st -> if size st == 0 then st else
 -- a bit of bounded parametric polymorphism so we can abstract over record selectors
 -- in the regex search stuff below
 --
-class Lookup a       where extract :: a -> FilePathP
+class Lookup a       where extract :: a -> RawFilePath
 instance Lookup Tree.Dir  where extract = dname
 instance Lookup Tree.File where extract = fbase
 
