@@ -52,6 +52,7 @@ import System.Process           (runInteractiveProcess, waitForProcess)
 import System.Clock             (TimeSpec(..), diffTimeSpec)
 import System.Random            (randomR)
 import System.FilePath          ((</>))
+import System.Posix.FilePath    (takeFileName)
 
 import System.Posix.Process     (exitImmediately)
 
@@ -461,7 +462,7 @@ jumpToDir fn = modifyHS_ $ \st -> if size st == 0 then st else
 -- in the regex search stuff below
 --
 class Lookup a       where extract :: a -> RawFilePath
-instance Lookup Tree.Dir  where extract = dname
+instance Lookup Tree.Dir  where extract = takeFileName . dname
 instance Lookup Tree.File where extract = fbase
 
 jumpToMatchFile :: Maybe String -> Bool -> IO ()
