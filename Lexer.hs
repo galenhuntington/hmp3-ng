@@ -6,7 +6,7 @@
 
 -- Lexer for mpg123 messages
 
-module Lexer ( parser, doP, doF, doS, doI, trim ) where
+module Lexer ( mpgParser, doP, doF, doS, doI, trim ) where
 
 import Base
 import Syntax (Msg(..),Status(..),Frame(..),Info(..),Id3(..),File(..),Tag(..))
@@ -14,7 +14,6 @@ import Syntax (Msg(..),Status(..),Frame(..),Info(..),Id3(..),File(..),Tag(..))
 import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString.UTF8 as UTF8
 import Control.Monad.Except
-import Control.Monad.Trans (lift)
 
 ------------------------------------------------------------------------
 
@@ -129,14 +128,13 @@ doI s = let f = trim s
 
 ------------------------------------------------------------------------
 
-parser :: Handle -> IO (Either (Maybe String) Msg)
-parser h = runExceptT do
-    x <- lift $ P.hGetLine h
+mpgParser :: ByteString -> Either (Maybe ByteString) Msg
+mpgParser line = do
     -- bad packets are generally just \n in ID3 (and not of interest anyway)
-    let skip = throwError Nothing
+    let skip = Left Nothing
 
-    when (P.length x < 3) skip
-    let (pre, m) = P.splitAt 3 x
+    when (P.length line < 3) skip
+    let (pre, m) = P.splitAt 3 line
         at : code : sp : _ = P.unpack pre
     when (at /= '@' || sp /= ' ') skip
 
@@ -147,6 +145,6 @@ parser h = runExceptT do
         'S' -> pure $ doS m
         'F' -> pure $ doF m
         'P' -> pure $ doP m
-        'E' -> throwError $ Just $ "mpg123 error: " ++ P.unpack m
+        'E' -> Left $ Just m
         _   -> skip
 
