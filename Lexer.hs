@@ -13,7 +13,6 @@ import Syntax (Msg(..),Status(..),Frame(..),Info(..),Id3(..),File(..),Tag(..))
 
 import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString.UTF8 as UTF8
-import Control.Monad.Except
 
 ------------------------------------------------------------------------
 
@@ -24,27 +23,24 @@ trim = P.dropWhileEnd isSpace . P.dropSpace
 readPS :: ByteString -> Int
 readPS = fst . fromJust . P.readInt
 
-doP :: ByteString -> Msg
-doP s = S case fst <$> P.uncons s of
-    Just '0' -> Stopped
-    Just '1' -> Paused
-    Just '2' -> Playing
-    -- mpg123 outputs this but then @P 0 causing double Plays
-    -- (I think old mpg123 didn't do @P 0 so I added this)
-    -- '3' -> Stopped  -- used by mpg123 for end of song
-    _ -> Playing
-    -- _ -> error "Invalid Status"
+doP :: ByteString -> Either (Maybe ()) Msg
+doP s = case fst <$> P.uncons s of
+    Just '0' -> Right $ S Stopped
+    Just '1' -> Right $ S Paused
+    Just '2' -> Right $ S Playing
+    Just '3' -> Left Nothing -- newer mpg123 outputs for end of song; don't need
+    _        -> Left (Just ())
 
 -- Frame decoding status updates (once per frame).
-doF :: ByteString -> Msg
-doF s = R Frame {
-                currentFrame = readPS f0
-              , framesLeft   = readPS f1
-              , currentTime  = read . P.unpack $ f2
-              , timeLeft     = max 0 . read . P.unpack $ f3
-           }
-        where
-          f0 : f1 : f2 : f3 : _ = P.split ' ' s
+doF :: ByteString -> Maybe Msg
+doF s = do
+    f0 : f1 : f2 : f3 : _ <- pure $ P.split ' ' s
+    pure $ R Frame
+        { currentFrame = readPS f0
+        , framesLeft   = readPS f1
+        , currentTime  = read . P.unpack $ f2
+        , timeLeft     = max 0 . read . P.unpack $ f3
+        }
 
 -- Outputs information about the mp3 file after loading.
 doS :: ByteString -> Msg
@@ -128,7 +124,7 @@ doI s = let f = trim s
 
 ------------------------------------------------------------------------
 
-mpgParser :: ByteString -> Either (Maybe ByteString) Msg
+mpgParser :: ByteString -> Either (Maybe String) Msg
 mpgParser line = do
     -- bad packets are generally just \n in ID3 (and not of interest anyway)
     let skip = Left Nothing
@@ -139,12 +135,14 @@ mpgParser line = do
     when (at /= '@' || sp /= ' ') skip
 
     -- TODO: make doX functions total
+    let errM = maybe (Left $ Just $ code : " parse error") Right
+    let errE = first (fmap $ const $ code : " parse error")
     case code of
         'R' -> pure $ T Tag
         'I' -> pure $ doI m
         'S' -> pure $ doS m
-        'F' -> pure $ doF m
-        'P' -> pure $ doP m
-        'E' -> Left $ Just m
+        'F' -> errM $ doF m
+        'P' -> errE $ doP m
+        'E' -> Left $ Just $ P.unpack m
         _   -> skip
 

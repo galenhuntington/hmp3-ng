@@ -240,7 +240,7 @@ mpgInput field = runForever $ do
     line <- P.hGetLine =<< field <$> readMVar mpg
     case mpgParser line of
         Right m       -> handleMsg m
-        Left (Just e) -> warnA ("mpg123: " ++ show e)
+        Left (Just e) -> warnA ("mpg123: " ++ e)
         _             -> pure ()
 
 ------------------------------------------------------------------------
@@ -270,6 +270,7 @@ shutdown ms = do
 -- right pigeon hole.
 --
 handleMsg :: Msg -> IO ()
+
 handleMsg (T _)        = pure ()
 handleMsg (I i)        = modifyHS_ $ \s -> s { info = Just i }
 handleMsg (F (File f)) = modifyHS_ $ \s -> s { id3 = find (const True) f }
