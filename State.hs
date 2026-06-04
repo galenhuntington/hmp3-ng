@@ -17,7 +17,6 @@ import qualified Config (defaultStyle)
 import Text.Regex.PCRE.Light    (Regex)
 import Data.Array               (listArray)
 import Data.ByteString          (hPut)
-import qualified Data.ByteString.Char8 as P
 import Data.Sequence            (Seq)
 import System.Clock             (TimeSpec(..))
 import System.IO                (hFlush)
@@ -123,34 +122,12 @@ hState = unsafePerformIO $ newMVar =<< newEmptyHS
 {-# NOINLINE hState #-}
 
 ------------------------------------------------------------------------
--- The decoder process's pipes, and the frame-sampling counter.
-
---  Use every nth frame.  1 for no dropping.
-dropRate :: Int
-dropRate = 4   -- used to be 10, but computers are faster
-
--- | A read handle from the decoder, paired with a counter used to sample
--- one in every 'dropRate' @F frames (there are far more than we need).
-data FiltHandle = FiltHandle { filtHandle :: !Handle, frameCount :: !(IORef Int) }
-
-newFiltHandle :: Handle -> IO FiltHandle
-newFiltHandle h = FiltHandle h <$> newIORef 0
-
--- | Read a line from a stream connected to the decoder process.
-getPacket :: FiltHandle -> IO ByteString
-getPacket (FiltHandle fp _) = P.hGetLine fp
-
--- | Is this one of every 'dropRate' packets?  (Always, if dropRate == 1.)
-checkF :: FiltHandle -> IO Bool
-checkF (FiltHandle _ ir) = do
-  modifyIORef' ir (\x -> (x+1) `mod` dropRate)
-  i <- readIORef ir
-  pure $ dropRate == 1 || i == 1
+-- The decoder.
 
 data Mpg = Mpg
     { writeh :: !Handle
-    , readf  :: !FiltHandle
-    , errh   :: !FiltHandle
+    , readh  :: !Handle
+    , errh   :: !Handle
     }
 
 mpg :: MVar Mpg
@@ -182,11 +159,6 @@ modifyHS f = modifyMVar hState (pure . f) <* touchHS
 -- | Trigger a refresh. This is the only way to update the screen.
 touchHS :: IO ()
 touchHS = withMVar hState \st -> void $ tryPutMVar (modified st) ()
-
-forceNextPacket :: IO ()
-forceNextPacket = do
-  fh <- readf <$> readMVar mpg
-  writeIORef (frameCount fh) 0
 
 withDrawLock :: IO () -> IO ()
 withDrawLock io = do

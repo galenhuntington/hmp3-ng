@@ -82,7 +82,7 @@ start opts (Tree ds fs) = handle @SomeException (shutdown . Just . show) do
 
     threads <- traverse forkIO
         [ mpgLoop
-        , mpgInput readf
+        , mpgInput readh
         , refreshLoop
         , clockLoop
         , uptimeLoop
@@ -150,7 +150,7 @@ mpgLoop = runForever do
           Left (ex :: SomeException) ->
             warnA $ mppath ++ " failed to start; retrying: " ++ show ex
 
-          Right (writeh, r, e, pid) -> do
+          Right (writeh, readh, errh, pid) -> do
             ct <- modifyHS $ \st -> let sp = spawns st + 1 in (st
                 { mpgPid    = Just pid
                 , status    = Stopped
@@ -159,9 +159,7 @@ mpgLoop = runForever do
                 , spawns    = sp
                 }, sp)
 
-            readf <- newFiltHandle r
-            errh <- newFiltHandle e
-            putMVar mpg Mpg { readf, errh, writeh }
+            putMVar mpg Mpg { readh, errh, writeh }
 
             when (ct > 1) $ warnA $ mp3Tool ++ " #" ++ show ct ++ ": Ready"
             catch @SomeException (void $ waitForProcess pid) (const $ pure ())
@@ -228,7 +226,7 @@ clockLoop = runForever $ threadDelay 125_000 *> UI.refreshClock
 -- | Handle, and display errors produced by mpg123
 errorLoop :: IO ()
 errorLoop = runForever $
-    readMVar mpg <&> errh >>= hGetLine . filtHandle >>= (warnA . ("mpg: " ++))
+    readMVar mpg <&> errh >>= hGetLine >>= (warnA . ("mpg: " ++))
 
 ------------------------------------------------------------------------
 
@@ -236,7 +234,7 @@ errorLoop = runForever $
 -- shutdown kills the other end of the pipe, hGetLine will fail, so we
 -- take that chance to exit.
 --
-mpgInput :: (Mpg -> FiltHandle) -> IO ()
+mpgInput :: (Mpg -> Handle) -> IO ()
 mpgInput field = runForever $ do
     res <- parser =<< field <$> readMVar mpg
     case res of
@@ -304,13 +302,10 @@ seekStart = seek $ const 0
 -- | Generic seek
 seek :: (Frame -> Int) -> IO ()
 seek fn = do
-    f <- getsHS clock
-    case f of
-        Nothing -> pure ()
-        Just g  -> do
-            sendMpg $ Jump (fn g)
-            forceNextPacket         -- don't drop the next Frame.
-            silentlyModifyHS $ \st -> st { clockUpdate = True }
+    mfr <- getsHS clock
+    whenJust mfr \fr -> do
+        sendMpg $ Jump (fn fr)
+        silentlyModifyHS $ \st -> st { clockUpdate = True }
 
 
 ------------------------------------------------------------------------
