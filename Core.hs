@@ -12,7 +12,7 @@ module Core (
     start,
     shutdown,
     seekLeft, seekRight, upOne, downOne, pause, nextMode, playNext, playPrev,
-    forcePause, putmsg, clrmsg, playCursor, playCur,
+    forcePause, putMessage, clearMessage, playCursor, playCur,
     jumpToPlaying, jump, jumpRel,
     upPage, downPage,
     seekStart,
@@ -501,7 +501,7 @@ genericJumpToMatch re sw k sel = do
                 i:_ -> (st' { cursor = sel i st }, True)
                 _   -> (st', False)
 
-    unless found $ putmsg (Fast "No match found." defaultSty) *> touchHS
+    unless found $ putMessage $ Fast "No match found." defaultSty
 
 ------------------------------------------------------------------------
 
@@ -585,20 +585,16 @@ loadConfig = do
     UI.resetui
 
 ------------------------------------------------------------------------
--- Editing the minibuffer
+-- Set the minibuffer
 
--- TODO maybe shouldn't be silent?
-putmsg :: StringA -> IO ()
-putmsg s = silentlyModifyHS $ \st -> st { minibuffer = s }
+putMessage :: StringA -> IO ()
+putMessage s = modifyHS_ \st -> st { minibuffer = s }
 
--- | Modify without triggering a refresh
-clrmsg :: IO ()
-clrmsg = putmsg (Fast P.empty defaultSty)
+clearMessage :: IO ()
+clearMessage = putMessage $ Fast P.empty defaultSty
 
---
 warnA :: String -> IO ()
 warnA x = do
     sty <- getsHS config
-    putmsg $ Fast (P.pack x) (warnings sty)
-    touchHS
+    putMessage $ Fast (P.pack x) (warnings sty)
 

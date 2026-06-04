@@ -10,7 +10,7 @@ module Style where
 
 import Base
 import qualified UI.HSCurses.Curses as Curses
-import qualified Data.Map as M  (fromList, empty, lookup, Map)
+import qualified Data.Map as M
 
 ------------------------------------------------------------------------
 

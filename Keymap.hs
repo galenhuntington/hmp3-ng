@@ -41,7 +41,7 @@ newtype KeyMap = KeyMap (Char -> IO KeyMap)
 -- action remain visible until the user reacts.
 keyLoop :: IO ()
 keyLoop = go mainMode where
-    go (KeyMap f) = UI.getKey >>= \c -> clrmsg *> f c >>= go
+    go (KeyMap f) = UI.getKey >>= \c -> clearMessage *> f c >>= go
 
 
 ------------------------------------------------------------------------
@@ -90,7 +90,7 @@ searchMode stype = step where
     step z = renderSearch stype z $> KeyMap (`dispatch` z)
 
     dispatch c z
-        | c == '\ESC'      = clrmsg *> touchHS *> leave
+        | c == '\ESC'      = clearMessage *> leave
         | c `elem` enter'  = commit z
         | c `elem` delete' = step $ zipEdit dropLast z
         | k == KeyUp       = step $ zipUp z
@@ -100,7 +100,7 @@ searchMode stype = step where
         | otherwise        = step $ zipEdit (++ [c]) z
       where k = charToKey c
 
-    commit (Zipper []  _ _) = clrmsg *> touchHS *> leave
+    commit (Zipper []  _ _) = clearMessage *> leave
     commit (Zipper pat _ _) = do
         let jumpy = if stype `elem` ['/', '?']
                     then jumpToMatchFile else jumpToMatchDir
@@ -118,9 +118,7 @@ searchMode stype = step where
     leave = toggleFocus $> mainMode
 
 renderSearch :: Char -> Zipper -> IO ()
-renderSearch prefix z = do
-    putmsg $ Fast (P.pack (prefix : cur z)) defaultSty
-    touchHS
+renderSearch prefix z = putMessage $ Fast (P.pack (prefix : cur z)) defaultSty
 
 dropLast :: [a] -> [a]
 dropLast [] = []
