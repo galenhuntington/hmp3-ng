@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-
 -- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- Copyright (c) 2008, 2019-2026 Galen Huntington
 -- SPDX-License-Identifier: GPL-2.0-or-later
@@ -83,7 +81,7 @@ parseId3 = toId . cut where
         $ filter (not . P.null) [arg 1, arg 2, arg 0]
       where arg = fromMaybe "" . (ls !?)
 
--- strip spaces, and if ISO-8859-1 convert to UTF-8
+-- | Strip spaces, and if seeming ISO-8859-1 convert to UTF-8
 normalise :: ByteString -> ByteString
 normalise raw =
     let bs = trim raw
@@ -97,14 +95,13 @@ normalise raw =
 mpgParser :: ByteString -> Either (Maybe String) Msg
 mpgParser line = do
     -- bad packets are generally just \n in ID3 (and not of interest anyway)
-    let skip = Left Nothing
+    let quiet = maybe (Left Nothing) pure
 
-    when (P.length line < 3) skip
-    let (pre, m) = P.splitAt 3 line
-        at : code : sp : _ = P.unpack pre
-    when (at /= '@' || sp /= ' ') skip
+    code <- quiet do
+        '@' : c : ' ' : _ <- pure $ P.unpack line
+        pure c
 
-    let quiet = maybe skip pure
+    let m = P.drop 3 line
     case code of
         'R' -> pure $ T Tag
         'I' -> pure $ doI m
@@ -112,5 +109,5 @@ mpgParser line = do
         'F' -> quiet $ doF m
         'P' -> quiet $ doP m
         'E' -> Left $ Just $ P.unpack m
-        _   -> skip
+        _   -> quiet Nothing
 

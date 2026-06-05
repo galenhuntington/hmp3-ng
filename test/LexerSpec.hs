@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-x-partial -Wno-missing-signatures #-} -- XXX
+
 module LexerSpec (tests) where
 
 import Test.Tasty
