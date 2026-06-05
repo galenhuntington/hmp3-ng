@@ -67,54 +67,31 @@ doS s = do
 -- Track info if ID fields are in the file, otherwise file name.
 -- 30 chars per field?
 doI :: ByteString -> Msg
-doI s = let f = trim s
-        in case P.take 4 f of
-            cs | cs == "ID3:" -> F . File $
-                    let ttl = toId id3 . splitUp . P.drop 4 $ f
-                    -- mpg123 sometimes returns null titles
-                    in if P.null (id3title ttl) then Left f else Right ttl
-               | otherwise    -> F . File . Left $ f
-    where
-        -- a default
-        id3 :: Id3
-        id3 = Id3 "" "" "" ""
+doI s = let f = trim s in F . File $
+    if "ID3:" `P.isPrefixOf` f
+        then let ttl = toId . splitUp . P.drop 4 $ f
+            -- mpg123 sometimes returns null titles
+            in if P.null (id3title ttl) then Left f else Right ttl
+        else Left f
+  where
+    splitUp :: ByteString -> [ByteString]
+    splitUp f | P.null f = []
+              | True     = let (a, xs) = P.splitAt 30 f in a : splitUp xs
 
-        -- break the ID3 string up
-        splitUp :: ByteString -> [ByteString]
-        splitUp f
-            | f == P.empty  = []
-            | otherwise
-            = let (a,xs) = P.splitAt 30 f   -- we expect it to be 
-                  xs'    = splitUp xs
-              in a : xs'
+    toId :: [ByteString] -> Id3
+    toId ls = Id3 (arg 0) (arg 1) (arg 2) $ mconcat $ intersperse " : "
+        $ filter (not . P.null) [arg 1, arg 2, arg 0]
+      where
+        ls' = map normalise ls
+        arg = fromMaybe "" . (ls' !?)
 
-        -- and some ugly code:
-        toId :: Id3 -> [ByteString] -> Id3
-        toId i ls =
-            let arg n = normalise $ ls !! n
-                j = case length ls of
-                    0   -> i
-
-                    1   -> i { id3title  = arg 0 }
-
-                    2   -> i { id3title  = arg 0
-                             , id3artist = arg 1 }
-
-                    _   -> i { id3title  = arg 0
-                             , id3artist = arg 1
-                             , id3album  = arg 2 }
-
-            in j { id3str =
-                    mconcat $ intersperse " : " $ filter (not . P.null)
-                        [id3artist j, id3album j, id3title j] }
-
-        -- strip spaces, and decide if UTF-8 or ISO-8859-1
-        normalise :: ByteString -> ByteString
-        normalise raw =
-            let bs = trim raw
-            in if UTF8.replacement_char `elem` UTF8.toString bs
-                then UTF8.fromString $ P.unpack bs
-                else bs
+-- strip spaces, and if ISO-8859-1 convert to UTF-8
+normalise :: ByteString -> ByteString
+normalise raw =
+    let bs = trim raw
+    in if UTF8.replacement_char `elem` UTF8.toString bs
+        then UTF8.fromString $ P.unpack bs
+        else bs
 
 ------------------------------------------------------------------------
 
@@ -128,9 +105,11 @@ mpgParser line = do
         at : code : sp : _ = P.unpack pre
     when (at /= '@' || sp /= ' ') skip
 
-    -- TODO: make doX functions total
+    -- little helpers
     let errM = maybe (Left $ Just $ code : " parse error") Right
     let errE = first (fmap $ const $ code : " parse error")
+
+    -- TODO: make doX functions total
     case code of
         'R' -> pure $ T Tag
         'I' -> pure $ doI m

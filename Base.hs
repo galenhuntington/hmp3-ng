@@ -20,7 +20,7 @@ import Data.Fixed as X
 import Data.Foldable as X
 import Data.Functor as X hiding (unzip)
 import Data.IORef as X
-import Data.List as X
+import Data.List as X hiding ((!?))
 import Data.Maybe as X
 import Data.String as X
 import Data.Traversable as X
@@ -50,4 +50,8 @@ getMonoTime = getTime
 
 whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
 whenJust = flip $ maybe $ pure ()
+
+-- Compatibility: List.!? only added in GHC 9.8
+(!?) :: [a] -> Int -> Maybe a
+xs !? n = listToMaybe $ drop n xs
 
