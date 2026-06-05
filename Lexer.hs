@@ -23,13 +23,15 @@ trim = P.dropWhileEnd isSpace . P.dropSpace
 readPS :: ByteString -> Maybe Int
 readPS = fmap fst . P.readInt
 
-doP :: ByteString -> Either (Maybe ()) Msg
-doP s = case fst <$> P.uncons s of
-    Just '0' -> Right $ S Stopped
-    Just '1' -> Right $ S Paused
-    Just '2' -> Right $ S Playing
-    Just '3' -> Left Nothing -- newer mpg123 outputs for end of song; don't need
-    _        -> Left (Just ())
+doP :: ByteString -> Maybe Msg
+doP s = do
+    (p, _) <- P.uncons s
+    case p of
+        '0' -> pure $ S Stopped
+        '1' -> pure $ S Paused
+        '2' -> pure $ S Playing
+        -- recent mpg123 outputs 3 for end of song; don't need
+        _   -> Nothing
 
 -- Frame decoding status updates (once per frame).
 doF :: ByteString -> Maybe Msg
@@ -95,6 +97,7 @@ normalise raw =
 
 ------------------------------------------------------------------------
 
+-- Parse line; on failure, return Just only if error to report.
 mpgParser :: ByteString -> Either (Maybe String) Msg
 mpgParser line = do
     -- bad packets are generally just \n in ID3 (and not of interest anyway)
@@ -105,16 +108,13 @@ mpgParser line = do
         at : code : sp : _ = P.unpack pre
     when (at /= '@' || sp /= ' ') skip
 
-    -- little helpers
-    let errE = first (fmap $ const $ code : " parse error")
-    let errM = errE . maybe (Left $ Just ()) Right
-
+    let quiet = maybe skip pure
     case code of
         'R' -> pure $ T Tag
         'I' -> pure $ doI m
-        'S' -> errM $ doS m
-        'F' -> errM $ doF m
-        'P' -> errE $ doP m
+        'S' -> quiet $ doS m
+        'F' -> quiet $ doF m
+        'P' -> quiet $ doP m
         'E' -> Left $ Just $ P.unpack m
         _   -> skip
 
