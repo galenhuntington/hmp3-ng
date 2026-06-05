@@ -60,9 +60,9 @@ doS s = do
     let fs = P.split ' ' s
     guard $ length fs >= 11
     hz <- readPS $ fs !! 2
-    pure . I . Info $ mconcat [
+    pure $ I $ Info $ mconcat [
         "mpeg ", fs !! 0, " ", fs !! 10, "kbit/s ",
-            (P.pack . show) (hz `div` 1000 :: Int), "kHz"]
+            P.pack $ show $ hz `div` 1000, "kHz"]
 
 -- Track info if ID fields are in the file, otherwise file name.
 -- 30 chars per field?
@@ -106,10 +106,9 @@ mpgParser line = do
     when (at /= '@' || sp /= ' ') skip
 
     -- little helpers
-    let errM = maybe (Left $ Just $ code : " parse error") Right
     let errE = first (fmap $ const $ code : " parse error")
+    let errM = errE . maybe (Left $ Just ()) Right
 
-    -- TODO: make doX functions total
     case code of
         'R' -> pure $ T Tag
         'I' -> pure $ doI m
