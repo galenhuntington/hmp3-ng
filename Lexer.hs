@@ -20,8 +20,8 @@ import qualified Data.ByteString.UTF8 as UTF8
 trim :: ByteString -> ByteString
 trim = P.dropWhileEnd isSpace . P.dropSpace
 
-readPS :: ByteString -> Int
-readPS = fst . fromJust . P.readInt
+readPS :: ByteString -> Maybe Int
+readPS = fmap fst . P.readInt
 
 doP :: ByteString -> Either (Maybe ()) Msg
 doP s = case fst <$> P.uncons s of
@@ -35,40 +35,21 @@ doP s = case fst <$> P.uncons s of
 doF :: ByteString -> Maybe Msg
 doF s = do
     f0 : f1 : f2 : f3 : _ <- pure $ P.split ' ' s
-    pure $ R Frame
-        { currentFrame = readPS f0
-        , framesLeft   = readPS f1
-        , currentTime  = read . P.unpack $ f2
-        , timeLeft     = max 0 . read . P.unpack $ f3
-        }
+    currentFrame <- readPS f0
+    framesLeft   <- readPS f1
+    currentTime  <- readMaybe $ P.unpack f2
+    timeLeft     <- max 0 <$> readMaybe (P.unpack f3)
+    pure $ R Frame { currentFrame , framesLeft, currentTime, timeLeft }
 
 -- Outputs information about the mp3 file after loading.
-doS :: ByteString -> Msg
-doS s = let fs = P.split ' ' s
-        in I Info {
-            {-
-                  version       = fs !! 0
-                , layer         = read . P.unpack $ fs !! 1
-                , sampleRate    = read . P.unpack $ fs !! 2
-                , playMode      = fs !! 3
-                , modeExtns     = read . P.unpack $ fs !! 4
-                , bytesPerFrame = read . P.unpack $ fs !! 5
-                , channelCount  = read . P.unpack $ fs !! 6
-                , copyrighted   = toEnum (read $ P.unpack (fs !! 7))
-                , checksummed   = toEnum (read $ P.unpack (fs !! 8))
-                , emphasis      = read $ P.unpack $ fs !! 9
-                , bitrate       = read $ P.unpack $ fs !! 10
-                , extension     = read $ P.unpack $ fs !! 11
-            -}
-                userinfo      = mconcat
-                       ["mpeg "
-                       ,fs !! 0
-                       ," "
-                       ,fs !! 10
-                       ,"kbit/s "
-                       ,(P.pack . show) (readPS (fs !! 2) `div` 1000 :: Int)
-                       ,"kHz"]
-                }
+doS :: ByteString -> Maybe Msg
+doS s = do
+    let fs = P.split ' ' s
+    guard $ length fs >= 11
+    hz <- readPS $ fs !! 2
+    pure . I . Info $ mconcat [
+        "mpeg ", fs !! 0, " ", fs !! 10, "kbit/s ",
+            (P.pack . show) (hz `div` 1000 :: Int), "kHz"]
 
 -- Track info if ID fields are in the file, otherwise file name.
 -- 30 chars per field?
@@ -140,7 +121,7 @@ mpgParser line = do
     case code of
         'R' -> pure $ T Tag
         'I' -> pure $ doI m
-        'S' -> pure $ doS m
+        'S' -> errM $ doS m
         'F' -> errM $ doF m
         'P' -> errE $ doP m
         'E' -> Left $ Just $ P.unpack m
