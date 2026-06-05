@@ -9,7 +9,7 @@ import Data.Foldable (toList)
 import qualified Lexer as L
 import Syntax
 
--- Emulate old API for tests
+-- Emulate old API for tests (XXX temporary)
 doI = L.doI
 trim = L.trim
 doF = head . toList . L.doF

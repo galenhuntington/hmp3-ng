@@ -9,7 +9,7 @@
 module Lexer ( mpgParser, doP, doF, doS, doI, trim ) where
 
 import Base
-import Syntax (Msg(..),Status(..),Frame(..),Info(..),Id3(..),File(..),Tag(..))
+import Syntax (Msg(..), Status(..), Frame(..), Info(..), Id3(..), File(..), Tag(..))
 
 import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString.UTF8 as UTF8
@@ -69,23 +69,19 @@ doS s = do
 -- Track info if ID fields are in the file, otherwise file name.
 -- 30 chars per field?
 doI :: ByteString -> Msg
-doI s = let f = trim s in F . File $
-    if "ID3:" `P.isPrefixOf` f
-        then let ttl = toId . splitUp . P.drop 4 $ f
-            -- mpg123 sometimes returns null titles
-            in if P.null (id3title ttl) then Left f else Right ttl
-        else Left f
-  where
-    splitUp :: ByteString -> [ByteString]
-    splitUp f | P.null f = []
-              | True     = let (a, xs) = P.splitAt 30 f in a : splitUp xs
+doI s = let s' = trim s in F $ File $ maybe (Left s') pure do
+    ("ID3:", info) <- pure $ P.splitAt 4 s'
+    let id3 = parseId3 info
+    guard $ not $ P.null $ id3title id3 -- title sometimes empty
+    pure id3
 
-    toId :: [ByteString] -> Id3
+parseId3 :: ByteString -> Id3
+parseId3 = toId . cut where
+    cut f | P.null f = []
+          | True     = let (a, xs) = P.splitAt 30 f in normalise a : cut xs
     toId ls = Id3 (arg 0) (arg 1) (arg 2) $ mconcat $ intersperse " : "
         $ filter (not . P.null) [arg 1, arg 2, arg 0]
-      where
-        ls' = map normalise ls
-        arg = fromMaybe "" . (ls' !?)
+      where arg = fromMaybe "" . (ls !?)
 
 -- strip spaces, and if ISO-8859-1 convert to UTF-8
 normalise :: ByteString -> ByteString
