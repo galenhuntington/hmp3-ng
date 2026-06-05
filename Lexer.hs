@@ -41,7 +41,20 @@ doF s = do
     timeLeft     <- max 0 <$> readMaybe (P.unpack f3)
     pure $ R Frame { currentFrame , framesLeft, currentTime, timeLeft }
 
--- Outputs information about the mp3 file after loading.
+-- Info about mp3 file after loading.
+-- Breakdown from mpg123 README.remote (as numbers):
+--   0 = mpeg type (string)
+--   1 = layer (int)
+--   2 = sampling frequency (int)
+--   3 = mode (string)
+--   4 = mode extension (int)
+--   5 = framesize (int)
+--   6 = stereo (int)
+--   7 = copyright (int)
+--   8 = error protection (int)
+--   9 = emphasis (int)
+--  10 = bitrate (int)
+--  11 = extension (int)
 doS :: ByteString -> Maybe Msg
 doS s = do
     let fs = P.split ' ' s

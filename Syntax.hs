@@ -69,40 +69,10 @@ data Id3 = Id3
 --      , genre  :: Maybe ByteString }
 
 
-
--- Outputs information about the mp3 file after loading.
--- <a>: version of the mp3 file. Currently always 1.0 with madlib, but don't 
---      depend on it, particularly if you intend portability to mpg123 as well.
---      Float/string.
--- <b>: layer: 1, 2, or 3. Integer.
--- <c>: Samplerate. Integer.
--- <d>: Mode string. String.
--- <e>: Mode extension. Integer.
--- <f>: Bytes per frame (estimate, particularly if the stream is VBR). Integer.
--- <g>: Number of channels (1 or 2, usually). Integer.
--- <h>: Is stream copyrighted? (1 or 0). Integer.
--- <i>: Is stream CRC protected? (1 or 0). Integer.
--- <j>: Emphasis. Integer.
--- <k>: Bitrate, in kbps. (i.e., 128.) Integer.
--- <l>: Extension. Integer.
-newtype Info = Info {
-                userinfo      :: ByteString  -- user friendly string
-           --   version       :: !ByteString,
-           --   layer         :: !Int,     -- 1,2 or 3
-           --   sampleRate    :: !Int,
-           --   playMode      :: !ByteString,
-           --   modeExtns     :: !Int,
-           --   bytesPerFrame :: !Int,
-           --   channelCount  :: !Int,
-           --   copyrighted   :: !Bool,
-           --   checksummed   :: !Bool,
-           --   emphasis      :: !Int,
-           --   bitrate       :: !Int,
-           --   extension     :: !Int
-            }
+-- mp3 file info; TODO maybe don't need this newtype at all?
+newtype Info = Info { userinfo :: ByteString }
     deriving stock (Eq, Show)
 
--- @F <current-frame> <frames-remaining> <current-time> <time-remaining>
 -- Frame decoding status updates (once per frame).
 -- Current-frame and frames-remaining are integers; current-time and
 -- time-remaining floating point numbers with two decimal places.
@@ -114,14 +84,8 @@ data Frame = Frame {
              }
     deriving stock (Eq, Show)
 
--- @P {0, 1, 2}
 -- Stop/pause status.
--- 0 - playing has stopped. When 'STOP' is entered, or the mp3 file is finished.
--- 1 - Playing is paused. Enter 'PAUSE' or 'P' to continue.
--- 2 - Playing has begun again.
-data Status = Stopped
-            | Paused
-            | Playing
+data Status = Stopped | Paused | Playing
     deriving stock (Eq, Show)
 
 data Mode = Once | Loop | Random | Single
