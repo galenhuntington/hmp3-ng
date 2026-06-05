@@ -53,9 +53,6 @@ data HState = HState {
        ,config          :: !UIStyle             -- config values
        ,configPath      :: !(Maybe FilePath)     -- style.conf override (CLI)
 
-       ,modified        :: !(MVar ())           -- Set when redrawable components of 
-                                                -- the state are modified. The ui
-                                                -- refresh thread waits on this.
     }
 
 -- Each is (timestamp-string, (song-index, song-name)).
@@ -72,7 +69,6 @@ data Modal = HelpModal ![KeysHelp] | ExitModal | HistModal !HistDisplay
 --
 newEmptyHS :: IO HState
 newEmptyHS = do
-    modified  <- newEmptyMVar
     randomGen <- newStdGen
     pure HState {
         music        = listArray (0,0) []
@@ -83,7 +79,6 @@ newEmptyHS = do
        ,cursor       = 0
 
        ,threads      = []
-       ,modified
 
        ,mpgPid       = Nothing
        ,spawns       = 0
@@ -109,12 +104,19 @@ newEmptyHS = do
        ,uptime       = mempty
     }
 
---
 -- | A global variable holding the state.
---
 hState :: MVar HState
 hState = unsafePerformIO $ newMVar =<< newEmptyHS
 {-# NOINLINE hState #-}
+
+-- | The refresh thread waits on this
+modified :: MVar ()
+modified = unsafePerformIO newEmptyMVar
+{-# NOINLINE modified #-}
+
+-- | Queues a refresh.
+setModified :: IO ()
+setModified = void $ tryPutMVar modified ()
 
 ------------------------------------------------------------------------
 -- The decoder.
@@ -140,18 +142,14 @@ sendMpg s = withMVar mpg $ (. writeh) \h ->
 getsHS :: (HState -> a) -> IO a
 getsHS f = f <$> readMVar hState
 
--- | Modify the state with a pure function
+-- | Modify the state with a pure function and no refresh
 silentlyModifyHS :: (HState -> HState) -> IO ()
 silentlyModifyHS  f = modifyMVar_ hState (pure . f)
 
 modifyHS_ :: (HState -> HState) -> IO ()
-modifyHS_ f = silentlyModifyHS f <* touchHS
+modifyHS_ f = silentlyModifyHS f <* setModified
 
 -- | Modify the state returning a value
 modifyHS :: (HState -> (HState, a)) -> IO a
-modifyHS f = modifyMVar hState (pure . f) <* touchHS
-
--- | Trigger a refresh. This is the only way to update the screen.
-touchHS :: IO ()
-touchHS = withMVar hState \st -> void $ tryPutMVar (modified st) ()
+modifyHS f = modifyMVar hState (pure . f) <* setModified
 
