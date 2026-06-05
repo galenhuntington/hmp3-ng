@@ -48,7 +48,6 @@ data HState = HState {
        ,boottime        :: !TimeSpec
        ,regex           :: !(Maybe (Regex,Bool)) -- most recent search pattern and direction
        ,searchHist      :: ![String]             -- history of searches
-       ,xterm           :: !Bool
        ,doNotResuscitate :: !Bool                -- should we just let mpg123 die?
        ,playHist        :: !(Seq (TimeSpec, Int)) -- limited history of songs played
        ,config          :: !UIStyle             -- config values
@@ -57,7 +56,6 @@ data HState = HState {
        ,modified        :: !(MVar ())           -- Set when redrawable components of 
                                                 -- the state are modified. The ui
                                                 -- refresh thread waits on this.
-       ,drawLock        :: !(MVar ())           -- simple semaphore for display
     }
 
 -- Each is (timestamp-string, (song-index, song-name)).
@@ -75,7 +73,6 @@ data Modal = HelpModal ![KeysHelp] | ExitModal | HistModal !HistDisplay
 newEmptyHS :: IO HState
 newEmptyHS = do
     modified  <- newEmptyMVar
-    drawLock  <- newMVar ()
     randomGen <- newStdGen
     pure HState {
         music        = listArray (0,0) []
@@ -99,7 +96,6 @@ newEmptyHS = do
        ,clockUpdate      = False
        ,modal            = Nothing
        ,miniFocused      = False
-       ,xterm            = False
        ,doNotResuscitate = False    -- mpg123 should be restarted
 
        ,randomGen
@@ -111,7 +107,6 @@ newEmptyHS = do
        ,mode         = minBound
        ,minibuffer   = Fast mempty defaultSty
        ,uptime       = mempty
-       ,drawLock
     }
 
 --
@@ -159,9 +154,4 @@ modifyHS f = modifyMVar hState (pure . f) <* touchHS
 -- | Trigger a refresh. This is the only way to update the screen.
 touchHS :: IO ()
 touchHS = withMVar hState \st -> void $ tryPutMVar (modified st) ()
-
-withDrawLock :: IO () -> IO ()
-withDrawLock io = do
-    lock <- getsHS drawLock
-    withMVar lock $ const io
 

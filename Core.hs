@@ -260,7 +260,7 @@ shutdown ms = do
     whenJust mpid \pid -> do
         discardErrors $ sendMpg Quit
         void $ waitForProcess pid
-    UI.end =<< getsHS xterm
+    UI.end
     whenJust ms \s -> hPutStrLn stderr s *> hFlush stderr
     exitImmediately ExitSuccess
 
