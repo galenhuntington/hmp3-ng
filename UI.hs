@@ -13,7 +13,7 @@
 module UI (
     runDraw,
     -- * Construction, destruction
-    start, end, suspend, screenSize, refresh, refreshClock, resetui,
+    start, end, screenSize, refresh, refreshClock, resetui,
     -- * Input
     getKey
   ) where
@@ -33,7 +33,7 @@ import Data.Array               ((!), bounds, Array)
 import Data.Array.Base          (unsafeAt)
 import System.Posix.FilePath    (takeFileName)
 import System.IO                (stderr, hFlush)
-import System.Posix.Signals     (raiseSignal, sigTSTP, installHandler, Handler(..))
+import System.Posix.Signals     (installHandler, Handler(..))
 
 import Foreign.C.String
 import Foreign.C.Types
@@ -52,23 +52,20 @@ u = UTF8.fromString
 newtype Draw = Draw (IO ())
     deriving newtype (Semigroup, Monoid)
 
+drawLock :: MVar ()
+drawLock = unsafePerformIO $ newMVar ()
+{-# NOINLINE drawLock #-}
+
 runDraw :: Draw -> IO ()
-runDraw (Draw d) = withDrawLock d
+runDraw (Draw io) = withMVar drawLock $ const io
 
 ------------------------------------------------------------------------
 
 -- | Initialize the UI
 start :: IO UIStyle
 start = do
-    discardErrors do
-        thisterm <- lookupEnv "TERM"
-        case thisterm of 
-            Just "vt220" -> setEnv "TERM" "xterm-color"
-            Just t | "xterm" `isPrefixOf` t 
-                   -> silentlyModifyHS $ \st -> st { xterm = True }
-            _ -> pure ()
-
     Curses.initCurses
+
     case Curses.cursesSigWinch of
         Just wch -> void $ installHandler wch (Catch resetui) Nothing
         _        -> pure () -- handled elsewhere
@@ -90,23 +87,14 @@ resetui = runDraw (resizeui <> nocursor) *> refresh
 nocursor :: Draw
 nocursor = Draw $ discardErrors $ void $ Curses.cursSet Curses.CursorInvisible
 
---
--- | Clean up and go home. Refresh is needed on linux. grr.
---
-end :: Bool -> IO ()
-end isXterm = withDrawLock do
-    when isXterm $ setXtermTitle ["xterm"]
+-- | Clean up and go home.
+end :: IO ()
+end = do
+    takeMVar drawLock        -- we keep so no one tries to draw
+    setXtermTitle ["xterm"]  -- XXX I don't see this title after exit?
     Curses.endWin
 
---
--- | Suspend the program
---
-suspend :: IO ()
-suspend = raiseSignal sigTSTP
-
---
 -- | Find the current screen height and width.
---
 screenSize :: IO (Int, Int)
 screenSize = Curses.scrSize
 
@@ -508,7 +496,7 @@ redraw = Draw $ discardErrors {- TODO what errors are discarded? -} do
         screen = playScreen (DD sz (Pos 0 0) st (clock st))
         a      = screen ++ playList (DD sz (Pos (length screen) 0) st (clock st))
 
-    when (xterm st) $ setXterm st
+    setXterm st
 
     gotoTop
     for_ (take (h-1) (init a)) \t -> do

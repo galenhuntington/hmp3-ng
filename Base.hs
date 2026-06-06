@@ -26,7 +26,6 @@ import Data.String as X
 import Data.Traversable as X
 import Data.Version as X
 import Data.Word as X
-import System.Environment as X
 import System.Exit as X
 import System.IO as X (Handle, hClose)
 import System.IO.Unsafe as X

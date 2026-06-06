@@ -18,7 +18,7 @@ import Base
 
 import Core
 import Config (package)
-import State (getsHS, touchHS, modifyHS_, KeysHelp, Modal(..), HState(..))
+import State (getsHS, modifyHS_, KeysHelp, Modal(..), HState(..))
 import Style (defaultSty, StringA(Fast))
 import qualified UI (getKey, resetui)
 
@@ -52,11 +52,11 @@ mainMode = KeyMap \c -> getsHS modal >>= \case
 
     Just ExitModal -> case c of
         'y' -> shutdown Nothing $> undefined -- shutdown never returns
-        _   -> closeModal *> touchHS $> mainMode
+        _   -> closeModal $> mainMode
 
     Just (HistModal hist) -> do
         for_ (M.lookup c historyKeyMap >>= (hist !?)) (jump . fst . snd)
-        closeModal *> touchHS $> mainMode
+        closeModal $> mainMode
 
     _ -> if
         | c `elem` ['/', '?', '\\', '|'] -> do
@@ -66,7 +66,7 @@ mainMode = KeyMap \c -> getsHS modal >>= \case
         | c == 'q' ->
             forcePause *> setsModal (const $ Just ExitModal) $> mainMode
         | c `elem` ['H', ';'] ->
-            showHist *> touchHS $> mainMode
+            showHist $> mainMode
         | c >= '1' && c <= '9' ->
             jumpRel (0.1 * fromIntegral (fromEnum c - 48)) $> mainMode
         | True -> sequence_ (M.lookup c keyMap) $> mainMode
