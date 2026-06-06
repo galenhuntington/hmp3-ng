@@ -52,7 +52,6 @@ data HState = HState {
        ,playHist        :: !(Seq (TimeSpec, Int)) -- limited history of songs played
        ,config          :: !UIStyle             -- config values
        ,configPath      :: !(Maybe FilePath)     -- style.conf override (CLI)
-
     }
 
 -- Each is (timestamp-string, (song-index, song-name)).
@@ -106,7 +105,7 @@ newEmptyHS = do
 
 -- | A global variable holding the state.
 hState :: MVar HState
-hState = unsafePerformIO $ newMVar =<< newEmptyHS
+hState = unsafePerformIO newEmptyMVar
 {-# NOINLINE hState #-}
 
 -- | The refresh thread waits on this

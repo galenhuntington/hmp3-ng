@@ -91,6 +91,8 @@ start opts (Tree ds fs) = handle @SomeException (shutdown . Just . show) do
         , if mp3Tool == "mpg321" then mpgInput errh else errorLoop
         ]
 
+    putMVar hState =<< newEmptyHS
+
     silentlyModifyHS $ \st -> st
         { music        = fs
         , folders      = ds
