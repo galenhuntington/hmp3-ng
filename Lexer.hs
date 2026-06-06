@@ -72,6 +72,8 @@ doI s = F <$> do
     guard $ not $ P.null $ id3title id3 -- title sometimes empty
     pure id3
 
+-- Format: title (30), author (30), album (30), year (4), comment (30), genre
+-- We currently only use the first three.
 parseId3 :: ByteString -> Id3
 parseId3 = toId . cut where
     cut f | P.null f = []
