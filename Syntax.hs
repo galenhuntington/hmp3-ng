@@ -52,10 +52,6 @@ instance Pretty Quit where
 data Tag = Tag
     deriving stock (Eq, Show)
 
--- Track info if ID fields are in the file, otherwise file name.
-newtype File = File (Either ByteString Id3)
-    deriving stock (Eq, Show)
-
 -- ID3 info
 data Id3 = Id3
         { id3title  :: !ByteString
@@ -103,7 +99,7 @@ class Pretty a where
 -- And a wrapper type 
 --
 data Msg = T {-# UNPACK #-} !Tag
-         | F                !File
+         | F                !Id3
          | I {-# UNPACK #-} !Info
          | R {-# UNPACK #-} !Frame
          | S                !Status

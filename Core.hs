@@ -271,9 +271,9 @@ shutdown ms = do
 --
 handleMsg :: Msg -> IO ()
 
-handleMsg (T _)        = pure ()
-handleMsg (I i)        = modifyHS_ $ \s -> s { info = Just i }
-handleMsg (F (File f)) = modifyHS_ $ \s -> s { id3 = find (const True) f }
+handleMsg (T _)   = pure ()
+handleMsg (I i)   = modifyHS_ $ \s -> s { info = Just i }
+handleMsg (F id3) = modifyHS_ $ \s -> s { id3 = Just id3 }
 
 handleMsg (S t) = do
     modifyHS_ $ \s -> s { status = t }
@@ -420,6 +420,7 @@ runPlayOp op = do
                 , status  = Playing
                 , cursor  = if current == cursor then new else cursor
                 , playHist = Seq.take 36 $ (now, new) Seq.<| playHist
+                , id3     = Nothing
                 }
             pure f
     forM_ mfile $ sendMpg . Load

@@ -7,7 +7,7 @@
 module Lexer ( mpgParser, doP, doF, doS, doI, trim ) where
 
 import Base
-import Syntax (Msg(..), Status(..), Frame(..), Info(..), Id3(..), File(..), Tag(..))
+import Syntax (Msg(..), Status(..), Frame(..), Info(..), Id3(..), Tag(..))
 
 import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString.UTF8 as UTF8
@@ -65,10 +65,9 @@ doS s = do
             P.pack $ show $ hz `div` 1000, "kHz"]
 
 -- Track info if ID fields are in the file, otherwise file name.
--- 30 chars per field?
-doI :: ByteString -> Msg
-doI s = let s' = trim s in F $ File $ maybe (Left s') pure do
-    ("ID3:", info) <- pure $ P.splitAt 4 s'
+doI :: ByteString -> Maybe Msg
+doI s = F <$> do
+    ("ID3:", info) <- pure $ P.splitAt 4 s
     let id3 = parseId3 info
     guard $ not $ P.null $ id3title id3 -- title sometimes empty
     pure id3
@@ -104,7 +103,7 @@ mpgParser line = do
     let m = P.drop 3 line
     case code of
         'R' -> pure $ T Tag
-        'I' -> pure $ doI m
+        'I' -> quiet $ doI m
         'S' -> quiet $ doS m
         'F' -> quiet $ doF m
         'P' -> quiet $ doP m
