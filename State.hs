@@ -48,16 +48,10 @@ data HState = HState {
        ,boottime        :: !TimeSpec
        ,regex           :: !(Maybe (Regex,Bool)) -- most recent search pattern and direction
        ,searchHist      :: ![String]             -- history of searches
-       ,xterm           :: !Bool
        ,doNotResuscitate :: !Bool                -- should we just let mpg123 die?
        ,playHist        :: !(Seq (TimeSpec, Int)) -- limited history of songs played
        ,config          :: !UIStyle             -- config values
        ,configPath      :: !(Maybe FilePath)     -- style.conf override (CLI)
-
-       ,modified        :: !(MVar ())           -- Set when redrawable components of 
-                                                -- the state are modified. The ui
-                                                -- refresh thread waits on this.
-       ,drawLock        :: !(MVar ())           -- simple semaphore for display
     }
 
 -- Each is (timestamp-string, (song-index, song-name)).
@@ -74,8 +68,6 @@ data Modal = HelpModal ![KeysHelp] | ExitModal | HistModal !HistDisplay
 --
 newEmptyHS :: IO HState
 newEmptyHS = do
-    modified  <- newEmptyMVar
-    drawLock  <- newMVar ()
     randomGen <- newStdGen
     pure HState {
         music        = listArray (0,0) []
@@ -86,7 +78,6 @@ newEmptyHS = do
        ,cursor       = 0
 
        ,threads      = []
-       ,modified
 
        ,mpgPid       = Nothing
        ,spawns       = 0
@@ -99,7 +90,6 @@ newEmptyHS = do
        ,clockUpdate      = False
        ,modal            = Nothing
        ,miniFocused      = False
-       ,xterm            = False
        ,doNotResuscitate = False    -- mpg123 should be restarted
 
        ,randomGen
@@ -111,15 +101,21 @@ newEmptyHS = do
        ,mode         = minBound
        ,minibuffer   = Fast mempty defaultSty
        ,uptime       = mempty
-       ,drawLock
     }
 
---
 -- | A global variable holding the state.
---
 hState :: MVar HState
-hState = unsafePerformIO $ newMVar =<< newEmptyHS
+hState = unsafePerformIO newEmptyMVar
 {-# NOINLINE hState #-}
+
+-- | The refresh thread waits on this
+modified :: MVar ()
+modified = unsafePerformIO newEmptyMVar
+{-# NOINLINE modified #-}
+
+-- | Queues a refresh.
+setModified :: IO ()
+setModified = void $ tryPutMVar modified ()
 
 ------------------------------------------------------------------------
 -- The decoder.
@@ -145,23 +141,14 @@ sendMpg s = withMVar mpg $ (. writeh) \h ->
 getsHS :: (HState -> a) -> IO a
 getsHS f = f <$> readMVar hState
 
--- | Modify the state with a pure function
+-- | Modify the state with a pure function and no refresh
 silentlyModifyHS :: (HState -> HState) -> IO ()
 silentlyModifyHS  f = modifyMVar_ hState (pure . f)
 
 modifyHS_ :: (HState -> HState) -> IO ()
-modifyHS_ f = silentlyModifyHS f <* touchHS
+modifyHS_ f = silentlyModifyHS f <* setModified
 
 -- | Modify the state returning a value
 modifyHS :: (HState -> (HState, a)) -> IO a
-modifyHS f = modifyMVar hState (pure . f) <* touchHS
-
--- | Trigger a refresh. This is the only way to update the screen.
-touchHS :: IO ()
-touchHS = withMVar hState \st -> void $ tryPutMVar (modified st) ()
-
-withDrawLock :: IO () -> IO ()
-withDrawLock io = do
-    lock <- getsHS drawLock
-    withMVar lock $ const io
+modifyHS f = modifyMVar hState (pure . f) <* setModified
 

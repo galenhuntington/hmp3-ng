@@ -91,6 +91,8 @@ start opts (Tree ds fs) = handle @SomeException (shutdown . Just . show) do
         , if mp3Tool == "mpg321" then mpgInput errh else errorLoop
         ]
 
+    putMVar hState =<< newEmptyHS
+
     silentlyModifyHS $ \st -> st
         { music        = fs
         , folders      = ds
@@ -183,9 +185,8 @@ mpgLoop = runForever do
 -- | When the editor state has been modified, refresh, then wait
 -- for it to be modified again.
 refreshLoop :: IO ()
-refreshLoop = do
-    mvar <- getsHS modified
-    runForever $ takeMVar mvar >> UI.refresh
+refreshLoop = runForever $ takeMVar modified *> UI.refresh
+
 
 ------------------------------------------------------------------------
 
@@ -260,7 +261,7 @@ shutdown ms = do
     whenJust mpid \pid -> do
         discardErrors $ sendMpg Quit
         void $ waitForProcess pid
-    UI.end =<< getsHS xterm
+    UI.end
     whenJust ms \s -> hPutStrLn stderr s *> hFlush stderr
     exitImmediately ExitSuccess
 
