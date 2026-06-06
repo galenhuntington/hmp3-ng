@@ -50,7 +50,7 @@ import System.Directory         (doesFileExist, findExecutable, createDirectoryI
 import System.IO                (hPutStrLn, hGetLine, stderr, hFlush)
 import System.Process           (runInteractiveProcess, waitForProcess)
 import System.Clock             (TimeSpec(..), diffTimeSpec)
-import System.Random            (randomR)
+import System.Random            (randomR, newStdGen)
 import System.FilePath          ((</>))
 import System.Posix.FilePath    (takeFileName)
 
@@ -74,12 +74,15 @@ data Options = Options
     }
 
 start :: Options -> Tree -> IO ()
-start opts (Tree ds fs) = handle @SomeException (shutdown . Just . show) do
+start opts (Tree folders music) = handle @SomeException (shutdown . Just . show) do
 
-    c <- UI.start -- initialise curses
-
-    now <- getMonoTime
+    config <- UI.start
+    bootTime <- getMonoTime
+    let size = length music
     mode <- readState
+    gen <- newStdGen
+    let (current, randomGen) =
+            if mode == Random then randomR (0, size-1) gen else (0, gen)
 
     threads <- traverse forkIO
         [ mpgLoop
@@ -91,24 +94,39 @@ start opts (Tree ds fs) = handle @SomeException (shutdown . Just . show) do
         , if mp3Tool == "mpg321" then mpgInput errh else errorLoop
         ]
 
-    putMVar hState =<< newEmptyHS
-
-    silentlyModifyHS $ \st -> st
-        { music        = fs
-        , folders      = ds
-        , size         = 1 + (snd . bounds $ fs)
-        , cursor       = 0
-        , current      = 0
-        , mode         = mode
-        , boottime     = now
-        , config       = c
+    putMVar hState HState
+        { music
+        , folders
+        , size
+        , bootTime
         , configPath   = optConfigPath opts
-        , threads      }
+        , current
+        , cursor       = current
+        , randomGen
+        , mode
+        , config
+        , threads
+        , spawns       = 0
+        , mpgPid       = Nothing
+        , clock        = Nothing
+        , info         = Nothing
+        , id3          = Nothing
+        , regex        = Nothing
+        , modal        = Nothing
+        , playHist     = mempty
+        , searchHist   = []
+        , clockUpdate  = False
+        , miniFocused  = False
+        , exiting      = False
+        , status       = Stopped
+        , minibuffer   = Fast mempty defaultSty
+        , uptime       = mempty
+        }
 
-    loadConfig
+    loadConfig  -- TODO this should return config rather than setting it
 
-    if mode == Random then runPlayOp playRandomOp else playCur
-    when (optPaused opts) pause
+    playCur
+    when (optPaused opts) pause -- TODO use LOADPAUSED?
 
     run         -- won't restart if this fails!
 
@@ -171,7 +189,7 @@ mpgLoop = runForever do
             silentlyModifyHS $ \st -> st { mpgPid = Nothing }
             void $ takeMVar mpg
 
-            stop <- getsHS doNotResuscitate
+            stop <- getsHS exiting
             when stop exitSuccess
             threadDelay 1_000_000  -- let threads spit errors
             warnA $ "Restarting " ++ mppath ++ " ..."
@@ -194,7 +212,7 @@ refreshLoop = runForever $ takeMVar modified *> UI.refresh
 uptimeLoop :: IO ()
 uptimeLoop = runForever $ do
     now <- getMonoTime
-    modifyHS_ $ \st -> st { uptime = showTimeDiff (boottime st) now }
+    modifyHS_ $ \st -> st { uptime = showTimeDiff (bootTime st) now }
     threadDelay 3_000_000
 
 ------------------------------------------------------------------------
@@ -255,7 +273,7 @@ run = runForever keyLoop
 -- | Close most things. Important to do all the jobs:
 shutdown :: Maybe String -> IO ()
 shutdown ms = do
-    silentlyModifyHS $ \st -> st { doNotResuscitate = True }
+    silentlyModifyHS $ \st -> st { exiting = True }
     discardErrors writeState
     mpid <- getsHS mpgPid
     whenJust mpid \pid -> do
