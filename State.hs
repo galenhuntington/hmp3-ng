@@ -9,10 +9,9 @@ module State where
 
 import Base
 
-import Syntax                   (Status(Stopped), Mode(..), Frame, Info, Id3, Pretty(ppr))
+import Syntax                   (Status, Mode, Frame, Info, Id3, Pretty(ppr))
 import Tree                     (FileArray, DirArray)
-import Style                    (StringA(Fast), defaultSty, UIStyle)
-import qualified Config         (defaultStyle)
+import Style                    (StringA, UIStyle)
 
 import Data.ByteString          (hPut)
 import Data.Sequence            (Seq)
