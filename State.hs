@@ -12,46 +12,47 @@ import Base
 import Syntax                   (Status(Stopped), Mode(..), Frame, Info, Id3, Pretty(ppr))
 import Tree                     (FileArray, DirArray)
 import Style                    (StringA(Fast), defaultSty, UIStyle)
-import qualified Config (defaultStyle)
+import qualified Config         (defaultStyle)
 
-import Text.Regex.PCRE.Light    (Regex)
-import Data.Array               (listArray)
 import Data.ByteString          (hPut)
 import Data.Sequence            (Seq)
 import System.Clock             (TimeSpec(..))
 import System.IO                (hFlush)
 import System.Process           (ProcessHandle)
-import System.Random
+import System.Random            (StdGen)
+import Text.Regex.PCRE.Light    (Regex)
 
 
--- | The editor state type
-data HState = HState {
-        music           :: !FileArray
-       ,folders         :: !DirArray
-       ,size            :: !Int                  -- cache size of list
-       ,current         :: !Int                  -- currently playing mp3
-       ,cursor          :: !Int                  -- mp3 under the cursor
-       ,clock           :: !(Maybe Frame)        -- current clock value
-       ,clockUpdate     :: !Bool
-       ,randomGen       :: !StdGen               -- random seed
-       ,mpgPid          :: !(Maybe ProcessHandle) -- pid of decoder
-       ,spawns          :: !Integer              -- count of decoder spawns
-       ,threads         :: ![ThreadId]           -- all our threads
-       ,id3             :: !(Maybe Id3)          -- maybe mp3 id3 info
-       ,info            :: !(Maybe Info)         -- mp3 info
-       ,status          :: !Status
-       ,minibuffer      :: !StringA              -- contents of minibuffer
-       ,modal           :: !(Maybe Modal)        -- modal visible
-       ,miniFocused     :: !Bool                 -- is the mini buffer focused?
-       ,mode            :: !Mode
-       ,uptime          :: !ByteString
-       ,boottime        :: !TimeSpec
-       ,regex           :: !(Maybe (Regex,Bool)) -- most recent search pattern and direction
-       ,searchHist      :: ![String]             -- history of searches
-       ,doNotResuscitate :: !Bool                -- should we just let mpg123 die?
-       ,playHist        :: !(Seq (TimeSpec, Int)) -- limited history of songs played
-       ,config          :: !UIStyle             -- config values
-       ,configPath      :: !(Maybe FilePath)     -- style.conf override (CLI)
+-- | Player state
+data HState = HState
+    -- These never change
+    { music           :: !FileArray
+    , folders         :: !DirArray
+    , size            :: !Int                  -- cache size of list
+    , bootTime        :: !TimeSpec
+    , configPath      :: !(Maybe FilePath)     -- style.conf override (CLI)
+    -- These can
+    , current         :: !Int                  -- currently playing mp3
+    , cursor          :: !Int                  -- mp3 under the cursor
+    , clock           :: !(Maybe Frame)        -- current clock value
+    , clockUpdate     :: !Bool
+    , randomGen       :: !StdGen               -- random seed
+    , mpgPid          :: !(Maybe ProcessHandle) -- pid of decoder
+    , spawns          :: !Integer              -- count of decoder spawns
+    , threads         :: ![ThreadId]           -- all our threads
+    , id3             :: !(Maybe Id3)          -- maybe mp3 id3 info
+    , info            :: !(Maybe Info)         -- mp3 info
+    , status          :: !Status
+    , minibuffer      :: !StringA              -- contents of minibuffer
+    , modal           :: !(Maybe Modal)        -- modal visible
+    , miniFocused     :: !Bool                 -- is the mini buffer focused?
+    , mode            :: !Mode
+    , uptime          :: !ByteString
+    , regex           :: !(Maybe (Regex,Bool)) -- most recent search pattern and direction
+    , searchHist      :: ![String]
+    , exiting         :: !Bool                 -- let mpg123 die?
+    , playHist        :: !(Seq (TimeSpec, Int))
+    , config          :: !UIStyle
     }
 
 -- Each is (timestamp-string, (song-index, song-name)).
@@ -61,47 +62,6 @@ type HistDisplay = [(ByteString, (Int, ByteString))]
 type KeysHelp = ([Char], ByteString)
 
 data Modal = HelpModal ![KeysHelp] | ExitModal | HistModal !HistDisplay
-
-------------------------------------------------------------------------
---
--- | The initial state
---
-newEmptyHS :: IO HState
-newEmptyHS = do
-    randomGen <- newStdGen
-    pure HState {
-        music        = listArray (0,0) []
-       ,folders      = listArray (0,0) []
-
-       ,size         = 0
-       ,current      = 0
-       ,cursor       = 0
-
-       ,threads      = []
-
-       ,mpgPid       = Nothing
-       ,spawns       = 0
-       ,clock        = Nothing
-       ,info         = Nothing
-       ,id3          = Nothing
-       ,regex        = Nothing
-       ,searchHist   = []
-
-       ,clockUpdate      = False
-       ,modal            = Nothing
-       ,miniFocused      = False
-       ,doNotResuscitate = False    -- mpg123 should be restarted
-
-       ,randomGen
-       ,playHist     = mempty
-       ,config       = Config.defaultStyle
-       ,configPath   = Nothing
-       ,boottime     = 0
-       ,status       = Stopped
-       ,mode         = minBound
-       ,minibuffer   = Fast mempty defaultSty
-       ,uptime       = mempty
-    }
 
 -- | A global variable holding the state.
 hState :: MVar HState
