@@ -1,75 +1,61 @@
-{-# OPTIONS_GHC -Wno-x-partial -Wno-missing-signatures #-} -- XXX
-
 module LexerSpec (tests) where
 
 import Test.Tasty
 import Test.Tasty.HUnit
 
 import qualified Data.ByteString.Char8 as P
-import Data.Foldable (toList)
 
-import qualified Lexer as L
+import Lexer (mpgParser)
 import Syntax
 
--- Emulate old API for tests (XXX temporary)
-doI = L.doI
-trim = L.trim
-doF = head . toList . L.doF
-doP = head . toList . L.doP
-doS = head . toList . L.doS
-
+-- 'mpgParser' is the module's pure, total entry point.  Testing through it
+-- drives every doX helper via real wire lines (prefix and all), so the
+-- helpers do not need to be exported.  Whitespace stripping (trim) is
+-- exercised by the ID3 cases, whose fields arrive space-padded to 30.
 tests :: TestTree
-tests = testGroup "Lexer"
-    [ testGroup "doP (status messages)"
-        [ testCase "0 is Stopped"        $ doP "0"   @?= S Stopped
-        , testCase "1 is Paused"         $ doP "1"   @?= S Paused
-        , testCase "2 is Playing"        $ doP "2"   @?= S Playing
-        -- , testCase "3 is Playing"        $ doP "3"   @?= S Playing
-        -- , testCase "empty is Playing"    $ doP ""    @?= S Playing
-        -- , testCase "garbage is Playing"  $ doP "xyz" @?= S Playing
+tests = testGroup "Lexer.mpgParser"
+    [ testGroup "status (@P)"
+        [ tc "@P 0"  $ Right (S Stopped)
+        , tc "@P 1"  $ Right (S Paused)
+        , tc "@P 2"  $ Right (S Playing)
+        , tc "@P 3"  $ Left Nothing   -- end-of-song marker: ignored (no double play)
+        , tc "@P 9"  $ Left Nothing   -- unknown code
+        , tc "@P "   $ Left Nothing   -- no payload
         ]
-    , testGroup "doF (frame messages)"
-        [ testCase "all four fields parse" $
-            doF "123 456 12.34 56.78" @?= R (Frame 123 456 12.34 56.78)
-        , testCase "negative timeLeft is clamped to zero" $
-            doF "0 0 0.00 -1.00"      @?= R (Frame 0 0 0.00 0)
+    , testGroup "frame (@F)"
+        [ tc "@F 123 456 12.34 56.78" $ Right (R (Frame 123 456 12.34 56.78))
+        , tc "@F 0 0 0.00 -1.00"      $ Right (R (Frame 0 0 0.00 0))  -- timeLeft clamped
+        , tc "@F 1 2 3.00"            $ Left Nothing   -- too few fields
+        , tc "@F a b c d"             $ Left Nothing   -- non-numeric
         ]
-    , testGroup "doS (info messages)"
-        [ testCase "userinfo combines version, bitrate, kHz" $
-            doS "1.0 1 44100 stereo 0 0 2 0 0 0 128 0"
-                @?= I (Info "mpeg 1.0 128kbit/s 44kHz")
+    , testGroup "stream info (@S)"
+        [ tc "@S 1.0 1 44100 stereo 0 0 2 0 0 0 128 0"
+                                      $ Right (I (Info "mpeg 1.0 128kbit/s 44kHz"))
+        , tc "@S 1.0 1 44100"         $ Left Nothing   -- too few fields
         ]
-    , testGroup "doI (track info / id3)"
-        [ testCase "non-id3 input becomes Left filename" $
-            doI "song.mp3"
-                @?= Nothing
-        , testCase "non-id3 input is trimmed" $
-            doI "  song.mp3  "
-                @?= Nothing
-        , testCase "id3 with title only" $
-            doI ("ID3:" <> field30 "Title")
-                @?= Just (F (Id3 "Title" "" "" "Title"))
-        , testCase "id3 with title and artist" $
-            doI ("ID3:" <> field30 "Title" <> field30 "Artist")
-                @?= Just (F (Id3 "Title" "Artist" "" "Artist : Title"))
-        , testCase "id3 with title, artist, and album" $
-            doI ("ID3:" <> field30 "Title" <> field30 "Artist" <> field30 "Album")
-                @?= Just (F (Id3 "Title" "Artist" "Album" "Artist : Album : Title"))
-        , testCase "id3 with empty title falls back to Left of trimmed input" $
-            -- mpg123 sometimes returns ID3 records with a blank title; rather than
-            -- present an empty track name, the parser exposes the raw line.
-            doI ("ID3:" <> field30 "" <> field30 "Artist")
-                @?= Nothing
+    , testGroup "id3 (@I)"
+        [ tc (id3 ["Title"])
+              $ Right (F (Id3 "Title" "" "" "Title"))
+        , tc (id3 ["Title", "Artist"])
+              $ Right (F (Id3 "Title" "Artist" "" "Artist : Title"))
+        , tc (id3 ["Title", "Artist", "Album"])
+              $ Right (F (Id3 "Title" "Artist" "Album" "Artist : Album : Title"))
+        , tc (id3 ["", "Artist"])     $ Left Nothing   -- blank title: skipped
+        , tc "@I song.mp3"            $ Left Nothing   -- non-ID3 @I: don't overwrite
+        , tc "@I {"                   $ Left Nothing   -- grouping marker: ignored
         ]
-    , testGroup "trim"
-        [ testCase "whitespace on ends" $ trim " \t foo bar \n " @?= "foo bar"
-        , testCase "whitespace only"    $ trim "   "             @?= ""
-        , testCase "empty"              $ trim ""                @?= ""
+    , testGroup "tagline, errors, junk"
+        [ tc "@R a tagline"          $ Right (T Tag)
+        , tc "@E some failure"       $ Left (Just "some failure")
+        , tc "garbage"               $ Left Nothing   -- no @ prefix
+        , tc "@F"                    $ Left Nothing   -- no space after code
+        , tc "@"                     $ Left Nothing
+        , tc ""                      $ Left Nothing
         ]
     ]
+  where
+    tc line expected = testCase (show line) $ mpgParser line @?= expected
 
--- Pad/truncate a ByteString to exactly 30 characters with trailing spaces,
--- matching the fixed-width field convention used by mpg123 ID3 output.
-field30 :: P.ByteString -> P.ByteString
-field30 b = P.take 30 (b <> P.replicate 30 ' ')
-
+-- | Build an "@I ID3:" line from fixed-width 30-char fields, as mpg123 emits.
+id3 :: [P.ByteString] -> P.ByteString
+id3 fields = "@I ID3:" <> mconcat [ P.take 30 (f <> P.replicate 30 ' ') | f <- fields ]
