@@ -4,7 +4,7 @@
 
 -- Lexer for mpg123 messages
 
-module Lexer ( mpgParser, doP, doF, doS, doI, trim ) where
+module Lexer ( mpgParser ) where
 
 import Base
 import Syntax (Msg(..), Status(..), Frame(..), Info(..), Id3(..), Tag(..))
