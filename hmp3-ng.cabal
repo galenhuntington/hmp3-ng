@@ -67,7 +67,7 @@ library
       ncursesw
   build-depends:
     , array
-    , base ==4.*
+    , base >=4.15 <5
     , bytestring >=0.10
     , clock
     , containers

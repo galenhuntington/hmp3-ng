@@ -20,14 +20,17 @@ versions, which were only minor changes, mostly the automated
 regeneration of a `configure` file (now gone).
 
 *  The code has been updated to compile under recent GHC (tested
-through 9.10) and libraries.  This required rewriting or entirely
-replacing large sections, mainly low-level optimizations.
+through 9.14; minimum supported 9.0) and libraries.  This required
+rewriting or entirely replacing large sections, mainly low-level
+optimizations.
 
 *  I added support for building with Stack.  It can also be installed
 with Nix from nixpkgs (`haskellPackages.hmp3-ng`).
 
 *  There is a public GitHub issue tracker, and a GitHub action to
 continuously test builds.
+
+*  There is a test suite built on the Tasty framework.
 
 *  I try to avoid “Not Invented Here” by using established,
 up-to-date packages from Hackage.  Much old code has now been
