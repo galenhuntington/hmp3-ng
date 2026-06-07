@@ -8,10 +8,7 @@ import qualified Data.ByteString.Char8 as P
 import Lexer (mpgParser)
 import Syntax
 
--- 'mpgParser' is the module's pure, total entry point.  Testing through it
--- drives every doX helper via real wire lines (prefix and all), so the
--- helpers do not need to be exported.  Whitespace stripping (trim) is
--- exercised by the ID3 cases, whose fields arrive space-padded to 30.
+-- These exercise the helpers doX, 'trim', and 'normalise'.
 tests :: TestTree
 tests = testGroup "Lexer.mpgParser"
     [ testGroup "status (@P)"
@@ -33,17 +30,21 @@ tests = testGroup "Lexer.mpgParser"
                                       $ Right (I (Info "mpeg 1.0 128kbit/s 44kHz"))
         , tc "@S 1.0 1 44100"         $ Left Nothing   -- too few fields
         ]
-    , testGroup "id3 (@I)"
-        [ tc (id3 ["Title"])
+    , testGroup "id3 (@I)" (let s = "n\195\182rmalise" in
+        [ tcId3 ["Title"]
               $ Right (F (Id3 "Title" "" "" "Title"))
-        , tc (id3 ["Title", "Artist"])
+        , tcId3 ["Title", "Artist"]
               $ Right (F (Id3 "Title" "Artist" "" "Artist : Title"))
-        , tc (id3 ["Title", "Artist", "Album"])
+        , tcId3 [" Title", "  Artist"]
+              $ Right (F (Id3 "Title" "Artist" "" "Artist : Title"))
+        , tcId3 ["Title", "Artist", "Album"]
               $ Right (F (Id3 "Title" "Artist" "Album" "Artist : Album : Title"))
-        , tc (id3 ["", "Artist"])     $ Left Nothing   -- blank title: skipped
-        , tc "@I song.mp3"            $ Left Nothing   -- non-ID3 @I: don't overwrite
-        , tc "@I {"                   $ Left Nothing   -- grouping marker: ignored
-        ]
+        , tcId3 ["", "Artist"]       $ Left Nothing   -- blank title: skipped
+        , tc "@I song.mp3"           $ Left Nothing   -- non-ID3 @I: don't overwrite
+        , tc "@I {"                  $ Left Nothing   -- grouping marker: ignored
+        , tcId3 ["nörmalise"]        $ Right (F (Id3 s "" "" s))
+        , tcId3 [s]                  $ Right (F (Id3 s "" "" s))
+        ])
     , testGroup "tagline, errors, junk"
         [ tc "@R a tagline"          $ Right (T Tag)
         , tc "@E some failure"       $ Left (Just "some failure")
@@ -54,8 +55,11 @@ tests = testGroup "Lexer.mpgParser"
         ]
     ]
   where
-    tc line expected = testCase (show line) $ mpgParser line @?= expected
+    tc line = tc' (show line) line
+    tc' tag line expected = testCase tag $ mpgParser line @?= expected
+    tcId3 fields = tc' (show fields) (id3 fields)
 
 -- | Build an "@I ID3:" line from fixed-width 30-char fields, as mpg123 emits.
 id3 :: [P.ByteString] -> P.ByteString
 id3 fields = "@I ID3:" <> mconcat [ P.take 30 (f <> P.replicate 30 ' ') | f <- fields ]
+
