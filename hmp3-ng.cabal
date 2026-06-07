@@ -15,8 +15,6 @@ maintainer: Galen Huntington
 license: GPL-2.0-or-later
 license-file: LICENSE
 build-type: Simple
-extra-source-files:
-  Keymap.hs-boot
 
 extra-doc-files:
   README.md
