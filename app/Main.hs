@@ -72,11 +72,12 @@ parserInfo = info (invocation <**> versionOpt <**> helper) $
 main :: IO ()
 main = do
     (opts, args) <- customExecParser (prefs showHelpOnEmpty) parserInfo
-    initSignals
     tree <- buildTree args
     when (isEmpty tree) $
         errorWithoutStackTrace "Error: No music files found."
-    start opts tree
-    err <- either id absurd <$> try @SomeException keyLoop
-    shutdown $ Just $ "Input error: " ++ show err
+    initSignals
+    err <- either id absurd <$> try @SomeException do
+        start opts tree
+        keyLoop
+    shutdown $ Just $ "Error: " ++ show err
 

@@ -73,7 +73,7 @@ data Options = Options
 
 -- | Sets up state, spawns sub-threads, and starts player.
 start :: Options -> Tree -> IO ()
-start opts (Tree folders music) = handle @SomeException (shutdown . Just . show) do
+start opts (Tree folders music) = do
 
     config <- UI.start
     bootTime <- getMonoTime
