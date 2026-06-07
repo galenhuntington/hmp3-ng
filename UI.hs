@@ -564,9 +564,6 @@ slice i j arr =
     in [unsafeAt arr n | n <- [max a i .. min b j] ]
 {-# INLINE slice #-}
 
--- isAscii :: ByteString -> Bool
--- isAscii = P.all (<'\128')
-
 ------------------------------------------------------------------------
 
 --
@@ -586,9 +583,7 @@ setXtermTitle strs = do
 setXterm :: HState -> IO ()
 setXterm s = setXtermTitle $ case status s of
     Playing -> case id3 s of
-        Nothing -> case size s of
-                        0 -> ["hmp3"]
-                        _ -> [fbase $ music s ! current s]
+        Nothing -> [fbase $ music s ! current s]
         Just ti -> id3artist ti :
                    if P.null (id3title ti)
                         then []

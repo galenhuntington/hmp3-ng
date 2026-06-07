@@ -14,7 +14,7 @@
 --
 module Keymap (keyLoop, keyTable, unkey, charToKey) where
 
-import Base hiding ((!?))
+import Base
 
 import Core
 import Config (package)
@@ -55,7 +55,6 @@ mainMode = KeyMap \c -> getsHS modal >>= \case
         _   -> closeModal $> mainMode
 
     Just (HistModal hist) -> do
-        let xs !? n = listToMaybe $ drop n xs -- Compat: List.!? added in GHC 9.8
         for_ (M.lookup c historyKeyMap >>= (hist !?)) (jump . fst . snd)
         closeModal $> mainMode
 

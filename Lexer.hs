@@ -1,20 +1,16 @@
-{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
-
 -- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- Copyright (c) 2008, 2019-2026 Galen Huntington
 -- SPDX-License-Identifier: GPL-2.0-or-later
 
 -- Lexer for mpg123 messages
 
-module Lexer ( parser, doP, doF, doS, doI, trim ) where
+module Lexer ( mpgParser, doP, doF, doS, doI, trim ) where
 
 import Base
-import Syntax (Msg(..),Status(..),Frame(..),Info(..),Id3(..),File(..),Tag(..))
+import Syntax (Msg(..), Status(..), Frame(..), Info(..), Id3(..), Tag(..))
 
 import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString.UTF8 as UTF8
-import Control.Monad.Except
-import Control.Monad.Trans (lift)
 
 ------------------------------------------------------------------------
 
@@ -22,131 +18,97 @@ import Control.Monad.Trans (lift)
 trim :: ByteString -> ByteString
 trim = P.dropWhileEnd isSpace . P.dropSpace
 
-readPS :: ByteString -> Int
-readPS = fst . fromJust . P.readInt
+readPS :: ByteString -> Maybe Int
+readPS = fmap fst . P.readInt
 
-doP :: ByteString -> Msg
-doP s = S case fst <$> P.uncons s of
-    Just '0' -> Stopped
-    Just '1' -> Paused
-    Just '2' -> Playing
-    -- mpg123 outputs this but then @P 0 causing double Plays
-    -- (I think old mpg123 didn't do @P 0 so I added this)
-    -- '3' -> Stopped  -- used by mpg123 for end of song
-    _ -> Playing
-    -- _ -> error "Invalid Status"
+doP :: ByteString -> Maybe Msg
+doP s = do
+    (p, _) <- P.uncons s
+    case p of
+        '0' -> pure $ S Stopped
+        '1' -> pure $ S Paused
+        '2' -> pure $ S Playing
+        -- recent mpg123 outputs 3 for end of song; don't need
+        _   -> Nothing
 
 -- Frame decoding status updates (once per frame).
-doF :: ByteString -> Msg
-doF s = R Frame {
-                currentFrame = readPS f0
-              , framesLeft   = readPS f1
-              , currentTime  = read . P.unpack $ f2
-              , timeLeft     = max 0 . read . P.unpack $ f3
-           }
-        where
-          f0 : f1 : f2 : f3 : _ = P.split ' ' s
+doF :: ByteString -> Maybe Msg
+doF s = do
+    f0 : f1 : f2 : f3 : _ <- pure $ P.split ' ' s
+    currentFrame <- readPS f0
+    framesLeft   <- readPS f1
+    currentTime  <- readMaybe $ P.unpack f2
+    timeLeft     <- max 0 <$> readMaybe (P.unpack f3)
+    pure $ R Frame { currentFrame , framesLeft, currentTime, timeLeft }
 
--- Outputs information about the mp3 file after loading.
-doS :: ByteString -> Msg
-doS s = let fs = P.split ' ' s
-        in I Info {
-            {-
-                  version       = fs !! 0
-                , layer         = read . P.unpack $ fs !! 1
-                , sampleRate    = read . P.unpack $ fs !! 2
-                , playMode      = fs !! 3
-                , modeExtns     = read . P.unpack $ fs !! 4
-                , bytesPerFrame = read . P.unpack $ fs !! 5
-                , channelCount  = read . P.unpack $ fs !! 6
-                , copyrighted   = toEnum (read $ P.unpack (fs !! 7))
-                , checksummed   = toEnum (read $ P.unpack (fs !! 8))
-                , emphasis      = read $ P.unpack $ fs !! 9
-                , bitrate       = read $ P.unpack $ fs !! 10
-                , extension     = read $ P.unpack $ fs !! 11
-            -}
-                userinfo      = mconcat
-                       ["mpeg "
-                       ,fs !! 0
-                       ," "
-                       ,fs !! 10
-                       ,"kbit/s "
-                       ,(P.pack . show) (readPS (fs !! 2) `div` 1000 :: Int)
-                       ,"kHz"]
-                }
+-- Info about mp3 file after loading.
+-- Breakdown from mpg123 README.remote (as numbers):
+--   0 = mpeg type (string)
+--   1 = layer (int)
+--   2 = sampling frequency (int)
+--   3 = mode (string)
+--   4 = mode extension (int)
+--   5 = framesize (int)
+--   6 = stereo (int)
+--   7 = copyright (int)
+--   8 = error protection (int)
+--   9 = emphasis (int)
+--  10 = bitrate (int)
+--  11 = extension (int)
+doS :: ByteString -> Maybe Msg
+doS s = do
+    let fs = P.split ' ' s
+    guard $ length fs >= 11
+    hz <- readPS $ fs !! 2
+    pure $ I $ Info $ mconcat [
+        "mpeg ", fs !! 0, " ", fs !! 10, "kbit/s ",
+            P.pack $ show $ hz `div` 1000, "kHz"]
 
 -- Track info if ID fields are in the file, otherwise file name.
--- 30 chars per field?
-doI :: ByteString -> Msg
-doI s = let f = trim s
-        in case P.take 4 f of
-            cs | cs == "ID3:" -> F . File $
-                    let ttl = toId id3 . splitUp . P.drop 4 $ f
-                    -- mpg123 sometimes returns null titles
-                    in if P.null (id3title ttl) then Left f else Right ttl
-               | otherwise    -> F . File . Left $ f
-    where
-        -- a default
-        id3 :: Id3
-        id3 = Id3 "" "" "" ""
+doI :: ByteString -> Maybe Msg
+doI s = F <$> do
+    ("ID3:", info) <- pure $ P.splitAt 4 s
+    let id3 = parseId3 info
+    guard $ not $ P.null $ id3title id3 -- title sometimes empty
+    pure id3
 
-        -- break the ID3 string up
-        splitUp :: ByteString -> [ByteString]
-        splitUp f
-            | f == P.empty  = []
-            | otherwise
-            = let (a,xs) = P.splitAt 30 f   -- we expect it to be 
-                  xs'    = splitUp xs
-              in a : xs'
+-- Format: title (30), author (30), album (30), year (4), comment (30), genre
+-- We currently only use the first three.
+parseId3 :: ByteString -> Id3
+parseId3 = toId . cut where
+    cut f | P.null f = []
+          | True     = let (a, xs) = P.splitAt 30 f in normalise a : cut xs
+    toId ls = Id3 (arg 0) (arg 1) (arg 2) $ mconcat $ intersperse " : "
+        $ filter (not . P.null) [arg 1, arg 2, arg 0]
+      where arg = fromMaybe "" . (ls !?)
 
-        -- and some ugly code:
-        toId :: Id3 -> [ByteString] -> Id3
-        toId i ls =
-            let arg n = normalise $ ls !! n
-                j = case length ls of
-                    0   -> i
-
-                    1   -> i { id3title  = arg 0 }
-
-                    2   -> i { id3title  = arg 0
-                             , id3artist = arg 1 }
-
-                    _   -> i { id3title  = arg 0
-                             , id3artist = arg 1
-                             , id3album  = arg 2 }
-
-            in j { id3str =
-                    mconcat $ intersperse " : " $ filter (not . P.null)
-                        [id3artist j, id3album j, id3title j] }
-
-        -- strip spaces, and decide if UTF-8 or ISO-8859-1
-        normalise :: ByteString -> ByteString
-        normalise raw =
-            let bs = trim raw
-            in if UTF8.replacement_char `elem` UTF8.toString bs
-                then UTF8.fromString $ P.unpack bs
-                else bs
+-- | Strip spaces, and if seeming ISO-8859-1 convert to UTF-8
+normalise :: ByteString -> ByteString
+normalise raw =
+    let bs = trim raw
+    in if UTF8.replacement_char `elem` UTF8.toString bs
+        then UTF8.fromString $ P.unpack bs
+        else bs
 
 ------------------------------------------------------------------------
 
-parser :: Handle -> IO (Either (Maybe String) Msg)
-parser h = runExceptT do
-    x <- lift $ P.hGetLine h
+-- Parse line; on failure, return Just only if error to report.
+mpgParser :: ByteString -> Either (Maybe String) Msg
+mpgParser line = do
     -- bad packets are generally just \n in ID3 (and not of interest anyway)
-    let skip = throwError Nothing
+    let quiet = maybe (Left Nothing) pure
 
-    when (P.length x < 3) skip
-    let (pre, m) = P.splitAt 3 x
-        at : code : sp : _ = P.unpack pre
-    when (at /= '@' || sp /= ' ') skip
+    code <- quiet do
+        '@' : c : ' ' : _ <- pure $ P.unpack line
+        pure c
 
-    -- TODO: make doX functions total
+    let m = P.drop 3 line
     case code of
         'R' -> pure $ T Tag
-        'I' -> pure $ doI m
-        'S' -> pure $ doS m
-        'F' -> pure $ doF m
-        'P' -> pure $ doP m
-        'E' -> throwError $ Just $ "mpg123 error: " ++ P.unpack m
-        _   -> skip
+        'I' -> quiet $ doI m
+        'S' -> quiet $ doS m
+        'F' -> quiet $ doF m
+        'P' -> quiet $ doP m
+        'E' -> Left $ Just $ P.unpack m
+        _   -> quiet Nothing
 

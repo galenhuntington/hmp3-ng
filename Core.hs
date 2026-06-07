@@ -28,7 +28,7 @@ module Core (
 import Base
 
 import Syntax
-import Lexer                (parser)
+import Lexer (mpgParser)
 import State
 import Style
 import Tree hiding (File, Dir)
@@ -246,7 +246,7 @@ clockLoop = runForever $ threadDelay 125_000 *> UI.refreshClock
 -- | Handle, and display errors produced by mpg123
 errorLoop :: IO ()
 errorLoop = runForever $
-    readMVar mpg <&> errh >>= hGetLine >>= (warnA . ("mpg: " ++))
+    readMVar mpg <&> errh >>= hGetLine >>= (warnA . ("mpg123 err: " ++))
 
 ------------------------------------------------------------------------
 
@@ -256,10 +256,10 @@ errorLoop = runForever $
 --
 mpgInput :: (Mpg -> Handle) -> IO ()
 mpgInput field = runForever $ do
-    res <- parser =<< field <$> readMVar mpg
-    case res of
+    line <- P.hGetLine =<< field <$> readMVar mpg
+    case mpgParser line of
         Right m       -> handleMsg m
-        Left (Just e) -> (warnA . ("read: " ++) . show) e
+        Left (Just e) -> warnA ("mpg123: " ++ e)
         _             -> pure ()
 
 ------------------------------------------------------------------------
@@ -289,10 +289,10 @@ shutdown ms = do
 -- right pigeon hole.
 --
 handleMsg :: Msg -> IO ()
-handleMsg (T _)                = pure ()
-handleMsg (I i)                = modifyHS_ $ \s -> s { info = Just i }
-handleMsg (F (File (Left  _))) = modifyHS_ $ \s -> s { id3 = Nothing }
-handleMsg (F (File (Right i))) = modifyHS_ $ \s -> s { id3 = Just i  }
+
+handleMsg (T _)   = pure ()
+handleMsg (I i)   = modifyHS_ $ \s -> s { info = Just i }
+handleMsg (F id3) = modifyHS_ $ \s -> s { id3 = Just id3 }
 
 handleMsg (S t) = do
     modifyHS_ $ \s -> s { status = t }
@@ -439,6 +439,7 @@ runPlayOp op = do
                 , status  = Playing
                 , cursor  = if current == cursor then new else cursor
                 , playHist = Seq.take 36 $ (now, new) Seq.<| playHist
+                , id3     = Nothing
                 }
             pure f
     forM_ mfile $ sendMpg . Load
