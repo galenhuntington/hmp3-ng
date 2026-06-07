@@ -7,7 +7,7 @@ module Main where
 
 import Base
 
-import Core     (initialize, shutdown, Options(..))
+import Core     (start, shutdown, Options(..))
 import qualified Config
 import Keymap   (keyLoop)
 import Tree     (buildTree, isEmpty)
@@ -76,7 +76,7 @@ main = do
     tree <- buildTree args
     when (isEmpty tree) $
         errorWithoutStackTrace "Error: No music files found."
-    initialize opts tree
+    start opts tree
     err <- either id absurd <$> try @SomeException keyLoop
     shutdown $ Just $ "Input error: " ++ show err
 

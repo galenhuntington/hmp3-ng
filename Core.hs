@@ -9,7 +9,7 @@
 --
 module Core (
     Options(..),
-    initialize, shutdown,
+    start, shutdown,
     seekLeft, seekRight, upOne, downOne, pause, nextMode, playNext, playPrev,
     forcePause, putMessage, clearMessage, playCursor, playCur,
     jumpToPlaying, jump, jumpRel,
@@ -72,8 +72,8 @@ data Options = Options
     }
 
 -- | Sets up state, spawns sub-threads, and starts player.
-initialize :: Options -> Tree -> IO ()
-initialize opts (Tree folders music) = handle @SomeException (shutdown . Just . show) do
+start :: Options -> Tree -> IO ()
+start opts (Tree folders music) = handle @SomeException (shutdown . Just . show) do
 
     config <- UI.start
     bootTime <- getMonoTime
