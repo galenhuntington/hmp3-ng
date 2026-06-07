@@ -262,6 +262,8 @@ mpgInput field = runForever $ do
 ------------------------------------------------------------------------
 
 -- | Close most things. Important to do all the jobs:
+-- TODO maybe releaseSignals here in case mpg is frozen?
+--   and/or move UI.end up?
 shutdown :: Maybe String -> IO ()
 shutdown ms = do
     silentlyModifyHS $ \st -> st { exiting = True }
