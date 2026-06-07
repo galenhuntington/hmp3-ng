@@ -7,8 +7,9 @@ module Main where
 
 import Base
 
-import Core     (start, shutdown, Options(..))
+import Core     (initialize, shutdown, Options(..))
 import qualified Config
+import Keymap   (keyLoop)
 import Tree     (buildTree, isEmpty)
 
 import System.IO            (hPrint, stderr)
@@ -73,7 +74,9 @@ main = do
     (opts, args) <- customExecParser (prefs showHelpOnEmpty) parserInfo
     initSignals
     tree <- buildTree args
-    if isEmpty tree
-        then putStrLn "Error: No music files found." *> exitFailure
-        else start opts tree -- never returns
+    when (isEmpty tree) $
+        errorWithoutStackTrace "Error: No music files found."
+    initialize opts tree
+    err <- either id absurd <$> try @SomeException keyLoop
+    shutdown $ Just $ "Input error: " ++ show err
 

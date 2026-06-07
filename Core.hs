@@ -9,8 +9,7 @@
 --
 module Core (
     Options(..),
-    start,
-    shutdown,
+    initialize, shutdown,
     seekLeft, seekRight, upOne, downOne, pause, nextMode, playNext, playPrev,
     forcePause, putMessage, clearMessage, playCursor, playCur,
     jumpToPlaying, jump, jumpRel,
@@ -35,9 +34,6 @@ import Tree hiding (File, Dir)
 import qualified Tree (File,Dir)
 import qualified UI
 
-import Text.Regex.PCRE.Light
-import {-# SOURCE #-} Keymap (keyLoop)
-
 import qualified Data.ByteString.Char8 as P
 import qualified Data.Sequence as Seq
 
@@ -56,6 +52,8 @@ import System.Posix.FilePath    (takeFileName)
 
 import System.Posix.Process     (exitImmediately)
 
+import Text.Regex.PCRE.Light
+
 
 mp3Tool :: String
 mp3Tool =
@@ -73,8 +71,9 @@ data Options = Options
     , optConfigPath :: !(Maybe FilePath) -- ^ override the style.conf location
     }
 
-start :: Options -> Tree -> IO ()
-start opts (Tree folders music) = handle @SomeException (shutdown . Just . show) do
+-- | Sets up state, spawns sub-threads, and starts player.
+initialize :: Options -> Tree -> IO ()
+initialize opts (Tree folders music) = handle @SomeException (shutdown . Just . show) do
 
     config <- UI.start
     bootTime <- getMonoTime
@@ -127,8 +126,6 @@ start opts (Tree folders music) = handle @SomeException (shutdown . Just . show)
 
     playCur
     when (optPaused opts) pause -- TODO use LOADPAUSED?
-
-    run         -- won't restart if this fails!
 
 ------------------------------------------------------------------------
 
@@ -261,12 +258,6 @@ mpgInput field = runForever $ do
         Right m       -> handleMsg m
         Left (Just e) -> warnA ("mpg123: " ++ e)
         _             -> pure ()
-
-------------------------------------------------------------------------
-
--- | The main thread: handle keystrokes fed to us by curses
-run :: IO ()
-run = runForever keyLoop
 
 ------------------------------------------------------------------------
 
@@ -584,7 +575,7 @@ getConfPath = getXdgDirectory XdgConfig $ "hmp3" </> "style.conf"
 
 loadConfig :: IO ()
 loadConfig = do
-    f <- maybe getConfPath pure =<< getsHS configPath
+    f <- fromMaybe <$> getConfPath <*> getsHS configPath
     b <- doesFileExist f
     if b then do
         str' <- readFile f

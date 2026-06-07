@@ -39,7 +39,7 @@ newtype KeyMap = KeyMap (Char -> IO KeyMap)
 -- | Read keys forever and dispatch.  Each round clears the minibuffer
 -- between the keystroke and the action so messages from the previous
 -- action remain visible until the user reacts.
-keyLoop :: IO ()
+keyLoop :: IO Void
 keyLoop = go mainMode where
     go (KeyMap f) = UI.getKey >>= \c -> clearMessage *> f c >>= go
 
