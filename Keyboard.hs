@@ -1,6 +1,6 @@
-{-# OPTIONS -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
--- Copyright (c) 2019-2026 Galen Huntington
+-- Copyright (c) 2019, 2023-2026 Galen Huntington
 -- SPDX-License-Identifier: GPL-2.0-or-later
 
 module Keyboard (unkey, charToKey, Key(..)) where
