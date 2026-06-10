@@ -126,10 +126,11 @@ sift :: [RawFilePath] -> IO ([RawFilePath], [RawFilePath])
 sift []     = pure ([], [])
 sift (p:ps) = do
     it@(fs,ds) <- sift ps
-    isDir <- isDirectory <$> getFileStatus p
-    perm <- fileAccess p True False isDir
-    pure if
-        | not perm -> it
-        | isDir    -> (fs, p:ds)
-        | True     -> (p:fs, ds)
+    handle @IOException (\_ -> pure it) do
+        isDir <- isDirectory <$> getFileStatus p
+        perm <- fileAccess p True False isDir
+        pure if
+            | not perm -> it
+            | isDir    -> (fs, p:ds)
+            | True     -> (p:fs, ds)
 
