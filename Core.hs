@@ -281,7 +281,7 @@ shutdown ms = do
         void $ waitForProcess pid
     UI.end
     whenJust ms \s -> hPutStrLn stderr s *> hFlush stderr
-    exitImmediately ExitSuccess
+    exitImmediately $ maybe ExitSuccess (const $ ExitFailure 1) ms
 
 ------------------------------------------------------------------------
 -- 
