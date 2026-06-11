@@ -43,7 +43,7 @@ import Data.Tuple               (swap)
 import Control.Monad.State.Strict
 import System.Directory         (doesFileExist, findExecutable, createDirectoryIfMissing,
                                  getXdgDirectory, XdgDirectory(..))
-import System.IO                (hPutStrLn, hGetLine, stderr, hFlush)
+import System.IO                (hPutStrLn, hGetLine, stderr)
 import System.Process           (runInteractiveProcess, waitForProcess)
 import System.Clock             (TimeSpec(..), diffTimeSpec)
 import System.Random            (randomR, newStdGen)
@@ -273,8 +273,9 @@ shutdown ms = do
         discardErrors $ sendMpg Quit
         void $ waitForProcess pid
     UI.end
-    whenJust ms \s -> hPutStrLn stderr s *> hFlush stderr
-    exitImmediately ExitSuccess
+    exitImmediately =<< case ms of
+        Just s -> hPutStrLn stderr s *> pure (ExitFailure 1)
+        _      -> pure ExitSuccess
 
 ------------------------------------------------------------------------
 -- 
