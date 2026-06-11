@@ -27,7 +27,7 @@ import Syntax
 import Config
 import Width                    (displayWidth, toMaxWidth, toWidth)
 import qualified UI.HSCurses.Curses as Curses
-import {-# SOURCE #-} Keymap    (unkey, charToKey)
+import Keyboard                 (unkey, charToKey)
 
 import Data.Array               ((!), bounds, Array)
 import Data.Array.Base          (unsafeAt)

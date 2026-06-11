@@ -9,6 +9,7 @@ import Base
 
 import Core     (start, shutdown, Options(..))
 import qualified Config
+import Keymap   (keyLoop)
 import Tree     (buildTree, isEmpty)
 
 import System.IO            (hPrint, stderr)
@@ -71,9 +72,12 @@ parserInfo = info (invocation <**> versionOpt <**> helper) $
 main :: IO ()
 main = do
     (opts, args) <- customExecParser (prefs showHelpOnEmpty) parserInfo
-    initSignals
     tree <- buildTree args
-    if isEmpty tree
-        then putStrLn "Error: No music files found." *> exitFailure
-        else start opts tree -- never returns
+    when (isEmpty tree) $
+        errorWithoutStackTrace "Error: No music files found."
+    initSignals
+    err <- either id absurd <$> try @SomeException do
+        start opts tree
+        keyLoop
+    shutdown $ Just $ "Error: " ++ show err
 

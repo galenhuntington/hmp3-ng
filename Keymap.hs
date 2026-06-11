@@ -1,5 +1,3 @@
-{-# OPTIONS -Wno-orphans #-}
-
 -- Copyright (c) 2004-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- Copyright (c) 2008, 2019-2026 Galen Huntington
 -- SPDX-License-Identifier: GPL-2.0-or-later
@@ -18,11 +16,10 @@ import Base
 
 import Core
 import Config (package)
+import Keyboard (unkey, charToKey, Key(..))
 import State (getsHS, modifyHS_, KeysHelp, Modal(..), HState(..))
 import Style (defaultSty, StringA(Fast))
 import qualified UI (getKey, resetui)
-
-import UI.HSCurses.Curses (Key(..), decodeKey)
 
 import qualified Data.ByteString.Char8 as P
 import qualified Data.ByteString.UTF8 as UTF8
@@ -39,7 +36,7 @@ newtype KeyMap = KeyMap (Char -> IO KeyMap)
 -- | Read keys forever and dispatch.  Each round clears the minibuffer
 -- between the keystroke and the action so messages from the previous
 -- action remain visible until the user reacts.
-keyLoop :: IO ()
+keyLoop :: IO Void
 keyLoop = go mainMode where
     go (KeyMap f) = UI.getKey >>= \c -> clearMessage *> f c >>= go
 
@@ -131,26 +128,6 @@ zipUp   (Zipper c (nx:rest) f)  = Zipper nx rest (c:f)
 zipUp   z                       = z
 zipDown (Zipper c b (pv:rest))  = Zipper pv (c:b) rest
 zipDown z                       = z
-
-
-------------------------------------------------------------------------
--- Char ↔ Key translation
---
--- ncurses delivers special keys as integer codes ≥ 256; for everything
--- in 0..255 'decodeKey' returns 'KeyChar (chr n)'.  We keep working in
--- 'Char' (UI.getKey's type), so we extend the range up to '\500' to
--- cover the named keys we actually use (KEY_RESIZE is around 410).
-
-deriving stock instance Ord Key
-
-charToKey :: Char -> Key
-charToKey = decodeKey . toEnum . fromEnum
-
-keyCharMap :: M.Map Key Char
-keyCharMap = M.fromList [(charToKey c, c) | c <- ['\0' .. '\500']]
-
-unkey :: Key -> Char
-unkey k = fromMaybe '\0' $ M.lookup k keyCharMap
 
 enter', delete' :: [Char]
 enter'  = ['\n', '\r']
