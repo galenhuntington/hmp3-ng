@@ -79,7 +79,7 @@ start opts (Tree folders music) = do
         -- An uncaught exception here would deadlock.
         -- XXX more state model revisions should obviate need
         hPutStrLn stderr $ "Curses failed to start: " ++ show err
-        exitImmediately (ExitFailure 1) *> error "Unix <2.8"
+        exitImmediately $ ExitFailure 1
     bootTime <- getMonoTime
     let size = length music
     mode <- readState
