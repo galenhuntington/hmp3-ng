@@ -75,7 +75,11 @@ data Options = Options
 start :: Options -> Tree -> IO ()
 start opts (Tree folders music) = do
 
-    config <- UI.start
+    config <- catch @SomeException UI.start \err -> do
+        -- An uncaught exception here would deadlock.
+        -- XXX more state model revisions should obviate need
+        hPutStrLn stderr $ "Curses failed to start: " ++ show err
+        exitImmediately (ExitFailure 1) *> error "Unix <2.8"
     bootTime <- getMonoTime
     let size = length music
     mode <- readState
