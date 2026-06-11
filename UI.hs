@@ -369,8 +369,8 @@ playTitle dd =
     rsize   = 2 + P.length time + P.length ver
     side    = (x - modlen) `div` 2
     gap     = x - modlen - lsize - rsize
-    gapl    = 1 `max` ((side - lsize) `min` gap)
-    gapr    = 1 `max` (gap - gapl)
+    gapl    = 1 `max` ((side - lsize) `min` (gap - 1))
+    gapr    = gap - gapl
     modlen  = 6 -- length modes
     hl      = titlebar . config $ drawState dd
 
