@@ -34,7 +34,6 @@ data HState = HState
     , current         :: !Int                  -- currently playing mp3
     , cursor          :: !Int                  -- mp3 under the cursor
     , clock           :: !(Maybe Frame)        -- current clock value
-    , clockUpdate     :: !Bool
     , randomGen       :: !StdGen               -- random seed
     , mpgPid          :: !(Maybe ProcessHandle) -- pid of decoder
     , spawns          :: !Integer              -- count of decoder spawns

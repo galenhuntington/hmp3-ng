@@ -84,7 +84,6 @@ start opts (Tree folders music) = do
         [ mpgLoop
         , mpgInput
         , refreshLoop
-        , clockLoop
         , uptimeLoop
         , errorLoop
         ]
@@ -110,7 +109,6 @@ start opts (Tree folders music) = do
         , modal        = Nothing
         , playHist     = mempty
         , searchHist   = []
-        , clockUpdate  = False
         , miniFocused  = False
         , exiting      = False
         , status       = Stopped
@@ -230,12 +228,6 @@ showTimeDiff = showTimeDiff_ False
 
 ------------------------------------------------------------------------
 
--- | Periodically wake up and redraw the clock
-clockLoop :: IO ()
-clockLoop = runForever $ threadDelay 125_000 *> UI.refreshClock
-
-------------------------------------------------------------------------
-
 -- | Handle, and display errors produced by mpg123
 errorLoop :: IO ()
 errorLoop = runForever $
@@ -290,7 +282,7 @@ handleMsg (S t) = do
 
 handleMsg (R f) = do
     silentlyModifyHS \st -> st { clock = Just f }
-    getsHS clockUpdate >>= flip when UI.refreshClock
+    UI.refreshClock
 
 ------------------------------------------------------------------------
 --
@@ -308,15 +300,11 @@ seekRight = seek \g -> currentFrame g + min 400 (framesLeft g)
 seekStart :: IO ()
 seekStart = seek $ const 0
 
-
 -- | Generic seek
 seek :: (Frame -> Int) -> IO ()
 seek fn = do
     mfr <- getsHS clock
-    whenJust mfr \fr -> do
-        sendMpg $ Jump (fn fr)
-        silentlyModifyHS $ \st -> st { clockUpdate = True }
-
+    whenJust mfr \fr -> sendMpg $ Jump $ fn fr
 
 ------------------------------------------------------------------------
 
