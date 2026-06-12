@@ -59,10 +59,7 @@ This is still a work in progress.  Let me know if there are problems.
 
 Either `cabal install` or `stack install` will build a binary.
 You will need to have `mpg123` installed, which is free software and
-widely available in package managers.  Alternatively, `mpg321` can
-be used by compiling with the `-DMPG321` option.  In my experience,
-the latter worked better, but it too is abandoned, with no update
-since 2012, and is no longer available on many systems.
+widely available in package managers.
 
 The build depends on the package `hscurses`, which in turn requires
 curses dev files.  In Ubuntu/Debian, for example, these can be obtained

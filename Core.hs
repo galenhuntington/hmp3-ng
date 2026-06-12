@@ -1,5 +1,3 @@
-{-# LANGUAGE CPP #-}
-
 -- Copyright (c) 2005-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- Copyright (c) 2008, 2019-2026 Galen Huntington
 -- SPDX-License-Identifier: GPL-2.0-or-later
@@ -56,12 +54,7 @@ import Text.Regex.PCRE.Light
 
 
 mp3Tool :: String
-mp3Tool =
-#ifdef MPG321
-    "mpg321"
-#else
-    "mpg123"
-#endif
+mp3Tool = "mpg123"
 
 ------------------------------------------------------------------------
 
@@ -89,12 +82,11 @@ start opts (Tree folders music) = do
 
     threads <- traverse forkIO
         [ mpgLoop
-        , mpgInput readh
+        , mpgInput
         , refreshLoop
         , clockLoop
         , uptimeLoop
-        -- mpg321 uses stderr for @F messages
-        , if mp3Tool == "mpg321" then mpgInput errh else errorLoop
+        , errorLoop
         ]
 
     putMVar hState HState
@@ -255,9 +247,9 @@ errorLoop = runForever $
 -- shutdown kills the other end of the pipe, hGetLine will fail, so we
 -- take that chance to exit.
 --
-mpgInput :: (Mpg -> Handle) -> IO ()
-mpgInput field = runForever $ do
-    line <- P.hGetLine =<< field <$> readMVar mpg
+mpgInput :: IO ()
+mpgInput = runForever $ do
+    line <- P.hGetLine =<< readh <$> readMVar mpg
     case mpgParser line of
         Right m       -> handleMsg m
         Left (Just e) -> warnA ("mpg123: " ++ e)
