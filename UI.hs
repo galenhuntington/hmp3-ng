@@ -459,7 +459,6 @@ redrawJustClock = Draw $ discardErrors do
     drawLine $ progressBar dd
     Curses.wMove Curses.stdScr 2 0   -- hardcoded!
     drawLine $ pTimes dd
-    when (h < 45) $ renderModals st (Size h w) -- small screen modals paint over clock
 
 ------------------------------------------------------------------------
 -- | General modal renderer.
@@ -467,11 +466,11 @@ renderModal :: HState -> Size -> ModalMaker -> IO ()
 renderModal st (Size h w) mkr = do
     let (mw, modal') = mkr w
         hoffset = max 0 $ (w - mw) `div` 2
-        mlines  = min h $ length modal'
-        voffset = (h - mlines) `div` 2
+        vislines = (h - 5) `min` length modal'
+        voffset = ((h - vislines) `div` 2) `max` 4
         sty = modals $ config st
     Curses.wMove Curses.stdScr voffset hoffset
-    for_ (take mlines modal') \t -> do
+    for_ (take vislines modal') \t -> do
         drawLine $ Fast (toWidth mw t) sty
         (y', _) <- Curses.getYX Curses.stdScr
         Curses.wMove Curses.stdScr (y'+1) hoffset
