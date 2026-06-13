@@ -36,6 +36,7 @@ common opts
 
   ghc-options:
     -Wall
+    -Wprepositive-qualified-module
     -funbox-strict-fields
 
 library
