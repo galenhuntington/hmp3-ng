@@ -21,7 +21,7 @@ module UI (
 import Base
 
 import Style
-import Tree                     (File(fdir, fbase), Dir(dname))
+import Playlist                 (File(fdir, fbase), Dir(dname))
 import State
 import Syntax
 import Config

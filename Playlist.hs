@@ -2,11 +2,7 @@
 -- Copyright (c) 2019-2020, 2025-2026 Galen Huntington
 -- SPDX-License-Identifier: GPL-2.0-or-later
 
---
--- functions for manipulating file trees
---
-
-module Tree (module Tree, RawFilePath) where
+module Playlist (module Playlist, RawFilePath) where
 
 import Base
 
@@ -38,13 +34,13 @@ data File =
     File { fbase :: !RawFilePath      -- ^ basename of file
          , fdir  :: !Int }          -- ^ index of Dir entry 
 
-data Tree = Tree !DirArray !FileArray
+data Playlist = Playlist !DirArray !FileArray
 
 --
 -- | Given the start directories, populate the dirs and files arrays
 --
-buildTree :: [RawFilePath] -> IO Tree
-buildTree fs = do
+buildPlaylist :: [RawFilePath] -> IO Playlist
+buildPlaylist fs = do
     -- note we will lose the ordering of files given on cmd line.
     (os, dirs) <- catch @SomeException (sift fs)
         \e -> print e *> exitWith (ExitFailure 1)
@@ -64,11 +60,11 @@ buildTree fs = do
         dirsArray = listArray (0,length dirls - 1) (reverse dirls)
         fileArray = listArray (0, n-1) (reverse filels)
 
-    pure $! Tree dirsArray fileArray
+    pure $! Playlist dirsArray fileArray
 
--- | Is the tree empty?
-isEmpty :: Tree -> Bool
-isEmpty (Tree _ files) = null files
+-- | Is the playlist empty?
+isEmpty :: Playlist -> Bool
+isEmpty (Playlist _ files) = null files
 
 -- | Create nodes based on dirname for orphan files on cmdline
 doOrphans :: [RawFilePath] -> [(RawFilePath, [RawFilePath])]
