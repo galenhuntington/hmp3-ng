@@ -11,7 +11,7 @@ module Syntax where
 
 import Base
 
-import qualified Data.ByteString.Char8 as P
+import Data.ByteString.Char8 qualified as P
 
 ------------------------------------------------------------------------
 --

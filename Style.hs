@@ -9,8 +9,8 @@
 module Style where
 
 import Base
-import qualified UI.HSCurses.Curses as Curses
-import qualified Data.Map as M
+import UI.HSCurses.Curses qualified as Curses
+import Data.Map qualified as M
 
 ------------------------------------------------------------------------
 

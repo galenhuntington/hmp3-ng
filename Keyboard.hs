@@ -7,7 +7,7 @@ module Keyboard (unkey, charToKey, Key(..)) where
 
 import Base
 
-import qualified Data.Map.Strict as M
+import Data.Map.Strict qualified as M
 import UI.HSCurses.Curses (Key(..), decodeKey)
 
 ------------------------------------------------------------------------

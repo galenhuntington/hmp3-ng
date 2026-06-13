@@ -3,7 +3,7 @@ module LexerSpec (tests) where
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import qualified Data.ByteString.Char8 as P
+import Data.ByteString.Char8 qualified as P
 
 import Lexer (mpgParser)
 import Syntax
