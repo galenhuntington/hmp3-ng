@@ -10,7 +10,7 @@ import Base
 import Core     (start, shutdown, Options(..))
 import qualified Config
 import Keymap   (keyLoop)
-import Tree     (buildTree, isEmpty)
+import Playlist (buildPlaylist, isEmpty)
 
 import System.IO            (hPrint, stderr)
 import System.Posix.Signals (installHandler, sigTERM, sigPIPE, sigINT, sigHUP
@@ -72,12 +72,12 @@ parserInfo = info (invocation <**> versionOpt <**> helper) $
 main :: IO ()
 main = do
     (opts, args) <- customExecParser (prefs showHelpOnEmpty) parserInfo
-    tree <- buildTree args
-    when (isEmpty tree) $
+    list <- buildPlaylist args
+    when (isEmpty list) $
         errorWithoutStackTrace "Error: No music files found."
     initSignals
     err <- either id absurd <$> try @SomeException do
-        start opts tree
+        start opts list
         keyLoop
     shutdown $ Just $ "Error: " ++ show err
 

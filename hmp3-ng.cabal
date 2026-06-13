@@ -48,10 +48,10 @@ library
     Keyboard
     Keymap
     Lexer
+    Playlist
     State
     Style
     Syntax
-    Tree
     UI
     Width
 
@@ -103,8 +103,8 @@ test-suite test
     ConfigSpec
     CoreSpec
     LexerSpec
+    PlaylistSpec
     StyleSpec
-    TreeSpec
     WidthSpec
 
   build-depends:

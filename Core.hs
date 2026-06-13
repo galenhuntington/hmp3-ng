@@ -28,8 +28,7 @@ import Syntax
 import Lexer (mpgParser)
 import State
 import Style
-import Tree hiding (File, Dir)
-import qualified Tree (File,Dir)
+import Playlist
 import qualified UI
 
 import qualified Data.ByteString.Char8 as P
@@ -65,8 +64,8 @@ data Options = Options
     }
 
 -- | Sets up state, spawns sub-threads, and starts player.
-start :: Options -> Tree -> IO ()
-start opts (Tree folders music) = do
+start :: Options -> Playlist -> IO ()
+start opts (Playlist folders music) = do
 
     config <- catch @SomeException UI.start \err -> do
         -- An uncaught exception here would deadlock.
@@ -460,8 +459,8 @@ jumpToDir fn = modifyHS_ $ \st -> if size st == 0 then st else
 -- in the regex search stuff below
 --
 class Lookup a       where extract :: a -> RawFilePath
-instance Lookup Tree.Dir  where extract = takeFileName . dname
-instance Lookup Tree.File where extract = fbase
+instance Lookup Dir  where extract = takeFileName . dname
+instance Lookup File where extract = fbase
 
 jumpToMatchFile :: Maybe String -> Bool -> IO ()
 jumpToMatchFile re sw = genericJumpToMatch re sw k sel

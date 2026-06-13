@@ -1,12 +1,12 @@
-module TreeSpec (tests) where
+module PlaylistSpec (tests) where
 
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import Tree (doOrphans, merge)
+import Playlist (doOrphans, merge)
 
 tests :: TestTree
-tests = testGroup "Tree"
+tests = testGroup "Playlist"
     [ testGroup "doOrphans"
         [ testCase "empty"
             $ doOrphans []                       @?= []
@@ -36,3 +36,4 @@ tests = testGroup "Tree"
             $ merge [("a", ["1"]), ("b", ["2"]), ("a", ["3"])]   @?= [("a", ["1", "3"]), ("b", ["2"])]
         ]
     ]
+

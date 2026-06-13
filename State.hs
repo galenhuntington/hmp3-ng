@@ -10,7 +10,7 @@ module State where
 import Base
 
 import Syntax                   (Status, Mode, Frame, Info, Id3, Pretty(ppr))
-import Tree                     (FileArray, DirArray)
+import Playlist                 (FileArray, DirArray)
 import Style                    (StringA, UIStyle)
 
 import Data.ByteString          (hPut)
