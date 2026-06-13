@@ -47,9 +47,9 @@ keyLoop = go mainMode where
 mainMode :: KeyMap
 mainMode = KeyMap \c -> getsHS modal >>= \case
 
-    Just ExitModal -> case c of
-        'y' -> shutdown Nothing $> undefined -- shutdown never returns
-        _   -> closeModal $> mainMode
+    Just ExitModal
+        | c `elem` ['y', 'Y', '\^C'] -> shutdown Nothing $> undefined
+        | True                       -> closeModal $> mainMode
 
     Just (HistModal hist) -> do
         for_ (M.lookup c historyKeyMap >>= (hist !?)) (jump . fst . snd)
@@ -60,7 +60,7 @@ mainMode = KeyMap \c -> getsHS modal >>= \case
             toggleFocus
             hist <- getsHS searchHist
             searchMode c $ Zipper "" hist []
-        | c == 'q' ->
+        | c `elem` ['q', '\^C'] ->
             forcePause *> setsModal (const $ Just ExitModal) $> mainMode
         | c `elem` ['H', ';'] ->
             showHist $> mainMode
