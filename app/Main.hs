@@ -12,9 +12,8 @@ import Config qualified
 import Keymap   (keyLoop)
 import Playlist (buildPlaylist, isEmpty)
 
-import System.IO            (hPrint, stderr)
-import System.Posix.Signals (installHandler, sigTERM, sigPIPE, sigINT, sigHUP
-                            ,sigALRM, sigABRT, Handler(Ignore, Default, Catch))
+import System.Posix.Signals (installHandler, Handler(Ignore, Default, Catch),
+                             sigTERM, sigPIPE, sigINT, sigHUP , sigALRM, sigABRT)
 
 import Data.ByteString.UTF8 qualified as UTF8
 
@@ -35,8 +34,7 @@ initSignals = do
 exitHandler :: IO ()
 exitHandler = do
     releaseSignals  -- in case shutdown itself gets stuck
-    catch @SomeException (shutdown Nothing) (hPrint stderr)
-    exitWith $ ExitFailure 1
+    shutdown $ Just "Killed"
 
 releaseSignals :: IO ()
 releaseSignals =

@@ -249,17 +249,16 @@ mpgInput = runForever $ do
 ------------------------------------------------------------------------
 
 -- | Close most things. Important to do all the jobs:
--- TODO maybe releaseSignals here in case mpg is frozen?
---   and/or move UI.end up?
+-- TODO maybe releaseSignals here?
 shutdown :: Maybe String -> IO ()
 shutdown ms = do
+    UI.end
     silentlyModifyHS $ \st -> st { exiting = True }
     discardErrors writeState
     mpid <- getsHS mpgPid
     whenJust mpid \pid -> do
         discardErrors $ sendMpg Quit
         void $ waitForProcess pid
-    UI.end
     exitImmediately =<< case ms of
         Just s -> hPutStrLn stderr s *> pure (ExitFailure 1)
         _      -> pure ExitSuccess
