@@ -2,12 +2,12 @@ module Main (main) where
 
 import Test.Tasty
 
-import qualified ConfigSpec
-import qualified CoreSpec
-import qualified LexerSpec
-import qualified PlaylistSpec
-import qualified StyleSpec
-import qualified WidthSpec
+import ConfigSpec qualified
+import CoreSpec qualified
+import LexerSpec qualified
+import PlaylistSpec qualified
+import StyleSpec qualified
+import WidthSpec qualified
 
 main :: IO ()
 main = defaultMain $ testGroup "hmp3-ng"

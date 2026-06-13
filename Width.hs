@@ -7,8 +7,8 @@ module Width (displayWidth, toMaxWidth, toWidth) where
 
 import Base
 
-import qualified Data.ByteString.Char8 as P
-import qualified Data.ByteString.UTF8 as UTF8
+import Data.ByteString.Char8 qualified as P
+import Data.ByteString.UTF8 qualified as UTF8
 
 import Foreign.C.Types
 

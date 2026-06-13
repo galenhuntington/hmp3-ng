@@ -19,11 +19,11 @@ import Config (package)
 import Keyboard (unkey, charToKey, Key(..))
 import State (getsHS, modifyHS_, KeysHelp, Modal(..), HState(..))
 import Style (defaultSty, StringA(Fast))
-import qualified UI (getKey, resetui)
+import UI qualified (getKey, resetui)
 
-import qualified Data.ByteString.Char8 as P
-import qualified Data.ByteString.UTF8 as UTF8
-import qualified Data.Map.Strict as M
+import Data.ByteString.Char8 qualified as P
+import Data.ByteString.UTF8 qualified as UTF8
+import Data.Map.Strict qualified as M
 
 
 ------------------------------------------------------------------------

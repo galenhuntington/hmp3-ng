@@ -8,7 +8,7 @@ module Main where
 import Base
 
 import Core     (start, shutdown, Options(..))
-import qualified Config
+import Config qualified
 import Keymap   (keyLoop)
 import Playlist (buildPlaylist, isEmpty)
 
@@ -16,7 +16,7 @@ import System.IO            (hPrint, stderr)
 import System.Posix.Signals (installHandler, sigTERM, sigPIPE, sigINT, sigHUP
                             ,sigALRM, sigABRT, Handler(Ignore, Default, Catch))
 
-import qualified Data.ByteString.UTF8 as UTF8
+import Data.ByteString.UTF8 qualified as UTF8
 
 import Options.Applicative
 

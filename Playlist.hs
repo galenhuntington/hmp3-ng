@@ -6,8 +6,8 @@ module Playlist (module Playlist, RawFilePath) where
 
 import Base
 
-import qualified Data.ByteString.Char8 as P
-import qualified Data.Map.Strict as M
+import Data.ByteString.Char8 qualified as P
+import Data.Map.Strict qualified as M
 
 import Data.Array
 import System.Posix.FilePath

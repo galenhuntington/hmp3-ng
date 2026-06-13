@@ -26,7 +26,7 @@ import State
 import Syntax
 import Config
 import Width                    (displayWidth, toMaxWidth, toWidth)
-import qualified UI.HSCurses.Curses as Curses
+import UI.HSCurses.Curses qualified as Curses
 import Keyboard                 (unkey, charToKey)
 
 import Data.Array               ((!), bounds, Array)
@@ -39,9 +39,9 @@ import Foreign.C.String
 import Foreign.C.Types
 import Foreign.C.Error (Errno(..), getErrno)
 
-import qualified Data.ByteString.Char8 as P
-import qualified Data.ByteString.Unsafe as P
-import qualified Data.ByteString.UTF8 as UTF8
+import Data.ByteString.Char8 qualified as P
+import Data.ByteString.Unsafe qualified as P
+import Data.ByteString.UTF8 qualified as UTF8
 
 
 -- Write u-strings like it's Python 2.

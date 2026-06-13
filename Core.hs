@@ -29,10 +29,10 @@ import Lexer (mpgParser)
 import State
 import Style
 import Playlist
-import qualified UI
+import UI qualified
 
-import qualified Data.ByteString.Char8 as P
-import qualified Data.Sequence as Seq
+import Data.ByteString.Char8 qualified as P
+import Data.Sequence qualified as Seq
 
 import Data.Array               ((!), bounds, Array)
 import Data.Proxy

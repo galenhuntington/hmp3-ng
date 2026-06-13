@@ -9,8 +9,8 @@ module Lexer ( mpgParser ) where
 import Base
 import Syntax (Msg(..), Status(..), Frame(..), Info(..), Id3(..), Tag(..))
 
-import qualified Data.ByteString.Char8 as P
-import qualified Data.ByteString.UTF8 as UTF8
+import Data.ByteString.Char8 qualified as P
+import Data.ByteString.UTF8 qualified as UTF8
 
 ------------------------------------------------------------------------
 
