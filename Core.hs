@@ -453,10 +453,8 @@ jumpToDir fn = modifyHS_ $ \st -> if size st == 0 then st else
 
 ------------------------------------------------------------------------
 
---
 -- a bit of bounded parametric polymorphism so we can abstract over record selectors
 -- in the regex search stuff below
---
 class Lookup a       where extract :: a -> RawFilePath
 instance Lookup Dir  where extract = takeFileName . dname
 instance Lookup File where extract = fbase
@@ -479,25 +477,20 @@ genericJumpToMatch :: Lookup a
                    -> (HState -> (Array Int a, Int, Int))
                    -> (Int -> HState -> Int)
                    -> IO ()
-
 genericJumpToMatch re sw k sel = do
-    found <- modifyHS $ \st -> do
-        let mre = case re of
-                Nothing -> case regex st of
-                    Nothing     -> Nothing
-                    Just (r, d) -> Just (r, d==sw)
-                Just s  -> case compileM (P.pack s) [caseless, utf8] of
-                    Left _      -> Nothing
-                    Right v     -> Just (v, sw)
-        flip (maybe (st, False)) mre \ (p, forwards) -> do
+    found <- modifyHS \st -> let
+        mre = case re of
+            Nothing -> (\(r, d) -> (st, r, d == sw)) <$> regex st
+            Just s  -> case compileM (P.pack s) [caseless, utf8] of
+                Left _      -> Nothing
+                Right v     -> Just (st { regex = Just (v, sw) }, v, sw)
+        in flip (maybe (st, False)) mre \(st', p, forwards) -> do
             let (fs, cur, m) = k st
                 l = if forwards then [cur+1..m-1] ++ [0..cur]
                                 else [cur-1,cur-2..0] ++ [m-1,m-2..cur]
-                st' = st { regex = Just (p, forwards==sw) }
             case [ i | i <- l, isJust $ match p (extract (fs ! i)) [] ] of
                 i:_ -> (st' { cursor = sel i st }, True)
                 _   -> (st', False)
-
     unless found $ putMessage $ Fast "No match found." defaultSty
 
 ------------------------------------------------------------------------
