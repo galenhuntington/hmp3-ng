@@ -16,7 +16,7 @@ import Base
 
 import Core
 import Config (package)
-import Keyboard (unkey, charToKey, Key(..))
+import Keyboard (unkey, charToKey, Key(..), historyKeys)
 import State (getsHS, modifyHS_, KeysHelp, Modal(..), HState(..))
 import Style (defaultSty, StringA(Fast))
 import UI qualified (getKey, resetui)
@@ -70,7 +70,7 @@ mainMode = KeyMap \c -> getsHS modal >>= \case
 
 
 historyKeyMap :: M.Map Char Int
-historyKeyMap = M.fromList $ zip (['0'..'9'] ++ ['a'..'z']) [0..]
+historyKeyMap = M.fromList $ zip (toList historyKeys) [0..]
 
 
 ------------------------------------------------------------------------

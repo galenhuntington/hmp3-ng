@@ -14,7 +14,6 @@ import Playlist                 (FileArray, DirArray)
 import Style                    (StringA, UIStyle)
 
 import Data.ByteString          (hPut)
-import Data.Sequence            (Seq)
 import System.Clock             (TimeSpec(..))
 import System.IO                (hFlush)
 import System.Process           (ProcessHandle)
@@ -50,6 +49,7 @@ data HState = HState
     , searchHist      :: ![String]
     , exiting         :: !Bool                 -- let mpg123 die?
     , playHist        :: !(Seq (TimeSpec, Int))
+    , histSize        :: Int
     , config          :: !UIStyle
     }
 

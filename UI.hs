@@ -27,7 +27,7 @@ import Syntax
 import Config
 import Width                    (displayWidth, toMaxWidth, toWidth)
 import UI.HSCurses.Curses qualified as Curses
-import Keyboard                 (unkey, charToKey)
+import Keyboard                 (unkey, charToKey, historyKeys)
 
 import Data.Array               ((!), bounds, Array)
 import Data.Array.Base          (unsafeAt)
@@ -235,13 +235,15 @@ helpModal help swd = (wd, map showLine help) where
 ------------------------------------------------------------------------
 
 histModal :: HistDisplay -> ModalMaker
+histModal []   _   = let s = "  No history  " in (P.length s, [s])
 histModal hist swd = do
     let wd = commonModalWidth swd
-        mtlen = maximum $ 0 : map (displayWidth . fst) hist
+        mtlen = maximum $ map (displayWidth . fst) hist
         tlen = min (mtlen + 1) $ wd `div` 3
-    (wd,) $ flip map (zip (['0'..'9']++['a'..'z']) hist) \ (c, (time, (_, song))) ->
+    (wd, [
         let tstr = toMaxWidth tlen $ P.replicate (tlen - displayWidth time) ' ' <> time
         in mconcat [" ", P.singleton c, " ", tstr, " ", song]
+        | (c, (time, (_, song))) <- zip (toList historyKeys ++ repeat ' ') hist ])
 
 ------------------------------------------------------------------------
 
@@ -484,9 +486,7 @@ renderModals st sz =
         ExitModal   -> exitModal
 
 ------------------------------------------------------------------------
---
 -- | Draw the screen
---
 redraw :: Draw
 redraw = Draw $ discardErrors {- TODO what errors are discarded? -} do
     st <- getsHS id    -- another refresh could be triggered?
@@ -516,9 +516,7 @@ redraw = Draw $ discardErrors {- TODO what errors are discarded? -} do
         -- todo rendering bug here when deleting backwards in minibuffer
 
 ------------------------------------------------------------------------
---
 -- | Draw a coloured (or not) string to the screen
---
 drawLine :: StringA -> IO ()
 drawLine (Fast ps sty) = drawSegment ps sty
 drawLine (FancyS ls)   = traverse_ (uncurry drawSegment) ls

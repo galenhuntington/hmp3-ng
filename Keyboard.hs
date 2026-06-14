@@ -3,11 +3,12 @@
 -- Copyright (c) 2019, 2023-2026 Galen Huntington
 -- SPDX-License-Identifier: GPL-2.0-or-later
 
-module Keyboard (unkey, charToKey, Key(..)) where
+module Keyboard (unkey, charToKey, Key(..), historyKeys) where
 
 import Base
 
 import Data.Map.Strict qualified as M
+import Data.Sequence qualified as Seq
 import UI.HSCurses.Curses (Key(..), decodeKey)
 
 ------------------------------------------------------------------------
@@ -28,4 +29,7 @@ keyCharMap = M.fromList [(charToKey c, c) | c <- ['\0' .. '\500']]
 
 unkey :: Key -> Char
 unkey k = fromMaybe '\0' $ M.lookup k keyCharMap
+
+historyKeys :: Seq Char
+historyKeys = Seq.fromList $ ['0'..'9'] ++ ['a'..'z'] ++ filter (/='H') ['A'..'Z']
 
