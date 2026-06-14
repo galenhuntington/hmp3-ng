@@ -61,6 +61,7 @@ mp3Tool = "mpg123"
 data Options = Options
     { optPaused     :: !Bool             -- ^ start in a paused state
     , optConfigPath :: !(Maybe FilePath) -- ^ override the style.conf location
+    , optPlayMode   :: Maybe Mode        -- ^ play mode
     , optHistSize   :: Int               -- ^ history size
     }
 
@@ -75,7 +76,7 @@ start opts (Playlist folders music) = do
         exitImmediately $ ExitFailure 1
     bootTime <- getMonoTime
     let size = length music
-    mode <- readState
+    mode <- maybe readState pure (optPlayMode opts)
     gen <- newStdGen
     let (current, randomGen) =
             if mode == Random then randomR (0, size-1) gen else (0, gen)

@@ -170,7 +170,7 @@ type ModalMaker = Int -> (Int, [ByteString])
 
 ------------------------------------------------------------------------
 
--- | The three lines of the play-mode widget.
+-- | The three lines of the play info widget.
 playScreen :: DrawData -> [StringA]
 playScreen dd = [pPlaying dd, progressBar dd, pTimes dd]
 
@@ -306,26 +306,18 @@ pVersion = P.pack versinfo
 pTime :: DrawData -> ByteString
 pTime = uptime . drawState
 
--- | Play mode
-pMode :: DrawData -> String
-pMode dd = case status (drawState dd) of
+-- | Play state
+pState :: DrawData -> String
+pState dd = case status (drawState dd) of
     Stopped -> "◼"
     Paused  -> "⏸"
     Playing -> "▶"
 
--- | Loop, normal, or random
-pMode2 :: DrawData -> String
-pMode2 dd = case mode (drawState dd) of
-    Random -> "rand"
-    Loop   -> "loop"
-    Once   -> "once"
-    Single -> "sing"
+-- | Play mode
+pMode :: DrawData -> String
+pMode dd = take 4 $ map toLower $ show $ mode $ drawState dd
 
 ------------------------------------------------------------------------
-
--- | The two play-mode glyphs (e.g. "▶ rand") rendered together.
-playModes :: DrawData -> String
-playModes dd = pMode dd ++ ' ' : pMode2 dd
 
 -- | "x/n dir(s)  y/m file(s)" cursor position read-out.
 playInfo :: DrawData -> ByteString
@@ -348,32 +340,31 @@ playInfo dd = mconcat
     curd  = tobs $ 1 + mydir
     numd  = tobs $ 1 + snd (bounds $ folders st)
 
--- | The top title bar: cursor position + play modes + uptime + version.
+-- | The top title bar: cursor position + play indicator + uptime + version.
 playTitle :: DrawData -> StringA
 playTitle dd =
     FancyS $ map (, hl)
         if gap >= 2
-        then [mconcat [" ", inf, spaces gapl], modesBS,
+        then [mconcat [" ", inf, spaces gapl], indic,
                 mconcat [spaces gapr, time, " ", ver, " "]]
-        else let gap' = x - modlen; gapl' = gap' `div` 2
+        else let gap' = x - indicl; gapl' = gap' `div` 2
              in if gap' >= 2
-                then [spaces gapl', modesBS, spaces $ gap' - gapl']
-                else [" ", u $ take (x-2) modes, " "]
+                then [spaces gapl', indic, spaces $ gap' - gapl']
+                else [" ", P.take (x-2) indic, " "]
   where
     inf     = playInfo dd
     time    = pTime dd
-    modes   = playModes dd
+    indic   = u $ pState dd ++ ' ' : pMode dd
     ver     = pVersion
-    modesBS = u modes
 
     x       = sizeW $ drawSize dd
     lsize   = 1 + P.length inf
     rsize   = 2 + P.length time + P.length ver
-    side    = (x - modlen) `div` 2
-    gap     = x - modlen - lsize - rsize
+    side    = (x - indicl) `div` 2
+    gap     = x - indicl - lsize - rsize
     gapl    = 1 `max` ((side - lsize) `min` (gap - 1))
     gapr    = gap - gapl
-    modlen  = 6 -- length modes
+    indicl  = 6 -- length indic
     hl      = titlebar . config $ drawState dd
 
 -- | The scrolling playlist (title + visible tracks + minibuffer).
