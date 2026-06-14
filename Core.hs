@@ -276,7 +276,7 @@ handleMsg (T _)   = pure ()
 handleMsg (I i)   = modifyHS_ $ \s -> s { info = Just i }
 handleMsg (F id3) = modifyHS_ $ \s -> s { id3 = Just id3 }
 
-handleMsg (S t) = do
+handleMsg (P t) = do
     modifyHS_ $ \s -> s { status = t }
     when (t == Stopped) playNext   -- transition to next song
 

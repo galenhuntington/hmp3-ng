@@ -6,7 +6,7 @@
 
 module Decoder (mpgParser,
                 Load(..), Jump(..), Pause(..), Quit(..), Id3(..), Msg(..),
-                Status(..), Mode(..), Frame(..), Info(..), Pretty(..),
+                Status(..), Mode(..), Frame(..), Info(..), Cmd(..),
                ) where
 
 import Base
@@ -15,39 +15,33 @@ import Data.ByteString.Char8 qualified as P
 import Data.ByteString.UTF8 qualified as UTF8
 
 ------------------------------------------------------------------------
---
--- Values we may print out:
+-- Send protocol
 
--- Loads and starts playing <file>
---
+class Cmd a where cmdToBS :: a -> ByteString
+
 newtype Load = Load ByteString
+instance Cmd Load where cmdToBS (Load f) = mconcat ["LOAD ", f]
 
-instance Pretty Load where
-    ppr (Load f) = mconcat ["LOAD ", f]
-
--- If '+' or '-' is specified, jumps <frames> frames forward, or backwards,
--- respectively, in the the mp3 file.  If neither is specifies, jumps to
--- absolute frame <frames> in the mp3 file.
+-- Absolute or relative (+/-) jump.
 newtype Jump = Jump Int
+instance Cmd Jump where cmdToBS (Jump i) = mconcat ["JUMP ", P.pack . show $ i]
 
-instance Pretty Jump where
-    ppr (Jump i) = mconcat ["JUMP ", P.pack . show $ i]
-
--- Pauses the playback of the mp3 file; if already paused, restarts playback.
+-- Pauses or unpauses.
 data Pause = Pause
+instance Cmd Pause where cmdToBS Pause = "PAUSE"
 
-instance Pretty Pause where
-    ppr Pause = "PAUSE"
-
--- Quits mpg123.
 data Quit = Quit
-
-instance Pretty Quit where
-    ppr Quit = "QUIT"
+instance Cmd Quit where cmdToBS Quit = "QUIT"
 
 ------------------------------------------------------------------------
---
--- Values we may have to read back in
+-- Messages sent from decoder
+
+data Msg = T {-# UNPACK #-} !Tag
+         | F                !Id3
+         | I {-# UNPACK #-} !Info
+         | R {-# UNPACK #-} !Frame
+         | P                !Status
+    deriving stock (Eq, Show)
 
 -- mpg123 tagline. Output at startup.
 data Tag = Tag
@@ -82,26 +76,9 @@ data Frame = Frame {
 data Status = Stopped | Paused | Playing
     deriving stock (Eq, Show)
 
+-- TODO does not belong in this file
 data Mode = Once | Loop | Random | Single
     deriving stock (Eq, Bounded, Enum, Show, Read)
-
-------------------------------------------------------------------------
-
--- a pretty printing class
-class Pretty a where
-    ppr :: a -> ByteString
-
---
--- And a wrapper type 
---
-data Msg = T {-# UNPACK #-} !Tag
-         | F                !Id3
-         | I {-# UNPACK #-} !Info
-         | R {-# UNPACK #-} !Frame
-         | S                !Status
-    deriving stock (Eq, Show)
-
-------------------------------------------------------------------------
 
 -- | Strip leading and trailing whitespace.
 trim :: ByteString -> ByteString
@@ -114,9 +91,9 @@ doP :: ByteString -> Maybe Msg
 doP s = do
     (p, _) <- P.uncons s
     case p of
-        '0' -> pure $ S Stopped
-        '1' -> pure $ S Paused
-        '2' -> pure $ S Playing
+        '0' -> pure $ P Stopped
+        '1' -> pure $ P Paused
+        '2' -> pure $ P Playing
         -- recent mpg123 outputs 3 for end of song; don't need
         _   -> Nothing
 
@@ -178,8 +155,6 @@ normalise raw =
     in if UTF8.replacement_char `elem` UTF8.toString bs
         then UTF8.fromString $ P.unpack bs
         else bs
-
-------------------------------------------------------------------------
 
 -- Parse line; on failure, return Just only if error to report.
 mpgParser :: ByteString -> Either (Maybe String) Msg
