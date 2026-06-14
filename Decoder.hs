@@ -6,7 +6,7 @@
 
 module Decoder (mpgParser,
                 Load(..), Jump(..), Pause(..), Quit(..), Id3(..), Msg(..),
-                Status(..), Frame(..), Info(..), Cmd(..),
+                Status(..), Frame(..), Info(..), Cmd(..), Tag(..),
                ) where
 
 import Base
@@ -34,7 +34,7 @@ data Quit = Quit
 instance Cmd Quit where cmdToBS Quit = "QUIT"
 
 ------------------------------------------------------------------------
--- Messages sent from decoder
+-- Receive protocol
 
 data Msg = R {-# UNPACK #-} !Tag
          | I                !Id3
@@ -69,7 +69,8 @@ data Frame = Frame {
     currentFrame   :: !Int,
     framesLeft     :: !Int,
     currentTime    :: !(Fixed E2),
-    timeLeft       :: !(Fixed E2) }
+    timeLeft       :: !(Fixed E2)
+    }
     deriving stock (Eq, Show)
 
 -- Stop/pause status.
@@ -101,7 +102,7 @@ doF s = do
     framesLeft   <- readPS f1
     currentTime  <- readMaybe $ P.unpack f2
     timeLeft     <- max 0 <$> readMaybe (P.unpack f3)
-    pure $ F Frame { currentFrame , framesLeft, currentTime, timeLeft }
+    pure $ F Frame { currentFrame, framesLeft, currentTime, timeLeft }
 
 -- Info about mp3 file after loading.
 -- Breakdown from mpg123 README.remote (as numbers):
@@ -157,11 +158,9 @@ mpgParser :: ByteString -> Either (Maybe String) Msg
 mpgParser line = do
     -- bad packets are generally just \n in ID3 (and not of interest anyway)
     let quiet = maybe (Left Nothing) pure
-
     code <- quiet do
         '@' : c : ' ' : _ <- pure $ P.unpack line
         pure c
-
     let m = P.drop 3 line
     case code of
         'R' -> pure $ R Tag
