@@ -6,7 +6,7 @@
 
 module Decoder (mpgParser,
                 Load(..), Jump(..), Pause(..), Quit(..), Id3(..), Msg(..),
-                Status(..), Mode(..), Frame(..), Info(..), Cmd(..),
+                Status(..), Frame(..), Info(..), Cmd(..),
                ) where
 
 import Base
@@ -22,7 +22,7 @@ class Cmd a where cmdToBS :: a -> ByteString
 newtype Load = Load ByteString
 instance Cmd Load where cmdToBS (Load f) = mconcat ["LOAD ", f]
 
--- Absolute or relative (+/-) jump.
+-- Absolute or relative (+/-; unused) jump.
 newtype Jump = Jump Int
 instance Cmd Jump where cmdToBS (Jump i) = mconcat ["JUMP ", P.pack . show $ i]
 
@@ -75,10 +75,6 @@ data Frame = Frame {
 -- Stop/pause status.
 data Status = Stopped | Paused | Playing
     deriving stock (Eq, Show)
-
--- TODO does not belong in this file
-data Mode = Once | Loop | Random | Single
-    deriving stock (Eq, Bounded, Enum, Show, Read)
 
 -- | Strip leading and trailing whitespace.
 trim :: ByteString -> ByteString

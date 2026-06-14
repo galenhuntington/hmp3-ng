@@ -9,7 +9,7 @@ module State where
 
 import Base
 
-import Decoder                  (Status, Mode, Frame, Info, Id3, Cmd(cmdToBS))
+import Decoder                  (Status, Frame, Info, Id3, Cmd(cmdToBS))
 import Playlist                 (FileArray, DirArray)
 import Style                    (StringA, UIStyle)
 
@@ -52,6 +52,9 @@ data HState = HState
     , histSize        :: Int
     , config          :: !UIStyle
     }
+
+data Mode = Once | Loop | Random | Single
+    deriving stock (Eq, Bounded, Enum, Show, Read)
 
 -- Each is (timestamp-string, (song-index, song-name)).
 type HistDisplay = [(ByteString, (Int, ByteString))]
