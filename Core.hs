@@ -61,6 +61,7 @@ mp3Tool = "mpg123"
 data Options = Options
     { optPaused     :: !Bool             -- ^ start in a paused state
     , optConfigPath :: !(Maybe FilePath) -- ^ override the style.conf location
+    , optHistSize   :: Int               -- ^ history size
     }
 
 -- | Sets up state, spawns sub-threads, and starts player.
@@ -108,6 +109,7 @@ start opts (Playlist folders music) = do
         , modal        = Nothing
         , playHist     = mempty
         , searchHist   = []
+        , histSize     = optHistSize opts
         , miniFocused  = False
         , exiting      = False
         , status       = Stopped
@@ -414,7 +416,7 @@ runPlayOp op = do
                 { current = new
                 , status  = Playing
                 , cursor  = if current == cursor then new else cursor
-                , playHist = Seq.take 36 $ (now, new) Seq.<| playHist
+                , playHist = Seq.take histSize $ (now, new) <| playHist
                 , id3     = Nothing
                 }
             pure f

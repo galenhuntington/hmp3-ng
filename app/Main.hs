@@ -54,6 +54,9 @@ invocation = (,) <$> opts <*> files
         <*> optional (strOption -- temporarily internal since feature needs work
             (long "config" <> short 'c' <> metavar "FILE" <> internal
                 <> help "Read this config file instead of the XDG default"))
+        <*> option auto (
+            long "history" <> short 'h' <> metavar "NUM" <> value 61
+                <> help "Size of play history, up to 61 selectable" <> showDefault)
     files = some $ argument (UTF8.fromString <$> str) (metavar "FILE|DIR...")
 
 parserInfo :: ParserInfo (Options, [ByteString])
