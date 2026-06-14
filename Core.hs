@@ -272,15 +272,15 @@ shutdown ms = do
 --
 handleMsg :: Msg -> IO ()
 
-handleMsg (T _)   = pure ()
-handleMsg (I i)   = modifyHS_ $ \s -> s { info = Just i }
-handleMsg (F id3) = modifyHS_ $ \s -> s { id3 = Just id3 }
+handleMsg (R _)   = pure ()
+handleMsg (S i)   = modifyHS_ $ \s -> s { info = Just i }
+handleMsg (I id3) = modifyHS_ $ \s -> s { id3 = Just id3 }
 
 handleMsg (P t) = do
     modifyHS_ $ \s -> s { status = t }
     when (t == Stopped) playNext   -- transition to next song
 
-handleMsg (R f) = do
+handleMsg (F f) = do
     silentlyModifyHS \st -> st { clock = Just f }
     UI.refreshClock
 

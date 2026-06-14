@@ -36,10 +36,10 @@ instance Cmd Quit where cmdToBS Quit = "QUIT"
 ------------------------------------------------------------------------
 -- Messages sent from decoder
 
-data Msg = T {-# UNPACK #-} !Tag
-         | F                !Id3
-         | I {-# UNPACK #-} !Info
-         | R {-# UNPACK #-} !Frame
+data Msg = R {-# UNPACK #-} !Tag
+         | I                !Id3
+         | S {-# UNPACK #-} !Info
+         | F {-# UNPACK #-} !Frame
          | P                !Status
     deriving stock (Eq, Show)
 
@@ -105,7 +105,7 @@ doF s = do
     framesLeft   <- readPS f1
     currentTime  <- readMaybe $ P.unpack f2
     timeLeft     <- max 0 <$> readMaybe (P.unpack f3)
-    pure $ R Frame { currentFrame , framesLeft, currentTime, timeLeft }
+    pure $ F Frame { currentFrame , framesLeft, currentTime, timeLeft }
 
 -- Info about mp3 file after loading.
 -- Breakdown from mpg123 README.remote (as numbers):
@@ -126,13 +126,13 @@ doS s = do
     let fs = P.split ' ' s
     guard $ length fs >= 11
     hz <- readPS $ fs !! 2
-    pure $ I $ Info $ mconcat [
+    pure $ S $ Info $ mconcat [
         "mpeg ", fs !! 0, " ", fs !! 10, "kbit/s ",
             P.pack $ show $ hz `div` 1000, "kHz"]
 
 -- Track info if ID fields are in the file, otherwise file name.
 doI :: ByteString -> Maybe Msg
-doI s = F <$> do
+doI s = I <$> do
     ("ID3:", info) <- pure $ P.splitAt 4 s
     let id3 = parseId3 info
     guard $ not $ P.null $ id3title id3 -- title sometimes empty
@@ -168,7 +168,7 @@ mpgParser line = do
 
     let m = P.drop 3 line
     case code of
-        'R' -> pure $ T Tag
+        'R' -> pure $ R Tag
         'I' -> quiet $ doI m
         'S' -> quiet $ doS m
         'F' -> quiet $ doF m
