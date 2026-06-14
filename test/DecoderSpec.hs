@@ -1,12 +1,11 @@
-module LexerSpec (tests) where
+module DecoderSpec (tests) where
 
 import Test.Tasty
 import Test.Tasty.HUnit
 
 import Data.ByteString.Char8 qualified as P
 
-import Lexer (mpgParser)
-import Syntax
+import Decoder
 
 -- These exercise the helpers doX, 'trim', and 'normalise'.
 tests :: TestTree

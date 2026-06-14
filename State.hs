@@ -9,7 +9,7 @@ module State where
 
 import Base
 
-import Syntax                   (Status, Mode, Frame, Info, Id3, Pretty(ppr))
+import Decoder                  (Status, Mode, Frame, Info, Id3, Pretty(ppr))
 import Playlist                 (FileArray, DirArray)
 import Style                    (StringA, UIStyle)
 

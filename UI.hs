@@ -23,7 +23,7 @@ import Base
 import Style
 import Playlist                 (File(fdir, fbase), Dir(dname))
 import State
-import Syntax
+import Decoder
 import Config
 import Width                    (displayWidth, toMaxWidth, toWidth)
 import UI.HSCurses.Curses qualified as Curses

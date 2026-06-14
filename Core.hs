@@ -24,8 +24,7 @@ module Core (
 
 import Base
 
-import Syntax
-import Lexer (mpgParser)
+import Decoder
 import State
 import Style
 import Playlist

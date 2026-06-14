@@ -46,13 +46,12 @@ library
     Base
     Config
     Core
+    Decoder
     Keyboard
     Keymap
-    Lexer
     Playlist
     State
     Style
-    Syntax
     UI
     Width
 
@@ -102,7 +101,7 @@ test-suite test
   other-modules:
     ConfigSpec
     CoreSpec
-    LexerSpec
+    DecoderSpec
     PlaylistSpec
     StyleSpec
     WidthSpec
