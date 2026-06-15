@@ -113,7 +113,7 @@ doS s = do
     guard $ length fs >= 11
     hz <- readPS $ fs !! 2
     pure $ S $ Info $ mconcat [
-        "mpeg ", fs !! 0, " ", fs !! 10, "kbit/s ",
+        "mpeg ", fs !! 0, " ", fs !! 10, "kb/s ",
             P.pack $ show $ hz `div` 1000, "kHz"]
 
 -- Track info if ID fields are in the file, otherwise file name.
