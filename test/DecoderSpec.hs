@@ -45,8 +45,7 @@ tests = testGroup "Lexer.mpgParser"
         , tcId3 [s]                  $ Right (I (Id3 s "" "" s))
         ])
     , testGroup "tagline, errors, junk"
-        [ tc "@R a tagline"          $ Right (R Tag)
-        , tc "@E some failure"       $ Left (Just "some failure")
+        [ tc "@E some failure"       $ Left (Just "some failure")
         , tc "garbage"               $ Left Nothing   -- no @ prefix
         , tc "@F"                    $ Left Nothing   -- no space after code
         , tc "@"                     $ Left Nothing

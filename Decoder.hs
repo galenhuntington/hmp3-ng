@@ -6,7 +6,7 @@
 
 module Decoder (
     mpgParser, Cmd(..), cmdToBS,
-    Msg(..), Id3(..), Status(..), Frame(..), Info(..), Tag(..),
+    Msg(..), Id3(..), Status(..), Frame(..), Info(..),
 ) where
 
 import Base
@@ -30,15 +30,10 @@ cmdToBS = \case
 ------------------------------------------------------------------------
 -- Receive messages from mpg123
 
-data Msg = R {-# UNPACK #-} !Tag
-         | I                !Id3
+data Msg = I                !Id3
          | S {-# UNPACK #-} !Info
          | F {-# UNPACK #-} !Frame
          | P                !Status
-    deriving stock (Eq, Show)
-
--- mpg123 tagline. Output at startup.
-data Tag = Tag
     deriving stock (Eq, Show)
 
 -- ID3 info
@@ -157,7 +152,6 @@ mpgParser line = do
         pure c
     let m = P.drop 3 line
     case code of
-        'R' -> pure $ R Tag
         'I' -> quiet $ doI m
         'S' -> quiet $ doS m
         'F' -> quiet $ doF m

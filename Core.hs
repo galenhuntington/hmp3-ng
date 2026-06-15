@@ -272,8 +272,8 @@ shutdown ms = do
 --
 handleMsg :: Msg -> IO ()
 
-handleMsg (R _)   = pure ()
 handleMsg (S i)   = modifyHS_ $ \s -> s { info = Just i }
+
 handleMsg (I id3) = modifyHS_ $ \s -> s { id3 = Just id3 }
 
 handleMsg (P t) = do
