@@ -4,10 +4,10 @@
 
 -- Wire protocol for mpg123
 
-module Decoder (mpgParser,
-                Load(..), Jump(..), Pause(..), Quit(..), Id3(..), Msg(..),
-                Status(..), Frame(..), Info(..), Cmd(..), Tag(..),
-               ) where
+module Decoder (
+    mpgParser, Cmd(..), cmdToBS,
+    Msg(..), Id3(..), Status(..), Frame(..), Info(..), Tag(..),
+) where
 
 import Base
 
@@ -15,26 +15,20 @@ import Data.ByteString.Char8 qualified as P
 import Data.ByteString.UTF8 qualified as UTF8
 
 ------------------------------------------------------------------------
--- Send protocol
+-- Send commands to mpg123
 
-class Cmd a where cmdToBS :: a -> ByteString
+data Cmd = Load ByteString | Jump Int | Pause | Quit
 
-newtype Load = Load ByteString
-instance Cmd Load where cmdToBS (Load f) = mconcat ["L ", f]
-
--- Absolute or relative (+/-; unused) jump.
-newtype Jump = Jump Int
-instance Cmd Jump where cmdToBS (Jump i) = mconcat ["J ", P.pack . show $ i]
-
--- Pauses or unpauses.
-data Pause = Pause
-instance Cmd Pause where cmdToBS Pause = "P"
-
-data Quit = Quit
-instance Cmd Quit where cmdToBS Quit = "Q"
+cmdToBS :: Cmd -> ByteString
+cmdToBS = \case
+    Load f -> mconcat ["L ", f]
+    -- Absolute or relative (+/-; not used here).
+    Jump i -> mconcat ["J ", P.pack . show $ i]
+    Pause  -> "P"  -- (un)pauses
+    Quit   -> "Q"
 
 ------------------------------------------------------------------------
--- Receive protocol
+-- Receive messages from mpg123
 
 data Msg = R {-# UNPACK #-} !Tag
          | I                !Id3

@@ -9,7 +9,7 @@ module State where
 
 import Base
 
-import Decoder                  (Status, Frame, Info, Id3, Cmd(cmdToBS))
+import Decoder                  (Status, Frame, Info, Id3, Cmd, cmdToBS)
 import Playlist                 (FileArray, DirArray)
 import Style                    (StringA, UIStyle)
 
@@ -91,9 +91,9 @@ mpg :: MVar Mpg
 mpg = unsafePerformIO newEmptyMVar
 {-# NOINLINE mpg #-}
 
-sendMpg :: Cmd a => a -> IO ()
-sendMpg s = withMVar mpg $ (. writeh) \h ->
-    hPut h (cmdToBS s) *> hPut h "\n" *> hFlush h
+sendMpg :: Cmd -> IO ()
+sendMpg c = withMVar mpg $ (. writeh) \h ->
+    hPut h (cmdToBS c) *> hPut h "\n" *> hFlush h
 
 ------------------------------------------------------------------------
 -- state accessor functions
