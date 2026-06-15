@@ -1,5 +1,3 @@
-{-# LANGUAGE CPP #-}
-
 -- Copyright (c) 2020-2026 Galen Huntington
 -- SPDX-License-Identifier: GPL-2.0-or-later
 
@@ -41,12 +39,7 @@ discardErrors :: IO () -> IO ()
 discardErrors = X.handle @SomeException (\_ -> pure ())
 
 getMonoTime :: IO TimeSpec
-getMonoTime = getTime
-#if linux_HOST_OS
-    Boottime
-#else
-    Monotonic
-#endif
+getMonoTime = getTime Monotonic
 
 whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
 whenJust = flip $ maybe $ pure ()
