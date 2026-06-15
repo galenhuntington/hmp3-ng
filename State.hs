@@ -9,7 +9,7 @@ module State where
 
 import Base
 
-import Decoder                  (Status, Frame, Info, Id3, Cmd, cmdToBS)
+import Decoder                  (Status, Frame, Id3, Cmd, cmdToBS)
 import Playlist                 (FileArray, DirArray)
 import Style                    (StringA, UIStyle)
 
@@ -38,7 +38,7 @@ data HState = HState
     , spawns          :: !Integer              -- count of decoder spawns
     , threads         :: ![ThreadId]           -- all our threads
     , id3             :: !(Maybe Id3)          -- maybe mp3 id3 info
-    , info            :: !(Maybe Info)         -- mp3 info
+    , info            :: !(Maybe ByteString)   -- mp3 info
     , status          :: !Status
     , minibuffer      :: !StringA              -- contents of minibuffer
     , modal           :: !(Maybe Modal)        -- modal visible

@@ -199,9 +199,7 @@ pId3 DD{drawState=st} = case id3 st of
 
 -- | mp3 information
 pInfo :: DrawData -> ByteString
-pInfo DD{drawState=st} = case info st of
-    Nothing -> "(empty)"
-    Just i  -> userinfo i
+pInfo DD{drawState=st} = fromMaybe "" $ info st
 
 commonModalWidth :: Int -> Int
 commonModalWidth w = max (min w 3) $ round $ fromIntegral w * (0.8::Float)

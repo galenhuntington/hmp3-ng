@@ -6,7 +6,7 @@
 
 module Decoder (
     mpgParser, Cmd(..), cmdToBS,
-    Msg(..), Id3(..), Status(..), Frame(..), Info(..),
+    Msg(..), Id3(..), Status(..), Frame(..),
 ) where
 
 import Base
@@ -31,7 +31,7 @@ cmdToBS = \case
 -- Receive messages from mpg123
 
 data Msg = I                !Id3
-         | S {-# UNPACK #-} !Info
+         | S {-# UNPACK #-} !ByteString
          | F {-# UNPACK #-} !Frame
          | P                !Status
     deriving stock (Eq, Show)
@@ -45,10 +45,6 @@ data Id3 = Id3
 --      , year   :: Maybe ByteString
 --      , genre  :: Maybe ByteString }
         }
-    deriving stock (Eq, Show)
-
--- mp3 file info; TODO maybe don't need this newtype at all?
-newtype Info = Info { userinfo :: ByteString }
     deriving stock (Eq, Show)
 
 -- Frame decoding status updates (once per frame).
@@ -112,7 +108,7 @@ doS s = do
     let fs = P.split ' ' s
     guard $ length fs >= 11
     hz <- readPS $ fs !! 2
-    pure $ S $ Info $ mconcat [
+    pure $ S $ mconcat [
         "mpeg ", fs !! 0, " ", fs !! 10, "kb/s ",
             P.pack $ show $ hz `div` 1000, "kHz"]
 
