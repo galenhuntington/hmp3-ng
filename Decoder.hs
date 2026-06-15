@@ -20,12 +20,10 @@ import Data.ByteString.UTF8 qualified as UTF8
 data Cmd = Load ByteString | Jump Int | Pause | Quit
 
 cmdToBS :: Cmd -> ByteString
-cmdToBS = \case
-    Load f -> mconcat ["L ", f]
-    -- Absolute or relative (+/-; not used here).
-    Jump i -> mconcat ["J ", P.pack . show $ i]
-    Pause  -> "P"  -- (un)pauses
-    Quit   -> "Q"
+cmdToBS (Load f) = "L " <> f
+cmdToBS (Jump i) = "J " <> P.pack (show i) -- can be relative with +/-; not used here
+cmdToBS Pause    = "P"  -- (un)pauses
+cmdToBS Quit     = "Q"
 
 ------------------------------------------------------------------------
 -- Receive messages from mpg123
@@ -38,14 +36,13 @@ data Msg = I                !Id3
 
 -- ID3 info
 data Id3 = Id3
-        { id3title  :: !ByteString
-        , id3artist :: !ByteString
-        , id3album  :: !ByteString
-        , id3str    :: !ByteString
---      , year   :: Maybe ByteString
---      , genre  :: Maybe ByteString }
-        }
-    deriving stock (Eq, Show)
+    { id3title  :: !ByteString
+    , id3artist :: !ByteString
+    , id3album  :: !ByteString
+    , id3str    :: !ByteString
+    --  , year   :: Maybe ByteString
+    --  , genre  :: Maybe ByteString }
+    } deriving stock (Eq, Show)
 
 -- Frame decoding status updates (once per frame).
 -- Current-frame and frames-remaining are integers; current-time and
@@ -55,8 +52,7 @@ data Frame = Frame {
     framesLeft     :: !Int,
     currentTime    :: !(Fixed E2),
     timeLeft       :: !(Fixed E2)
-    }
-    deriving stock (Eq, Show)
+    } deriving stock (Eq, Show)
 
 -- Stop/pause status.
 data Status = Stopped | Paused | Playing
@@ -76,8 +72,7 @@ doP s = do
         '0' -> pure $ P Stopped
         '1' -> pure $ P Paused
         '2' -> pure $ P Playing
-        -- recent mpg123 outputs 3 for end of song; don't need
-        _   -> Nothing
+        _   -> Nothing -- don't need P 3 at end of song
 
 -- Frame decoding status updates (once per frame).
 doF :: ByteString -> Maybe Msg
