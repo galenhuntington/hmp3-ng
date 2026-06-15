@@ -20,18 +20,18 @@ import Data.ByteString.UTF8 qualified as UTF8
 class Cmd a where cmdToBS :: a -> ByteString
 
 newtype Load = Load ByteString
-instance Cmd Load where cmdToBS (Load f) = mconcat ["LOAD ", f]
+instance Cmd Load where cmdToBS (Load f) = mconcat ["L ", f]
 
 -- Absolute or relative (+/-; unused) jump.
 newtype Jump = Jump Int
-instance Cmd Jump where cmdToBS (Jump i) = mconcat ["JUMP ", P.pack . show $ i]
+instance Cmd Jump where cmdToBS (Jump i) = mconcat ["J ", P.pack . show $ i]
 
 -- Pauses or unpauses.
 data Pause = Pause
-instance Cmd Pause where cmdToBS Pause = "PAUSE"
+instance Cmd Pause where cmdToBS Pause = "P"
 
 data Quit = Quit
-instance Cmd Quit where cmdToBS Quit = "QUIT"
+instance Cmd Quit where cmdToBS Quit = "Q"
 
 ------------------------------------------------------------------------
 -- Receive protocol
