@@ -254,22 +254,20 @@ exitModal swd = (wd, ["", padl <> "Exit (y)?", ""]) where
 
 -- | The time used and time left
 pTimes :: DrawData -> StringA
-pTimes DD { drawFrame=Just Frame {..}, drawSize=Size{sizeW=x} } =
-    FancyS $ map (, defaultSty)
-        if x - 4 < P.length elapsed
-        then [" "]
-        else ["  ", elapsed]
-                ++ (guard (distance > 0) *> [gap, remaining])
+pTimes DD { drawFrame=Just Frame {..}, drawSize=Size{sizeW=w} } =
+    flip Fast defaultSty $ if w - 4 < P.length elapsed
+        then ""
+        else mconcat $ ["  ", elapsed] ++ (guard (distance > 0) *> [gap, remaining])
   where
     elapsed   = P.pack $ printf "%d:%02d" l_m l_s
     remaining = P.pack $ printf "-%d:%02d" r_m r_s
     (l_m, l_s) = toMS currentTime
     (r_m, r_s) = toMS timeLeft
     gap        = spaces distance
-    distance   = x - 4 - P.length elapsed - P.length remaining
+    distance   = w - 4 - P.length elapsed - P.length remaining
     toMS :: RealFrac a => a -> (Int, Int)
     toMS = flip quotRem 60 . floor
-pTimes _ = Fast (spaces 5) defaultSty
+pTimes _ = Fast "" defaultSty
 
 ------------------------------------------------------------------------
 
