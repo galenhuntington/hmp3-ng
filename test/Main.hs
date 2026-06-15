@@ -4,7 +4,7 @@ import Test.Tasty
 
 import ConfigSpec qualified
 import CoreSpec qualified
-import LexerSpec qualified
+import DecoderSpec qualified
 import PlaylistSpec qualified
 import StyleSpec qualified
 import WidthSpec qualified
@@ -13,7 +13,7 @@ main :: IO ()
 main = defaultMain $ testGroup "hmp3-ng"
     [ ConfigSpec.tests
     , CoreSpec.tests
-    , LexerSpec.tests
+    , DecoderSpec.tests
     , StyleSpec.tests
     , PlaylistSpec.tests
     , WidthSpec.tests

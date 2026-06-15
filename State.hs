@@ -9,7 +9,7 @@ module State where
 
 import Base
 
-import Syntax                   (Status, Mode, Frame, Info, Id3, Pretty(ppr))
+import Decoder                  (Status, Frame, Id3, Cmd, cmdToBS)
 import Playlist                 (FileArray, DirArray)
 import Style                    (StringA, UIStyle)
 
@@ -38,7 +38,7 @@ data HState = HState
     , spawns          :: !Integer              -- count of decoder spawns
     , threads         :: ![ThreadId]           -- all our threads
     , id3             :: !(Maybe Id3)          -- maybe mp3 id3 info
-    , info            :: !(Maybe Info)         -- mp3 info
+    , info            :: !(Maybe ByteString)   -- mp3 info
     , status          :: !Status
     , minibuffer      :: !StringA              -- contents of minibuffer
     , modal           :: !(Maybe Modal)        -- modal visible
@@ -52,6 +52,9 @@ data HState = HState
     , histSize        :: Int
     , config          :: !UIStyle
     }
+
+data Mode = Once | Loop | Random | Single
+    deriving stock (Eq, Bounded, Enum, Show, Read)
 
 -- Each is (timestamp-string, (song-index, song-name)).
 type HistDisplay = [(ByteString, (Int, ByteString))]
@@ -88,9 +91,9 @@ mpg :: MVar Mpg
 mpg = unsafePerformIO newEmptyMVar
 {-# NOINLINE mpg #-}
 
-sendMpg :: Pretty a => a -> IO ()
-sendMpg s = withMVar mpg $ (. writeh) \h ->
-    hPut h (ppr s) >> hPut h "\n" >> hFlush h
+sendMpg :: Cmd -> IO ()
+sendMpg c = withMVar mpg $ (. writeh) \h ->
+    hPut h (cmdToBS c) *> hPut h "\n" *> hFlush h
 
 ------------------------------------------------------------------------
 -- state accessor functions
