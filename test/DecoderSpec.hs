@@ -26,7 +26,7 @@ tests = testGroup "Lexer.mpgParser"
         ]
     , testGroup "stream info (@S)"
         [ tc "@S 1.0 1 44100 stereo 0 0 2 0 0 0 128 0"
-                                      $ Right (S (Info "mpeg 1.0 128kb/s 44kHz"))
+                                      $ Right (S "mpeg 1.0 128kb/s 44kHz")
         , tc "@S 1.0 1 44100"         $ Left Nothing   -- too few fields
         ]
     , testGroup "id3 (@I)" (let s = "n\195\182rmalise" in
