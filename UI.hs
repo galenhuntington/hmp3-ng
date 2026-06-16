@@ -193,9 +193,7 @@ pPlaying dd = FancyS $ map (, defaultSty) $ "  " : line where
 pId3 :: DrawData -> ByteString
 pId3 DD{drawState=st} = case id3 st of
     Just i  -> id3str i
-    Nothing -> case size st of
-        0 -> "(empty)"
-        _ -> fbase $ music st ! current st
+    Nothing -> fbase $ music st ! current st
 
 -- | mp3 information
 pInfo :: DrawData -> ByteString
@@ -315,26 +313,22 @@ pMode dd = take 4 $ map toLower $ show $ mode $ drawState dd
 
 ------------------------------------------------------------------------
 
--- | "x/n dir(s)  y/m file(s)" cursor position read-out.
+-- | "x/n dirs y/m files" cursor position read-out.
 playInfo :: DrawData -> ByteString
 playInfo dd = mconcat
-    -- TODO pregenerate as template
     [ spaces (P.length numd - P.length curd)
-    , curd, "/", numd, " dir", onPlural (snd . bounds $ folders st) "" "s"
-    , " "
-    , spaces (P.length numf - P.length curf)
-    , curf, "/", numf, " file", onPlural (size st) "" "s"
+    , curd, "/", numd, " dirs"
+    , spaces (1 + P.length numf - P.length curf)
+    , curf, "/", numf, " files"
     ]
   where
     st   = drawState dd
     tobs = P.pack . show
-    onPlural 1 s _ = s
-    onPlural _ _ p = p
     curf  = tobs $ 1 + cursor st
     numf  = tobs $ size st
     mydir = fdir $ music st ! cursor st
     curd  = tobs $ 1 + mydir
-    numd  = tobs $ 1 + snd (bounds $ folders st)
+    numd  = tobs $ length $ folders st
 
 -- | The top title bar: cursor position + play indicator + uptime + version.
 playTitle :: DrawData -> StringA
@@ -427,10 +421,7 @@ playList dd@DD{ drawSize=Size y x, drawPos=Pos{posY=o}, drawState=st } =
         : map (, sty) v
       where
         sty' = if sty == sty2 || sty == sty3 then sty2 else sty1
-        d = toMaxWidth (indent - 1) $ takeFileName
-                $ case size st of
-                    0 -> "(empty)"
-                    _ -> dname $ folders st ! i
+        d = toMaxWidth (indent - 1) $ takeFileName $ dname $ folders st ! i
 
 ------------------------------------------------------------------------
 

@@ -33,7 +33,7 @@ import UI qualified
 import Data.ByteString.Char8 qualified as P
 import Data.Sequence qualified as Seq
 
-import Data.Array               ((!), bounds, Array)
+import Data.Array               ((!), Array)
 import Data.Proxy
 import Data.Tuple               (swap)
 import Control.Monad.State.Strict
@@ -447,10 +447,9 @@ jumpToPrevDir = jumpToDir (\i _   -> max (i-1) 0)
 
 -- | Generic jump to dir
 jumpToDir :: (Int -> Int -> Int) -> IO ()
-jumpToDir fn = modifyHS_ $ \st -> if size st == 0 then st else
+jumpToDir fn = modifyHS_ \st ->
     let i   = fdir (music st ! cursor st)
-        len = 1 + (snd . bounds $ folders st)
-        d   = fn i len
+        d   = fn i (length $ folders st)
     in st { cursor = dlo (folders st ! d) }
 
 ------------------------------------------------------------------------
@@ -463,14 +462,12 @@ instance Lookup File where extract = fbase
 
 jumpToMatchFile :: Maybe String -> Bool -> IO ()
 jumpToMatchFile re sw = genericJumpToMatch re sw k sel
-    where k st = (music st, if size st == 0 then -1 else cursor st, size st)
+    where k st = (music st, cursor st, size st)
           sel i _ = i
 
 jumpToMatchDir :: Maybe String -> Bool -> IO ()
 jumpToMatchDir re sw = genericJumpToMatch re sw k sel
-    where k st = (folders st
-                     , if size st == 0 then -1 else fdir (music st ! cursor st)
-                     , 1 + (snd . bounds $ folders st))
+    where k st = (folders st, fdir (music st ! cursor st), length $ folders st)
           sel i st = dlo (folders st ! i)
 
 genericJumpToMatch :: Lookup a
