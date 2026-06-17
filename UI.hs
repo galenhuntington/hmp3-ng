@@ -178,7 +178,7 @@ playScreen dd = [pPlaying dd, progressBar dd, pTimes dd]
 
 -- | Info about the current track
 pPlaying :: DrawData -> StringA
-pPlaying dd = FancyS $ map (, defaultSty) $ "  " : line where
+pPlaying dd = flip Fast defaultSty $ "  " <> mconcat line where
     x = sizeW $ drawSize dd
     a = pId3 dd
     b = pInfo dd
@@ -333,10 +333,8 @@ playInfo dd = mconcat
 -- | The top title bar: cursor position + play indicator + uptime + version.
 playTitle :: DrawData -> StringA
 playTitle dd =
-    FancyS $ map (, hl)
-        if gap >= 2
-        then [mconcat [" ", inf, spaces gapl], indic,
-                mconcat [spaces gapr, time, " ", ver, " "]]
+    flip Fast hl $ mconcat if gap >= 2
+        then [" ", inf, spaces gapl, indic, spaces gapr, time, " ", ver, " "]
         else let gap' = x - indicl; gapl' = gap' `div` 2
              in if gap' >= 2
                 then [spaces gapl', indic, spaces $ gap' - gapl']
@@ -396,26 +394,23 @@ playList dd@DD{ drawSize=Size y x, drawPos=Pos{posY=o}, drawState=st } =
 
     indent = (round $ (0.334 :: Float) * fromIntegral x) :: Int
 
+    (sty1, sty2, sty3) = (selected cs, cursors cs, combined cs)
+        where cs = config st
+
     color :: ((Maybe Int, ByteString), Int)
-                -> (Maybe Int, Style, [ByteString])
-    color ((m, s), i)
-        | i == select && i == playing = f sty3
-        | i == select                 = f sty2
-        | i == playing                = f sty1
-        | otherwise                   = (m, defaultSty, [s])
-        where
-            f sty = (m, sty,
-                [s, spaces (x - indent - 1 - displayWidth s)])
+                -> (Maybe Int, (Style, [ByteString]))
+    color ((m, s), i) = (m,) case (i == select, i == playing) of
+        (True, True) -> f sty3
+        (True, _)    -> f sty2
+        (_   , True) -> f sty1
+        _            -> (defaultSty, [s])
+      where
+        f sty = (sty, [s, spaces (x - indent - 1 - displayWidth s)])
 
-    sty1 = selected . config $ st
-    sty2 = cursors  . config $ st
-    sty3 = combined . config $ st
-
-    drawIt :: (Maybe Int, Style, [ByteString]) -> StringA
-    drawIt (Nothing, sty, v) =
+    drawIt :: (Maybe Int, (Style, [ByteString])) -> StringA
+    drawIt (Nothing, (sty, v)) =
         FancyS $ map (, sty) $ spaces (1 + indent) : v
-
-    drawIt (Just i, sty, v) = FancyS
+    drawIt (Just i, (sty, v)) = FancyS
         $ (d, sty')
         : (spaces (indent + 1 - displayWidth d), sty')
         : map (, sty) v
