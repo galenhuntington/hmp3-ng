@@ -250,21 +250,25 @@ exitModal swd = (wd, ["", padl <> "Exit (y)?", ""]) where
 
 ------------------------------------------------------------------------
 
+showClock :: Fixed E2 -> ByteString
+showClock t =
+    let m, si, sd :: Int
+        (m, s) = t `divMod'` 60
+        si     = floor s
+        sd     = floor (s*10) `mod` 10
+    in P.pack $ printf "%d:%02d.%d" m si sd
+
 -- | The time used and time left
 pTimes :: DrawData -> StringA
 pTimes DD { drawFrame=Just Frame {..}, drawSize=Size{sizeW=w} } =
     flip Fast defaultSty $ if w - 4 < P.length elapsed
         then ""
-        else mconcat $ ["  ", elapsed] ++ (guard (distance > 0) *> [gap, remaining])
+        else mconcat $ ["  ", elapsed] ++ [gap <> "-" <> remaining | distance > 0]
   where
-    elapsed   = P.pack $ printf "%d:%02d" l_m l_s
-    remaining = P.pack $ printf "-%d:%02d" r_m r_s
-    (l_m, l_s) = toMS currentTime
-    (r_m, r_s) = toMS timeLeft
-    gap        = spaces distance
-    distance   = w - 4 - P.length elapsed - P.length remaining
-    toMS :: RealFrac a => a -> (Int, Int)
-    toMS = flip quotRem 60 . floor
+    elapsed   = showClock currentTime
+    remaining = showClock timeLeft
+    gap       = spaces distance
+    distance  = w - 5 - P.length elapsed - P.length remaining
 pTimes _ = Fast "" defaultSty
 
 ------------------------------------------------------------------------
