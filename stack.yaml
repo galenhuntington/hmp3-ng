@@ -3,5 +3,9 @@ system-ghc: true
 compiler-check: newer-minor
 
 extra-deps:
-- hscurses-1.5.0.0@sha256:5bd0d1840ede4a99becdbb7a6b68ee6abe14f4b4a4cdfce373fcf46b9e119650,3851
+  - hscurses-1.5.0.0@sha256:5bd0d1840ede4a99becdbb7a6b68ee6abe14f4b4a4cdfce373fcf46b9e119650,3851
+
+flags:
+  pcre-light:
+    use-pkg-config: true
 
