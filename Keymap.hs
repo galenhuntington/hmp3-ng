@@ -65,7 +65,7 @@ mainMode = KeyMap \c -> getsHS modal >>= \case
         | c `elem` ['H', ';'] ->
             showHist $> mainMode
         | c >= '1' && c <= '9' ->
-            jumpRel (0.1 * fromIntegral (fromEnum c - 48)) $> mainMode
+            jumpRel (fromIntegral (fromEnum c - 48) / 10) $> mainMode
         | True -> sequence_ (M.lookup c keyMap) $> mainMode
 
 

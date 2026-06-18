@@ -324,7 +324,7 @@ jump :: Int -> IO ()
 jump = jumpFn . const
 
 -- | Jump to relative place, 0 to 1.
-jumpRel :: Float -> IO ()
+jumpRel :: Rational -> IO ()
 jumpRel r | r < 0 || r >= 1 = pure ()
           | True = modifyHS_ $ \st ->
               st { cursor = floor $ fromIntegral (size st) * r }
