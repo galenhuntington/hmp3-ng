@@ -81,11 +81,7 @@ setModified = void $ tryPutMVar modified ()
 ------------------------------------------------------------------------
 -- The decoder.
 
-data Mpg = Mpg
-    { writeh :: !Handle
-    , readh  :: !Handle
-    , errh   :: !Handle
-    }
+data Mpg = Mpg { errh :: !Handle, writeh :: !Handle }
 
 mpg :: MVar Mpg
 mpg = unsafePerformIO newEmptyMVar
