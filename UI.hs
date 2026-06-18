@@ -98,10 +98,8 @@ end = do
 screenSize :: IO (Int, Int)
 screenSize = Curses.scrSize
 
---
 -- | Rewrite of Curses.getCh to avoid looping on terminal crash
 -- | (also no unget support since I don't need it)
---
 getCh :: IO Curses.Key
 getCh = do
   threadWaitRead 0
@@ -113,10 +111,8 @@ getCh = do
         exitFailure
     k -> pure $ Curses.decodeKey k
 
---
 -- | Read a key. UIs need to define a method for getting events.
 -- We only need to refresh if we don't have no SIGWINCH support.
---
 getKey :: IO Char
 getKey = do
     k <- getCh
@@ -260,39 +256,37 @@ showClock t =
 
 -- | The time used and time left
 pTimes :: DrawData -> StringA
-pTimes DD { drawFrame=Just Frame {..}, drawSize=Size{sizeW=w} } =
+pTimes DD { drawFrame, drawSize=Size{sizeW=w} } =
     flip Fast defaultSty $ if w - 4 < P.length elapsed
         then ""
         else mconcat $ ["  ", elapsed] ++ [gap <> "-" <> remaining | distance > 0]
   where
-    elapsed   = showClock currentTime
-    remaining = showClock timeLeft
+    elapsed   = showClock (maybe 0 currentTime drawFrame)
+    remaining = maybe "?:??.?" (showClock . timeLeft) drawFrame
     gap       = spaces distance
     distance  = w - 5 - P.length elapsed - P.length remaining
-pTimes _ = Fast "" defaultSty
 
 ------------------------------------------------------------------------
 
 -- | A progress bar
 progressBar :: DrawData -> StringA
-progressBar dd@DD{drawSize=Size{sizeW=w}, drawState=st} = case drawFrame dd of
-    Nothing -> FancyS [("  ", defaultSty), (spaces (w-4), bgs)]
-      where
-        Style _ bg = progress (config st)
-        bgs        = Style bg bg
+progressBar dd@DD{drawSize=Size{sizeW}, drawState=st} = case drawFrame dd of
+    Nothing         -> FancyS [("  ", defaultSty), (spaces width, bgs)]
     Just Frame {..} -> FancyS
         [ ("  ", defaultSty)
         , (spaces distance, fgs)
         , (spaces (width - distance), bgs) ]
       where
-        width    = w - 4
-        total    = curr + left
-        distance = round ((curr / total) * fromIntegral width)
-        curr     = realToFrac currentTime :: Float
-        left     = realToFrac timeLeft
-        Style fg bg = progress (config st)
-        bgs         = Style bg bg
-        fgs         = Style fg fg
+        total    = curr + left - ε
+        distance = ceiling (curr * fromIntegral (width - 1) / total)
+        curr     = toRational currentTime
+        left     = toRational timeLeft
+        ε        = 1 / 200
+  where
+    width       = sizeW - 4
+    Style fg bg = progress (config st)
+    bgs         = Style bg bg
+    fgs         = Style fg fg
 
 ------------------------------------------------------------------------
 
@@ -338,17 +332,16 @@ playInfo dd = mconcat
 playTitle :: DrawData -> StringA
 playTitle dd =
     flip Fast hl $ mconcat if gap >= 2
-        then [" ", inf, spaces gapl, indic, spaces gapr, time, " ", ver, " "]
+        then [" ", inf, spaces gapl, u indic, spaces gapr, time, " ", ver, " "]
         else let gap' = x - indicl; gapl' = gap' `div` 2
              in if gap' >= 2
-                then [spaces gapl', indic, spaces $ gap' - gapl']
-                else [" ", P.take (x-2) indic, " "]
+                then [spaces gapl', u indic, spaces $ gap' - gapl']
+                else [" ", u $ take (x-2) indic, " "]
   where
     inf     = playInfo dd
     time    = pTime dd
-    indic   = u $ pState dd ++ ' ' : pMode dd
+    indic   = pState dd ++ ' ' : pMode dd
     ver     = pVersion
-
     x       = sizeW $ drawSize dd
     lsize   = 1 + P.length inf
     rsize   = 2 + P.length time + P.length ver
@@ -434,9 +427,9 @@ redrawJustClock = Draw $ discardErrors do
     st     <- getsHS id
     (h, w) <- screenSize
     let dd = DD (Size h w) undefined st (clock st)
-    Curses.wMove Curses.stdScr 1 0   -- hardcoded!
+    Curses.wMove Curses.stdScr 1 0
     drawLine $ progressBar dd
-    Curses.wMove Curses.stdScr 2 0   -- hardcoded!
+    Curses.wMove Curses.stdScr 2 0
     drawLine $ pTimes dd
 
 ------------------------------------------------------------------------
@@ -518,15 +511,11 @@ maybeLineDown _ h y x
 lineDown :: Int -> Int -> IO ()
 lineDown h y = Curses.wMove Curses.stdScr (min h (y+1)) 0
 
---
 -- | Fill to end of line spaces
---
 fillLine :: IO ()
 fillLine = discardErrors Curses.clrToEol -- harmless?
 
---
 -- | move cursor to origin of stdScr.
---
 gotoTop :: IO ()
 gotoTop = Curses.wMove Curses.stdScr 0 0
 {-# INLINE gotoTop #-}
@@ -540,9 +529,7 @@ slice i j arr =
 
 ------------------------------------------------------------------------
 
---
 -- | magics for setting xterm titles using ansi escape sequences
---
 setXtermTitle :: [ByteString] -> IO ()
 setXtermTitle strs = do
     traverse_ (P.hPut stderr) (before : strs ++ [after])

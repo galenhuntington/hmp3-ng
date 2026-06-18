@@ -236,10 +236,7 @@ errorLoop = runForever $
 
 ------------------------------------------------------------------------
 
--- | Handle messages arriving over a pipe from the decoder process. When
--- shutdown kills the other end of the pipe, hGetLine will fail, so we
--- take that chance to exit.
---
+-- | Handle messages arriving over a pipe from the decoder process.
 mpgInput :: IO ()
 mpgInput = runForever $ do
     line <- P.hGetLine =<< readh <$> readMVar mpg
@@ -266,28 +263,24 @@ shutdown ms = do
         _      -> pure ExitSuccess
 
 ------------------------------------------------------------------------
--- 
--- Write incoming messages from the encoder to the global state in the
--- right pigeon hole.
---
+-- Handle messages from mpg123.
 handleMsg :: Msg -> IO ()
-
-handleMsg (S i)   = modifyHS_ $ \s -> s { info = Just i }
-
-handleMsg (I id3) = modifyHS_ $ \s -> s { id3 = Just id3 }
-
+handleMsg (S i)   = modifyHS_ $ \st -> st { info = Just i }
+handleMsg (I id3) = modifyHS_ $ \st -> st { id3 = Just id3 }
 handleMsg (P t) = do
     modifyHS_ $ \s -> s { status = t }
-    when (t == Stopped) playNext   -- transition to next song
-
+    when (t == Stopped) do
+        modifyHS_ \st -> st { -- force clock to end if near
+            clock = (\c -> c {
+                timeLeft = if timeLeft c < 0.1 then 0 else timeLeft c
+                }) <$> clock st }
+        playNext
 handleMsg (F f) = do
     silentlyModifyHS \st -> st { clock = Just f }
     UI.refreshClock
 
 ------------------------------------------------------------------------
---
 -- Basic operations
---
 
 -- | Seek backward in song
 seekLeft :: IO ()
@@ -413,11 +406,12 @@ runPlayOp op = do
                 f  = P.intercalate (P.singleton '/')
                         [dname $ folders ! fdir fe, fbase fe]
             modify' \st -> st
-                { current = new
-                , status  = Playing
-                , cursor  = if current == cursor then new else cursor
+                { current  = new
+                , status   = Playing
+                , cursor   = if current == cursor then new else cursor
                 , playHist = Seq.take histSize $ (now, new) <| playHist
-                , id3     = Nothing
+                , id3      = Nothing
+                , clock    = Nothing
                 }
             pure f
     forM_ mfile $ sendMpg . Load
