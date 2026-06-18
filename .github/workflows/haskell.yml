@@ -4,8 +4,8 @@ jobs:
   cabal:
     strategy:
       matrix:
-        host: ['ubuntu-22.04']
-        ghc: ['9.0', '9.2']
+        host: ['ubuntu-26.04']
+        ghc: ['9.14']
     runs-on: ${{ matrix.host }}
     name: GHC ${{ matrix.ghc }} on ${{ matrix.host }}
     steps:
