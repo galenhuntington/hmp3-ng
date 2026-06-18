@@ -9,7 +9,9 @@ jobs:
     name: Stack on ${{ matrix.host }}
     steps:
       - uses: actions/checkout@v6
+      - run: brew install pcre
       - uses: haskell-actions/setup@v2
-      - run: cabal build all
-      - run: cabal test all --test-show-details=streaming
+        with:
+          enable-stack: true
+      - run: stack test
 
