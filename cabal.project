@@ -1,0 +1,5 @@
+packages: .
+
+package pcre-light
+  flags: +use-pkg-config
+
