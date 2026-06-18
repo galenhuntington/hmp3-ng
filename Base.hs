@@ -1,6 +1,4 @@
-{-# LANGUAGE CPP #-}
-
--- Copyright (c) 2020-2025 Galen Huntington
+-- Copyright (c) 2020-2026 Galen Huntington
 -- SPDX-License-Identifier: GPL-2.0-or-later
 
 module Base (module Prelude, module X, module Base) where
@@ -19,13 +17,14 @@ import Data.Fixed as X
 import Data.Foldable as X
 import Data.Functor as X hiding (unzip)
 import Data.IORef as X
-import Data.List as X
+import Data.List as X hiding ((!?))
 import Data.Maybe as X
+import Data.Sequence as X (Seq, (<|), (|>))
 import Data.String as X
 import Data.Traversable as X
 import Data.Version as X
+import Data.Void as X
 import Data.Word as X
-import System.Environment as X
 import System.Exit as X
 import System.IO as X (Handle, hClose)
 import System.IO.Unsafe as X
@@ -40,15 +39,12 @@ discardErrors :: IO () -> IO ()
 discardErrors = X.handle @SomeException (\_ -> pure ())
 
 getMonoTime :: IO TimeSpec
-getMonoTime = getTime
-#if linux_HOST_OS
-    Boottime
-#else
-    Monotonic
-#endif
+getMonoTime = getTime Monotonic
 
-sequenceWhile :: Monad m => (a -> Bool) -> [m a] -> m [a]
-sequenceWhile _ [] = pure []
-sequenceWhile p (m:ms) = m >>= \a ->
-    if p a then (a:) <$> sequenceWhile p ms else pure []
+whenJust :: Monad m => Maybe a -> (a -> m ()) -> m ()
+whenJust = flip $ maybe $ pure ()
+
+-- Compatibility: List.!? only added in GHC 9.8
+(!?) :: [a] -> Int -> Maybe a
+xs !? n = listToMaybe $ drop n xs
 

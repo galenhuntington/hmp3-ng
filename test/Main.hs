@@ -2,22 +2,20 @@ module Main (main) where
 
 import Test.Tasty
 
-import qualified ConfigSpec
-import qualified CoreSpec
-import qualified FastIOSpec
-import qualified LexerSpec
-import qualified StyleSpec
-import qualified TreeSpec
-import qualified WidthSpec
+import ConfigSpec qualified
+import CoreSpec qualified
+import DecoderSpec qualified
+import PlaylistSpec qualified
+import StyleSpec qualified
+import WidthSpec qualified
 
 main :: IO ()
 main = defaultMain $ testGroup "hmp3-ng"
     [ ConfigSpec.tests
     , CoreSpec.tests
-    , FastIOSpec.tests
-    , LexerSpec.tests
+    , DecoderSpec.tests
     , StyleSpec.tests
-    , TreeSpec.tests
+    , PlaylistSpec.tests
     , WidthSpec.tests
     ]
 

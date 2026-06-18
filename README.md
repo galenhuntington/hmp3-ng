@@ -20,14 +20,17 @@ versions, which were only minor changes, mostly the automated
 regeneration of a `configure` file (now gone).
 
 *  The code has been updated to compile under recent GHC (tested
-through 9.10) and libraries.  This required rewriting or entirely
-replacing large sections, mainly low-level optimizations.
+through 9.14; minimum supported 9.2) and libraries.  This required
+rewriting or entirely replacing large sections, mainly low-level
+optimizations.
 
 *  I added support for building with Stack.  It can also be installed
 with Nix from nixpkgs (`haskellPackages.hmp3-ng`).
 
 *  There is a public GitHub issue tracker, and a GitHub action to
 continuously test builds.
+
+*  There is a test suite built on the Tasty framework.
 
 *  I try to avoid “Not Invented Here” by using established,
 up-to-date packages from Hackage.  Much old code has now been
@@ -56,10 +59,7 @@ This is still a work in progress.  Let me know if there are problems.
 
 Either `cabal install` or `stack install` will build a binary.
 You will need to have `mpg123` installed, which is free software and
-widely available in package managers.  Alternatively, `mpg321` can
-be used by compiling with the `-DMPG321` option.  In my experience,
-the latter worked better, but it too is abandoned, with no update
-since 2012, and is no longer available on many systems.
+widely available in package managers.
 
 The build depends on the package `hscurses`, which in turn requires
 curses dev files.  In Ubuntu/Debian, for example, these can be obtained

@@ -4,15 +4,13 @@ jobs:
   cabal:
     strategy:
       matrix:
-        host: ['ubuntu-26.04']
-        ghc: ['9.14']
+        host: ['macos-latest']
     runs-on: ${{ matrix.host }}
-    name: GHC ${{ matrix.ghc }} on ${{ matrix.host }}
+    name: GHC on ${{ matrix.host }}
     steps:
       - uses: actions/checkout@v6
+      - run: brew install pcre2
       - uses: haskell-actions/setup@v2
-        with:
-          ghc-version: ${{ matrix.ghc }}
       - run: cabal build all
       - run: cabal test all --test-show-details=streaming
 

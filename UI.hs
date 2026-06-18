@@ -1,5 +1,3 @@
-{-# LANGUAGE ForeignFunctionInterface, TupleSections, AllowAmbiguousTypes #-}
-
 -- Copyright (c) 2004-5 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- Copyright (c) 2019-2026 Galen Huntington
 -- SPDX-License-Identifier: GPL-2.0-or-later
@@ -15,7 +13,7 @@
 module UI (
     runDraw,
     -- * Construction, destruction
-    start, end, suspend, screenSize, refresh, refreshClock, resetui,
+    start, end, screenSize, refresh, refreshClock, resetui,
     -- * Input
     getKey
   ) where
@@ -23,27 +21,27 @@ module UI (
 import Base
 
 import Style
-import FastIO                   (basenameP)
-import Tree                     (File(fdir, fbase), Dir(dname))
+import Playlist                 (File(fdir, fbase), Dir(dname))
 import State
-import Syntax
+import Decoder
 import Config
 import Width                    (displayWidth, toMaxWidth, toWidth)
-import qualified UI.HSCurses.Curses as Curses
-import {-# SOURCE #-} Keymap    (keyTable, unkey, charToKey)
+import UI.HSCurses.Curses qualified as Curses
+import Keyboard                 (unkey, charToKey, historyKeys)
 
 import Data.Array               ((!), bounds, Array)
 import Data.Array.Base          (unsafeAt)
+import System.Posix.FilePath    (takeFileName)
 import System.IO                (stderr, hFlush)
-import System.Posix.Signals     (raiseSignal, sigTSTP, installHandler, Handler(..))
+import System.Posix.Signals     (installHandler, Handler(..))
 
 import Foreign.C.String
 import Foreign.C.Types
 import Foreign.C.Error (Errno(..), getErrno)
 
-import qualified Data.ByteString.Char8 as P
-import qualified Data.ByteString.Unsafe as P
-import qualified Data.ByteString.UTF8 as UTF8
+import Data.ByteString.Char8 qualified as P
+import Data.ByteString.Unsafe qualified as P
+import Data.ByteString.UTF8 qualified as UTF8
 
 
 -- Write u-strings like it's Python 2.
@@ -52,26 +50,22 @@ u = UTF8.fromString
 
 
 newtype Draw = Draw (IO ())
-instance Semigroup Draw where Draw x <> Draw y = Draw $ x >> y
-instance Monoid Draw where mempty = Draw $ pure ()
+    deriving newtype (Semigroup, Monoid)
+
+drawLock :: MVar ()
+drawLock = unsafePerformIO $ newMVar ()
+{-# NOINLINE drawLock #-}
 
 runDraw :: Draw -> IO ()
-runDraw (Draw d) = withDrawLock d
+runDraw (Draw io) = withMVar drawLock $ const io
 
 ------------------------------------------------------------------------
 
 -- | Initialize the UI
 start :: IO UIStyle
 start = do
-    discardErrors do
-        thisterm <- lookupEnv "TERM"
-        case thisterm of 
-            Just "vt220" -> setEnv "TERM" "xterm-color"
-            Just t | "xterm" `isPrefixOf` t 
-                   -> silentlyModifyHS $ \st -> st { xterm = True }
-            _ -> pure ()
-
     Curses.initCurses
+
     case Curses.cursesSigWinch of
         Just wch -> void $ installHandler wch (Catch resetui) Nothing
         _        -> pure () -- handled elsewhere
@@ -93,23 +87,14 @@ resetui = runDraw (resizeui <> nocursor) *> refresh
 nocursor :: Draw
 nocursor = Draw $ discardErrors $ void $ Curses.cursSet Curses.CursorInvisible
 
---
--- | Clean up and go home. Refresh is needed on linux. grr.
---
-end :: Bool -> IO ()
-end isXterm = withDrawLock do
-    when isXterm $ setXtermTitle ["xterm"]
+-- | Clean up and go home.
+end :: IO ()
+end = do
+    takeMVar drawLock        -- we keep so no one tries to draw
+    setXtermTitle ["xterm"]  -- XXX I don't see this title after exit?
     Curses.endWin
 
---
--- | Suspend the program
---
-suspend :: IO ()
-suspend = raiseSignal sigTSTP
-
---
 -- | Find the current screen height and width.
---
 screenSize :: IO (Int, Int)
 screenSize = Curses.scrSize
 
@@ -172,6 +157,7 @@ refreshClock = runDraw $ redrawJustClock <> Draw Curses.refresh
 data Pos  = Pos  { posY, _posX :: !Int }
 data Size = Size { _sizeH, sizeW :: !Int }
 
+-- | Renderable widgets are functions @DrawData -> ...@.
 data DrawData = DD {
     drawSize  :: Size,
     drawPos   :: Pos,
@@ -179,452 +165,338 @@ data DrawData = DD {
     drawFrame :: Maybe Frame
     }
 
---
--- | A class for renderable objects, given the application state, and
--- for printing the object as a list of strings
---
-class Element a where draw :: DrawData -> a
-
---
--- | The elements of the play mode widget
---
-data PlayScreen = PlayScreen !PPlaying !ProgressBar !PTimes 
-
--- | How does this all work? Firstly, we mostly want to draw fast strings
--- directly to the screen. To break the drawing problem down, you need
--- to write an instance of Element for each element in the ui. Larger
--- and larger elements then combine these items together. 
---
--- Obviously to write the element instance, you need a new type for each
--- element, to disinguish them. As follows:
-
-newtype PlayList = PlayList [StringA]
-
-newtype PPlaying    = PPlaying    StringA
-newtype PVersion    = PVersion    ByteString
-newtype PMode       = PMode       String
-newtype PMode2      = PMode2      String
-newtype ProgressBar = ProgressBar StringA
-newtype PTimes      = PTimes      StringA
-
-newtype PInfo       = PInfo       ByteString
-newtype PId3        = PId3        ByteString
-newtype PTime       = PTime       ByteString
-
-newtype PlayTitle = PlayTitle StringA
-newtype PlayInfo  = PlayInfo  ByteString
-newtype PlayModes = PlayModes String
-
-data HelpModal
-data HistModal
-data ExitModal
-class ModalElement a where
-    -- takes style, window width, state; returns (width, list of lines)
-    drawModal :: Style -> Int -> HState -> Maybe (Int, [StringA])
+-- screen width -> (modal width, list of lines)
+type ModalMaker = Int -> (Int, [ByteString])
 
 ------------------------------------------------------------------------
 
-instance Element PlayScreen where
-    draw dd = PlayScreen (draw dd) (draw dd) (draw dd)
-
--- | Decode the play screen
-printPlayScreen :: PlayScreen -> [StringA]
-printPlayScreen (PlayScreen (PPlaying a) 
-                            (ProgressBar b) 
-                            (PTimes c)) = [a , b , c]
+-- | The three lines of the play info widget.
+playScreen :: DrawData -> [StringA]
+playScreen dd = [pPlaying dd, progressBar dd, pTimes dd]
 
 ------------------------------------------------------------------------
 
-instance (Element a, Element b) => Element (a, b) where
-    draw dd = (draw dd, draw dd)
+-- | Info about the current track
+pPlaying :: DrawData -> StringA
+pPlaying dd = flip Fast defaultSty $ "  " <> mconcat line where
+    x = sizeW $ drawSize dd
+    a = pId3 dd
+    b = pInfo dd
+    line | gap >= 0 = a : spaces gap : right
+         | True     = toMaxWidth lim a : right
+        where lim = x - 5 - (if showId3 then P.length b else -1)
+              gap = lim - displayWidth a
+              showId3 = x > 59
+              right = if showId3 then [" ", b] else []
 
-------------------------------------------------------------------------
-
--- Info about the current track
-instance Element PPlaying where
-    draw dd =
-        PPlaying . FancyS $ map (, defaultSty) $ "  " : line
-      where
-        x       = sizeW $ drawSize dd
-        PId3 a  = draw dd
-        PInfo b = draw dd
-        line | gap >= 0 = a : spaces gap : right
-             | True     = toMaxWidth lim a : right
-            where lim = x - 5 - (if showId3 then P.length b else -1)
-                  gap = lim - displayWidth a
-                  showId3 = x > 59
-                  right = if showId3 then [" ", b] else []
-
--- | Id3 Info
-instance Element PId3 where
-    draw DD{drawState=st} = case id3 st of
-        Just i  -> PId3 $ id3str i
-        Nothing -> PId3 $ case size st of
-                                0 -> "(empty)"
-                                _ -> fbase $ music st ! current st
+-- | Id3 info
+pId3 :: DrawData -> ByteString
+pId3 DD{drawState=st} = case id3 st of
+    Just i  -> id3str i
+    Nothing -> fbase $ music st ! current st
 
 -- | mp3 information
-instance Element PInfo where
-    draw DD{drawState=st} = PInfo case info st of
-        Nothing  -> "(empty)"
-        Just i   -> userinfo i
+pInfo :: DrawData -> ByteString
+pInfo DD{drawState=st} = fromMaybe "" $ info st
 
-modalWidth :: Int -> Int
-modalWidth w = max (min w 3) $ round $ fromIntegral w * (0.8::Float)
+commonModalWidth :: Int -> Int
+commonModalWidth w = max (min w 3) $ round $ fromIntegral w * (0.8::Float)
 
 ------------------------------------------------------------------------
 
--- instance ModalElement me => Element (Modal me) where draw = drawModal
-
-instance ModalElement HelpModal where
-    drawModal sty swd st = do
-        guard $ helpVisible st
-        pure (wd, [ Fast (f cs h) sty | (h, cs, _) <- keyTable ])
-      where
-        wd = modalWidth swd
-        f :: [Char] -> String -> ByteString
-        f cs ps = toWidth wd $ toWidth clen cmds <> u ps where
-            clen = max 4 $ round $ fromIntegral wd * (0.2::Float)
-            cmds = P.unwords ("" : map pprIt cs)
-            pprIt c = case c of
-                '\n' -> "Enter"
-                '\f' -> "^L"
-                '\\' -> "\\"
-                ' '  -> "Space"
-                _ -> case charToKey c of
-                    Curses.KeyUp        -> u"↑"
-                    Curses.KeyDown      -> u"↓"
-                    Curses.KeyPPage     -> "PgUp"
-                    Curses.KeyNPage     -> "PgDn"
-                    Curses.KeyLeft      -> u"←"
-                    Curses.KeyRight     -> u"→"
-                    Curses.KeyEnd       -> "End"
-                    Curses.KeyHome      -> "Home"
-                    Curses.KeyBackspace -> "Backspace"
-                    _ -> u[c]
+helpModal :: [KeysHelp] -> ModalMaker
+helpModal help swd = (wd, map showLine help) where
+    wd = commonModalWidth swd
+    showLine :: ([Char], ByteString) -> ByteString
+    showLine (cs, ps) = toWidth clen cmds <> ps where
+        clen = max 4 $ round $ fromIntegral wd * (0.2::Float)
+        cmds = P.unwords ("" : map pprIt cs)
+        pprIt c = case c of
+            '\n' -> "Enter"
+            '\f' -> "^L"
+            '\\' -> "\\"
+            ' '  -> "Space"
+            _ -> case charToKey c of
+                Curses.KeyUp        -> u"↑"
+                Curses.KeyDown      -> u"↓"
+                Curses.KeyPPage     -> "PgUp"
+                Curses.KeyNPage     -> "PgDn"
+                Curses.KeyLeft      -> u"←"
+                Curses.KeyRight     -> u"→"
+                Curses.KeyEnd       -> "End"
+                Curses.KeyHome      -> "Home"
+                Curses.KeyBackspace -> "Backspace"
+                _ -> u[c]
 
 ------------------------------------------------------------------------
 
-instance ModalElement HistModal where
-    drawModal sty swd st = flip fmap (histVisible st) \hist -> do
-        let wd = modalWidth swd
-            mtlen = maximum $ map (displayWidth . fst) hist
-            tlen = min (mtlen + 1) $ wd `div` 3
-        (wd,) $ flip map (zip (['0'..'9']++['a'..'z']) hist) \ (c, (time, (_, song))) ->
-            let tstr = toMaxWidth tlen $ P.replicate (tlen - displayWidth time) ' ' <> time
-            in Fast (toWidth wd $ " " <> P.singleton c <> " " <> tstr <> " " <> song) sty
+histModal :: HistDisplay -> ModalMaker
+histModal []   _   = let s = "  No history  " in (P.length s, [s])
+histModal hist swd = do
+    let wd = commonModalWidth swd
+        mtlen = maximum $ map (displayWidth . fst) hist
+        tlen = min (mtlen + 1) $ wd `div` 3
+    (wd, [
+        let tstr = toMaxWidth tlen $ P.replicate (tlen - displayWidth time) ' ' <> time
+        in mconcat [" ", P.singleton c, " ", tstr, " ", song]
+        | (c, (time, (_, song))) <- zip (toList historyKeys ++ repeat ' ') hist ])
 
 ------------------------------------------------------------------------
 
-instance ModalElement ExitModal where
-    drawModal sty swd st = do
-        guard $ exitVisible st
-        let wd = modalWidth swd `min` 19
-            blank = Fast (toWidth wd "") sty
-            padl = P.replicate ((wd - 9) `div` 2) ' '
-            msg = toWidth wd $ padl <> "Exit (y)?"
-        pure (wd, [blank, Fast msg sty, blank])
+exitModal :: ModalMaker
+exitModal swd = (wd, ["", padl <> "Exit (y)?", ""]) where
+    wd = commonModalWidth swd `min` 19
+    padl = P.replicate ((wd - 9) `div` 2) ' '
 
 ------------------------------------------------------------------------
+
+showClock :: Fixed E2 -> ByteString
+showClock t =
+    let m, si, sd :: Int
+        (m, s) = t `divMod'` 60
+        si     = floor s
+        sd     = floor (s*10) `mod` 10
+    in P.pack $ printf "%d:%02d.%d" m si sd
 
 -- | The time used and time left
-instance Element PTimes where
-    draw DD { drawFrame=Just Frame {..}, drawSize=Size{sizeW=x} } =
-        PTimes $ FancyS $ map (, defaultSty)
-            if x - 4 < P.length elapsed
-            then [" "]
-            else ["  ", elapsed]
-                    ++ (guard (distance > 0) *> [gap, remaining])
-      where
-        elapsed   = P.pack $ printf "%d:%02d" l_m l_s
-        remaining = P.pack $ printf "-%d:%02d" r_m r_s
-        (l_m,l_s) = toMS currentTime
-        (r_m,r_s) = toMS timeLeft
-        gap       = spaces distance
-        distance  = x - 4 - P.length elapsed - P.length remaining
-        toMS :: RealFrac a => a -> (Int, Int)
-        toMS = flip quotRem 60 . floor
-    draw _ = PTimes $ Fast (spaces 5) defaultSty
+pTimes :: DrawData -> StringA
+pTimes DD { drawFrame=Just Frame {..}, drawSize=Size{sizeW=w} } =
+    flip Fast defaultSty $ if w - 4 < P.length elapsed
+        then ""
+        else mconcat $ ["  ", elapsed] ++ [gap <> "-" <> remaining | distance > 0]
+  where
+    elapsed   = showClock currentTime
+    remaining = showClock timeLeft
+    gap       = spaces distance
+    distance  = w - 5 - P.length elapsed - P.length remaining
+pTimes _ = Fast "" defaultSty
 
 ------------------------------------------------------------------------
 
 -- | A progress bar
-instance Element ProgressBar where
-    draw dd@DD{drawSize=Size{sizeW=w}, drawState=st} = case drawFrame dd of
-      Nothing -> ProgressBar . FancyS $
-              [("  ", defaultSty), (spaces (w-4), bgs)]
-        where
-          (Style _ bg) = progress (config st)
-          bgs          = Style bg bg
-      Just Frame {..} -> ProgressBar . FancyS $
-          [ ("  ", defaultSty)
-          , (spaces distance, fgs)
-          , (spaces (width - distance), bgs)]
-        where
-          width    = w - 4
-          total    = curr + left
-          distance = round ((curr / total) * fromIntegral width)
-          curr     = realToFrac currentTime :: Float
-          left     = realToFrac timeLeft
-          (Style fg bg) = progress (config st)
-          bgs           = Style bg bg
-          fgs           = Style fg fg
+progressBar :: DrawData -> StringA
+progressBar dd@DD{drawSize=Size{sizeW=w}, drawState=st} = case drawFrame dd of
+    Nothing -> FancyS [("  ", defaultSty), (spaces (w-4), bgs)]
+      where
+        Style _ bg = progress (config st)
+        bgs        = Style bg bg
+    Just Frame {..} -> FancyS
+        [ ("  ", defaultSty)
+        , (spaces distance, fgs)
+        , (spaces (width - distance), bgs) ]
+      where
+        width    = w - 4
+        total    = curr + left
+        distance = round ((curr / total) * fromIntegral width)
+        curr     = realToFrac currentTime :: Float
+        left     = realToFrac timeLeft
+        Style fg bg = progress (config st)
+        bgs         = Style bg bg
+        fgs         = Style fg fg
 
 ------------------------------------------------------------------------
 
 -- | Version info
-instance Element PVersion where
-    draw _ = PVersion $ P.pack versinfo
+pVersion :: ByteString
+pVersion = P.pack versinfo
 
 -- | Uptime
-instance Element PTime where
-    draw dd = PTime . uptime $ drawState dd
+pTime :: DrawData -> ByteString
+pTime = uptime . drawState
+
+-- | Play state
+pState :: DrawData -> String
+pState dd = case status (drawState dd) of
+    Stopped -> "◼"
+    Paused  -> "⏸"
+    Playing -> "▶"
 
 -- | Play mode
-instance Element PMode where
-    draw dd = PMode case status $ drawState dd of
-                        Stopped -> "◼"
-                        Paused  -> "⏸"
-                        Playing -> "▶"
-
--- | Loop, normal, or random
-instance Element PMode2 where
-    draw dd = PMode2 case mode $ drawState dd of
-                        Random  -> "rand"
-                        Loop    -> "loop"
-                        Once    -> "once"
-                        Single  -> "sing"
+pMode :: DrawData -> String
+pMode dd = take 4 $ map toLower $ show $ mode $ drawState dd
 
 ------------------------------------------------------------------------
 
-instance Element PlayModes where
-    draw dd = PlayModes $ m ++ ' ' : m'
-        where
-            PMode  m  = draw dd
-            PMode2 m' = draw dd
+-- | "x/n dirs y/m files" cursor position read-out.
+playInfo :: DrawData -> ByteString
+playInfo dd = mconcat
+    [ spaces (P.length numd - P.length curd)
+    , curd, "/", numd, " dirs"
+    , spaces (1 + P.length numf - P.length curf)
+    , curf, "/", numf, " files"
+    ]
+  where
+    st   = drawState dd
+    tobs = P.pack . show
+    curf  = tobs $ 1 + cursor st
+    numf  = tobs $ size st
+    mydir = fdir $ music st ! cursor st
+    curd  = tobs $ 1 + mydir
+    numd  = tobs $ length $ folders st
 
-instance Element PlayInfo where
-    draw dd = PlayInfo $ mconcat [
-           -- TODO pregenerate as template
-           spaces (P.length numd - P.length curd)
-         , curd
-         , "/", numd
-         , " dir"
-         , onPlural (snd . bounds $ folders st) "" "s"
-         , " "
-         , spaces (P.length numf - P.length curf)
-         , curf
-         , "/", numf
-         , " file"
-         , onPlural (size st) "" "s"
-         ]
+-- | The top title bar: cursor position + play indicator + uptime + version.
+playTitle :: DrawData -> StringA
+playTitle dd =
+    flip Fast hl $ mconcat if gap >= 2
+        then [" ", inf, spaces gapl, indic, spaces gapr, time, " ", ver, " "]
+        else let gap' = x - indicl; gapl' = gap' `div` 2
+             in if gap' >= 2
+                then [spaces gapl', indic, spaces $ gap' - gapl']
+                else [" ", P.take (x-2) indic, " "]
+  where
+    inf     = playInfo dd
+    time    = pTime dd
+    indic   = u $ pState dd ++ ' ' : pMode dd
+    ver     = pVersion
+
+    x       = sizeW $ drawSize dd
+    lsize   = 1 + P.length inf
+    rsize   = 2 + P.length time + P.length ver
+    side    = (x - indicl) `div` 2
+    gap     = x - indicl - lsize - rsize
+    gapl    = 1 `max` ((side - lsize) `min` (gap - 1))
+    gapr    = gap - gapl
+    indicl  = 6 -- length indic
+    hl      = titlebar . config $ drawState dd
+
+-- | The scrolling playlist (title + visible tracks + minibuffer).
+playList :: DrawData -> [StringA]
+playList dd@DD{ drawSize=Size y x, drawPos=Pos{posY=o}, drawState=st } =
+    playTitle dd
+    : list
+    ++ replicate (height - length list - 2) (Fast P.empty defaultSty)
+    ++ [minibuffer st]
+  where
+    songs  = music st
+    this   = current st
+    curr   = cursor  st
+    height = y - o
+
+    -- number of screens down, and then offset
+    buflen = height - 2
+    (screens, select) = quotRem curr buflen -- keep cursor in screen
+
+    playing = let top = screens * buflen
+                  bot = (screens + 1) * buflen
+              in if this >= top && this < bot
+                    then this - top -- playing song is visible
+                    else (-1)
+
+    -- visible slice of the playlist
+    visible = slice off (off + buflen) songs
+        where off = screens * buflen
+
+    visible' :: [(Maybe Int, ByteString)]
+    visible' = loop (-1) visible where
+        loop _ []     = []
+        loop n (v:vs) =
+            let r = if fdir v > n then Just (fdir v) else Nothing
+            in (r, toMaxWidth (x - indent - 1) $ fbase v)
+                    : loop (fdir v) vs
+
+    list   = [ drawIt . color $ n | n <- zip visible' [0..] ]
+
+    indent = (round $ (0.334 :: Float) * fromIntegral x) :: Int
+
+    (sty1, sty2, sty3) = (selected cs, cursors cs, combined cs)
+        where cs = config st
+
+    color :: ((Maybe Int, ByteString), Int)
+                -> (Maybe Int, (Style, [ByteString]))
+    color ((m, s), i) = (m,) case (i == select, i == playing) of
+        (True, True) -> f sty3
+        (True, _)    -> f sty2
+        (_   , True) -> f sty1
+        _            -> (defaultSty, [s])
       where
-        st = drawState dd
-        tobs = P.pack . show
-        onPlural 1 s _ = s
-        onPlural _ _ p = p
-        curf = tobs $ 1 + cursor st
-        numf = tobs $ size st
-        mydir = fdir $ music st ! cursor st
-        curd = tobs $ 1 + mydir
-        numd = tobs $ 1 + snd (bounds $ folders st)
+        f sty = (sty, [s, spaces (x - indent - 1 - displayWidth s)])
 
-instance Element PlayTitle where
-    draw dd =
-        PlayTitle $ FancyS $ map (,hl)
-            if gap >= 2
-            then [mconcat [" ", inf, spaces gapl], modesBS,
-                    mconcat [spaces gapr, time, " ", ver, " "]]
-            else let gap' = x - modlen; gapl' = gap' `div` 2
-                 in if gap' >= 2
-                    then [spaces gapl', modesBS, spaces $ gap' - gapl']
-                    else [" ", u $ take (x-2) modes, " "]
+    drawIt :: (Maybe Int, (Style, [ByteString])) -> StringA
+    drawIt (Nothing, (sty, v)) =
+        FancyS $ map (, sty) $ spaces (1 + indent) : v
+    drawIt (Just i, (sty, v)) = FancyS
+        $ (d, sty')
+        : (spaces (indent + 1 - displayWidth d), sty')
+        : map (, sty) v
       where
-        PlayInfo inf    = draw dd
-        PTime time      = draw dd
-        PlayModes modes = draw dd
-        PVersion ver    = draw dd
-        modesBS         = u modes
+        sty' = if sty == sty2 || sty == sty3 then sty2 else sty1
+        d = toMaxWidth (indent - 1) $ takeFileName $ dname $ folders st ! i
 
-        x       = sizeW $ drawSize dd
-        lsize   = 1 + P.length inf
-        rsize   = 2 + P.length time + P.length ver
-        side    = (x - modlen) `div` 2
-        gap     = x - modlen - lsize - rsize
-        gapl    = 1 `max` ((side - lsize) `min` gap)
-        gapr    = 1 `max` (gap - gapl)
-        modlen  = 6 -- length modes
-        hl      = titlebar . config $ drawState dd
-
--- | Playlist
-instance Element PlayList where
-    draw dd@DD{ drawSize=Size y x, drawPos=Pos{posY=o}, drawState=st } =
-        PlayList $
-            title
-            : list
-            ++ replicate (height - length list - 2) (Fast P.empty defaultSty)
-            ++ [minibuffer st]
-        where
-            PlayTitle title = draw dd
-
-            songs  = music st
-            this   = current st
-            curr   = cursor  st
-            height = y - o
-
-            -- number of screens down, and then offset
-            buflen   = height - 2
-            (screens, select) = quotRem curr buflen -- keep cursor in screen
-
-            playing  = let top = screens * buflen
-                           bot = (screens + 1) * buflen
-                       in if this >= top && this < bot
-                            then this - top -- playing song is visible
-                            else (-1)
-
-            -- visible slice of the playlist
-            visible = slice off (off + buflen) songs
-                where off = screens * buflen
-
-            -- TODO rewrite as fold
-            visible' :: [(Maybe Int, ByteString)]
-            visible' = loop (-1) visible where
-                loop _ []     = []
-                loop n (v:vs) =
-                    let r = if fdir v > n then Just (fdir v) else Nothing
-                    in (r, toMaxWidth (x - indent - 1) $ fbase v)
-                            : loop (fdir v) vs
-
-            list   = [ drawIt . color $ n | n <- zip visible' [0..] ]
-
-            indent = (round $ (0.334 :: Float) * fromIntegral x) :: Int
-
-            color :: ((Maybe Int, ByteString), Int)
-                        -> (Maybe Int, Style, [ByteString])
-            color ((m,s),i)
-                | i == select && i == playing = f sty3
-                | i == select                 = f sty2
-                | i == playing                = f sty1
-                | otherwise                   = (m, defaultSty, [s])
-                where
-                    f sty = (m, sty,
-                        [s, spaces (x - indent - 1 - displayWidth s)])
-
-            sty1 = selected . config $ st
-            sty2 = cursors  . config $ st
-            sty3 = combined . config $ st
-
-            drawIt :: (Maybe Int, Style, [ByteString]) -> StringA
-            drawIt (Nothing, sty, v) =
-                FancyS $ map (, sty) $ spaces (1 + indent) : v
-
-            drawIt (Just i, sty, v) = FancyS
-                $ (d, sty')
-                : (spaces (indent + 1 - displayWidth d), sty')
-                : map (, sty) v
-              where
-                sty' = if sty == sty2 || sty == sty3 then sty2 else sty1
-                d = toMaxWidth (indent - 1) $ basenameP
-                        $ case size st of
-                            0 -> "(empty)"
-                            _ -> dname $ folders st ! i
-
---
--- | Decode the list of current tracks
---
-printPlayList :: PlayList -> [StringA]
-printPlayList (PlayList s) = s
-{-# INLINE printPlayList #-}
-                
 ------------------------------------------------------------------------
 
 spaces :: Int -> ByteString
 spaces = flip P.replicate ' '
 
 ------------------------------------------------------------------------
---
 -- | Now write out just the clock line
--- Speed things up a bit, just use read State.
---
 redrawJustClock :: Draw
 redrawJustClock = Draw $ discardErrors do
-   st      <- getsHS id
-   let fr = clock st
-   (h, w) <- screenSize
-   let sz = Size h w
-   let (ProgressBar bar) = draw $ DD sz undefined st fr :: ProgressBar
-       (PTimes times)    = {-# SCC "redrawJustClock.times" #-}
-                           draw $ DD sz undefined st fr :: PTimes
-   Curses.wMove Curses.stdScr 1 0   -- hardcoded!
-   drawLine w bar
-   Curses.wMove Curses.stdScr 2 0   -- hardcoded!
-   drawLine w times
-   when (h<45) $ renderModals st sz -- small screen modals paint over clock
+    st     <- getsHS id
+    (h, w) <- screenSize
+    let dd = DD (Size h w) undefined st (clock st)
+    Curses.wMove Curses.stdScr 1 0   -- hardcoded!
+    drawLine $ progressBar dd
+    Curses.wMove Curses.stdScr 2 0   -- hardcoded!
+    drawLine $ pTimes dd
 
 ------------------------------------------------------------------------
---
--- work for drawing help. draw the help screen if it is up
---
-renderModal :: forall me. ModalElement me => HState -> Size -> IO ()
-renderModal st (Size h w) = do
-   for_ (drawModal @me (modals $ config st) w st) \(mw, modal') -> do
-       let hoffset = max 0 $ (w - mw) `div` 2
-           mlines  = min h $ length modal'
-           voffset = (h - mlines) `div` 2
-       Curses.wMove Curses.stdScr voffset hoffset
-       for_ (take mlines modal') \t -> do
-            drawLine w t
-            (y', _) <- Curses.getYX Curses.stdScr
-            Curses.wMove Curses.stdScr (y'+1) hoffset
+-- | General modal renderer.
+renderModal :: HState -> Size -> ModalMaker -> IO ()
+renderModal st (Size h w) mkr = do
+    let (mw, modal') = mkr w
+        hoffset = max 0 $ (w - mw) `div` 2
+        vislines = (h - 5) `min` length modal'
+        voffset = ((h - vislines) `div` 2) `max` 4
+        sty = modals $ config st
+    Curses.wMove Curses.stdScr voffset hoffset
+    for_ (take vislines modal') \t -> do
+        drawLine $ Fast (toWidth mw t) sty
+        (y', _) <- Curses.getYX Curses.stdScr
+        Curses.wMove Curses.stdScr (y'+1) hoffset
 
+-- | Choose modal to render based on state.
 renderModals :: HState -> Size -> IO ()
-renderModals s sz = do
-   renderModal @HelpModal s sz
-   renderModal @HistModal s sz
-   renderModal @ExitModal s sz
+renderModals st sz =
+    whenJust (modal st) $ renderModal st sz . \case
+        HelpModal h -> helpModal h
+        HistModal h -> histModal h
+        ExitModal   -> exitModal
 
 ------------------------------------------------------------------------
---
 -- | Draw the screen
---
 redraw :: Draw
-redraw = Draw $ discardErrors do
-   -- linux ncurses, in particular, seems to complain a lot. this is an easy solution
-   s <- getsHS id    -- another refresh could be triggered?
-   let f = clock s
-   (h, w) <- screenSize
-   let sz = Size h w
+redraw = Draw $ discardErrors {- TODO what errors are discarded? -} do
+    st <- getsHS id    -- another refresh could be triggered?
+    (h, w) <- screenSize
+    let sz     = Size h w
+        screen = playScreen (DD sz (Pos 0 0) st (clock st))
+        a      = screen ++ playList (DD sz (Pos (length screen) 0) st (clock st))
 
-   let a = let x = printPlayScreen (draw $ DD sz (Pos 0 0) s f :: PlayScreen)
-               y = printPlayList (draw $ DD sz (Pos (length x) 0) s f :: PlayList)
-           in x ++ y
+    setXterm st
 
-   when (xterm s) $ setXterm s
-   
-   gotoTop
-   for_ (take (h-1) (init a)) \t -> do
-       drawLine w t
-       (y, x) <- Curses.getYX Curses.stdScr
-       fillLine
-       maybeLineDown t h y x
-   renderModals s sz
+    gotoTop
+    for_ (take (h-1) (init a)) \t -> do
+        drawLine t
+        (y, x) <- Curses.getYX Curses.stdScr
+        fillLine
+        maybeLineDown t h y x
+    renderModals st sz
 
-   -- minibuffer
-   Curses.wMove Curses.stdScr (h-1) 0
-   fillLine 
-   Curses.wMove Curses.stdScr (h-1) 0
-   drawLine (w-1) (last a)
-   when (miniFocused s) do -- a fake cursor
-        drawLine 1 (Fast (spaces 1) (blockcursor . config $ s ))
+    -- minibuffer
+    Curses.wMove Curses.stdScr (h-1) 0
+    fillLine
+    Curses.wMove Curses.stdScr (h-1) 0
+    drawLine (last a)
+    when (miniFocused st) do -- a fake cursor
+        drawLine (Fast (spaces 1) (blockcursor . config $ st ))
+        -- XXX is this TODO from 2005 still relevant?
         -- todo rendering bug here when deleting backwards in minibuffer
 
 ------------------------------------------------------------------------
---
 -- | Draw a coloured (or not) string to the screen
---
-drawLine :: Int -> StringA -> IO ()
-drawLine _ (Fast ps sty) = drawSegment ps sty
-drawLine _ (FancyS ls)   = traverse_ (uncurry drawSegment) ls
+drawLine :: StringA -> IO ()
+drawLine (Fast ps sty) = drawSegment ps sty
+drawLine (FancyS ls)   = traverse_ (uncurry drawSegment) ls
 
 -- | Write a single styled UTF-8 segment.  Safe because C only reads the bytes.
 drawSegment :: ByteString -> Style -> IO ()
@@ -666,9 +538,6 @@ slice i j arr =
     in [unsafeAt arr n | n <- [max a i .. min b j] ]
 {-# INLINE slice #-}
 
--- isAscii :: ByteString -> Bool
--- isAscii = P.all (<'\128')
-
 ------------------------------------------------------------------------
 
 --
@@ -684,14 +553,11 @@ setXtermTitle strs = do
 
 ------------------------------------------------------------------------
 
--- set xterm title (should have an instance Element)
--- Don't need to do this on each refresh...
+-- set xterm title.  Don't need to do this on each refresh...
 setXterm :: HState -> IO ()
 setXterm s = setXtermTitle $ case status s of
     Playing -> case id3 s of
-        Nothing -> case size s of
-                        0 -> ["hmp3"]
-                        _ -> [fbase $ music s ! current s]
+        Nothing -> [fbase $ music s ! current s]
         Just ti -> id3artist ti :
                    if P.null (id3title ti)
                         then []

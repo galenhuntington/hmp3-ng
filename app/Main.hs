@@ -8,14 +8,14 @@ module Main where
 import Base
 
 import Core     (start, shutdown, Options(..))
-import qualified Config
-import Tree     (buildTree, isEmpty)
+import Config qualified
+import Keymap   (keyLoop)
+import Playlist (buildPlaylist, isEmpty)
 
-import System.IO            (hPrint, stderr)
-import System.Posix.Signals (installHandler, sigTERM, sigPIPE, sigINT, sigHUP
-                            ,sigALRM, sigABRT, Handler(Ignore, Default, Catch))
+import System.Posix.Signals (installHandler, Handler(Ignore, Default, Catch),
+                             sigTERM, sigPIPE, sigINT, sigHUP , sigALRM, sigABRT)
 
-import qualified Data.ByteString.UTF8 as UTF8
+import Data.ByteString.UTF8 qualified as UTF8
 
 import Options.Applicative
 
@@ -34,8 +34,7 @@ initSignals = do
 exitHandler :: IO ()
 exitHandler = do
     releaseSignals  -- in case shutdown itself gets stuck
-    catch @SomeException (shutdown Nothing) (hPrint stderr)
-    exitWith $ ExitFailure 1
+    shutdown $ Just "Killed"
 
 releaseSignals :: IO ()
 releaseSignals =
@@ -55,6 +54,12 @@ invocation = (,) <$> opts <*> files
         <*> optional (strOption -- temporarily internal since feature needs work
             (long "config" <> short 'c' <> metavar "FILE" <> internal
                 <> help "Read this config file instead of the XDG default"))
+        <*> optional (option (maybeReader prefixMatch) (
+            long "mode" <> short 'm' <> metavar "MODE"
+                <> help "Initial play mode (default: last selected, or once)"))
+        <*> option auto (
+            long "history" <> short 'h' <> metavar "NUM" <> value 61
+                <> help "Size of play history, up to 61 selectable" <> showDefault)
     files = some $ argument (UTF8.fromString <$> str) (metavar "FILE|DIR...")
 
 parserInfo :: ParserInfo (Options, [ByteString])
@@ -66,14 +71,25 @@ parserInfo = info (invocation <**> versionOpt <**> helper) $
     versionOpt = infoOption Config.versinfo
         (hidden <> long "version" <> short 'V' <> help "Show version information")
 
+-- XXX should this have tests?
+prefixMatch :: (Enum a, Bounded a, Show a) => String -> Maybe a
+prefixMatch s =
+    case [ x | x <- [minBound .. maxBound], s' `isPrefixOf` map toLower (show x) ] of
+        [x] -> Just x
+        _   -> Nothing
+    where s' = map toLower s
+
 ------------------------------------------------------------------------
 
 main :: IO ()
 main = do
     (opts, args) <- customExecParser (prefs showHelpOnEmpty) parserInfo
+    list <- buildPlaylist args
+    when (isEmpty list) $
+        errorWithoutStackTrace "Error: No music files found."
     initSignals
-    tree <- buildTree args
-    if isEmpty tree
-        then putStrLn "Error: No music files found." *> exitFailure
-        else start opts tree -- never returns
+    err <- either id absurd <$> try @SomeException do
+        start opts list
+        keyLoop
+    shutdown $ Just $ "Error: " ++ show err
 

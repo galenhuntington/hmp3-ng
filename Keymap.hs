@@ -1,5 +1,3 @@
-{-# OPTIONS -Wno-orphans #-}
-
 -- Copyright (c) 2004-2008 Don Stewart - http://www.cse.unsw.edu.au/~dons
 -- Copyright (c) 2008, 2019-2026 Galen Huntington
 -- SPDX-License-Identifier: GPL-2.0-or-later
@@ -14,18 +12,18 @@
 --
 module Keymap (keyLoop, keyTable, unkey, charToKey) where
 
-import Base hiding ((!?))
+import Base
 
 import Core
-import Config       (package)
-import State        (getsHS, touchHS, modifyHS_, HState(histVisible, searchHist))
-import Style        (defaultSty, StringA(Fast))
-import qualified UI (getKey, resetui)
+import Config (package)
+import Keyboard (unkey, charToKey, Key(..), historyKeys)
+import State (getsHS, modifyHS_, KeysHelp, Modal(..), HState(..))
+import Style (defaultSty, StringA(Fast))
+import UI qualified (getKey, resetui)
 
-import UI.HSCurses.Curses (Key(..), decodeKey)
-
-import qualified Data.ByteString.Char8 as P
-import qualified Data.Map.Strict as M
+import Data.ByteString.Char8 qualified as P
+import Data.ByteString.UTF8 qualified as UTF8
+import Data.Map.Strict qualified as M
 
 
 ------------------------------------------------------------------------
@@ -38,29 +36,41 @@ newtype KeyMap = KeyMap (Char -> IO KeyMap)
 -- | Read keys forever and dispatch.  Each round clears the minibuffer
 -- between the keystroke and the action so messages from the previous
 -- action remain visible until the user reacts.
-keyLoop :: IO ()
+keyLoop :: IO Void
 keyLoop = go mainMode where
-    go (KeyMap f) = UI.getKey >>= \c -> clrmsg *> f c >>= go
+    go (KeyMap f) = UI.getKey >>= \c -> clearMessage *> f c >>= go
 
 
 ------------------------------------------------------------------------
 -- Top-level normal mode
 
 mainMode :: KeyMap
-mainMode = KeyMap dispatch where
-    dispatch 'q'  = forcePause *> toggleExit *> touchHS $> confirmQuitMode
-    dispatch c
-        | c `elem` ['/', '?', '\\', '|']
-                               = enterSearch c
-        | c `elem` ['H', ';']  = showHist *> touchHS $> historyMode
-        | c >= '1' && c <= '9' =
-            jumpRel (0.1 * fromIntegral (fromEnum c - 48)) $> mainMode
-        | True                 = sequence_ (M.lookup c keyMap) $> mainMode
+mainMode = KeyMap \c -> getsHS modal >>= \case
 
-    enterSearch stype = do
-        toggleFocus
-        hist <- getsHS searchHist
-        searchMode stype $ Zipper "" hist []
+    Just ExitModal
+        | c `elem` ['y', 'Y', '\^C'] -> shutdown Nothing $> undefined
+        | True                       -> closeModal $> mainMode
+
+    Just (HistModal hist) -> do
+        for_ (M.lookup c historyKeyMap >>= (hist !?)) (jump . fst . snd)
+        closeModal $> mainMode
+
+    _ -> if
+        | c `elem` ['/', '?', '\\', '|'] -> do
+            toggleFocus
+            hist <- getsHS searchHist
+            searchMode c $ Zipper "" hist []
+        | c `elem` ['q', '\^C'] ->
+            forcePause *> setsModal (const $ Just ExitModal) $> mainMode
+        | c `elem` ['H', ';'] ->
+            showHist $> mainMode
+        | c >= '1' && c <= '9' ->
+            jumpRel (fromIntegral (fromEnum c - 48) / 10) $> mainMode
+        | True -> sequence_ (M.lookup c keyMap) $> mainMode
+
+
+historyKeyMap :: M.Map Char Int
+historyKeyMap = M.fromList $ zip (toList historyKeys) [0..]
 
 
 ------------------------------------------------------------------------
@@ -76,7 +86,7 @@ searchMode stype = step where
     step z = renderSearch stype z $> KeyMap (`dispatch` z)
 
     dispatch c z
-        | c == '\ESC'      = clrmsg *> touchHS *> leave
+        | c == '\ESC'      = clearMessage *> leave
         | c `elem` enter'  = commit z
         | c `elem` delete' = step $ zipEdit dropLast z
         | k == KeyUp       = step $ zipUp z
@@ -86,7 +96,7 @@ searchMode stype = step where
         | otherwise        = step $ zipEdit (++ [c]) z
       where k = charToKey c
 
-    commit (Zipper []  _ _) = clrmsg *> touchHS *> leave
+    commit (Zipper []  _ _) = clearMessage *> leave
     commit (Zipper pat _ _) = do
         let jumpy = if stype `elem` ['/', '?']
                     then jumpToMatchFile else jumpToMatchDir
@@ -104,9 +114,7 @@ searchMode stype = step where
     leave = toggleFocus $> mainMode
 
 renderSearch :: Char -> Zipper -> IO ()
-renderSearch prefix z = do
-    putmsg $ Fast (P.pack (prefix : cur z)) defaultSty
-    touchHS
+renderSearch prefix z = putMessage $ Fast (P.pack (prefix : cur z)) defaultSty
 
 dropLast :: [a] -> [a]
 dropLast [] = []
@@ -121,54 +129,6 @@ zipUp   z                       = z
 zipDown (Zipper c b (pv:rest))  = Zipper pv (c:b) rest
 zipDown z                       = z
 
-
-------------------------------------------------------------------------
--- Song-history popup
-
-historyMode :: KeyMap
-historyMode = KeyMap \c -> do
-    for_ (M.lookup c historyKeys) \k -> do
-        phm <- getsHS histVisible
-        for_ (phm >>= (!? k)) (jump . fst . snd)
-    hideHist
-    touchHS
-    pure mainMode
-  where
-    historyKeys :: M.Map Char Int
-    historyKeys = M.fromList $ zip (['0'..'9'] ++ ['a'..'z']) [0..]
-
-    -- Compatibility: List.!? only added in GHC 9.8
-    xs !? n = listToMaybe $ drop n xs
-
-
-------------------------------------------------------------------------
--- Confirm-quit modal
-
-confirmQuitMode :: KeyMap
-confirmQuitMode = KeyMap \case
-    'y' -> shutdown Nothing $> undefined -- shutdown never returns
-    _   -> toggleExit *> touchHS $> mainMode
-
-
-------------------------------------------------------------------------
--- Char ↔ Key translation
---
--- ncurses delivers special keys as integer codes ≥ 256; for everything
--- in 0..255 'decodeKey' returns 'KeyChar (chr n)'.  We keep working in
--- 'Char' (UI.getKey's type), so we extend the range up to '\500' to
--- cover the named keys we actually use (KEY_RESIZE is around 410).
-
-deriving stock instance Ord Key
-
-charToKey :: Char -> Key
-charToKey = decodeKey . toEnum . fromEnum
-
-keyCharMap :: M.Map Key Char
-keyCharMap = M.fromList [(charToKey c, c) | c <- ['\0' .. '\500']]
-
-unkey :: Key -> Char
-unkey k = fromMaybe '\0' $ M.lookup k keyCharMap
-
 enter', delete' :: [Char]
 enter'  = ['\n', '\r']
 delete' = ['\BS', '\DEL', unkey KeyBackspace]
@@ -177,7 +137,7 @@ delete' = ['\BS', '\DEL', unkey KeyBackspace]
 ------------------------------------------------------------------------
 -- The keymap with help descriptions and actions.
 
-keyTable :: [(String, [Char], IO ())]
+keyTable :: [(ByteString, [Char], IO ())]
 keyTable =
     [ ("Move up",                                 ['k',unkey KeyUp],    upOne)
     , ("Move down",                               ['j',unkey KeyDown],  downOne)
@@ -189,7 +149,7 @@ keyTable =
     , ("Seek left within song",                   [unkey KeyLeft],      seekLeft)
     , ("Seek right within song",                  [unkey KeyRight],     seekRight)
     , ("Toggle pause",                            [' '],                pause)
-    , ("Play song under cursor",                  ['\n'],               play)
+    , ("Play from cursor",                        ['\n'],               playCursor)
     , ("Play previous track",                     ['K'],                playPrev)
     , ("Play next track",                         ['J'],                playNext)
     , ("Toggle the help screen",                  ['h'],                toggleHelp)
@@ -209,11 +169,18 @@ keyTable =
     , ("Search backwards for file",               ['?'],                placeholder)
     , ("Search for directory matching regex",     ['\\'],               placeholder)
     , ("Search backwards for directory",          ['|'],                placeholder)
-    , ("Quit " ++ package,                        ['q'],                placeholder)
+    , ("Quit " <> UTF8.fromString package,        ['q'],                placeholder)
     ]
   where placeholder = pure () -- handled separately
 
 -- Compiled dispatch table for normal-mode single-key commands.
 keyMap :: M.Map Char (IO ())
 keyMap = M.fromList [ (c, a) | (_, cs, a) <- keyTable, c <- cs ]
+
+keysHelp :: [KeysHelp]
+keysHelp = [ (keys, desc) | (desc, keys, _) <- keyTable ]
+
+toggleHelp :: IO ()
+toggleHelp = setsModal \st ->
+    if isNothing $ modal st then Just $ HelpModal keysHelp else Nothing
 

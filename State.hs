@@ -9,128 +9,87 @@ module State where
 
 import Base
 
-import FastIO (FiltHandle(..))
-import Syntax                   (Status(Stopped), Mode(..), Frame, Info, Id3, Pretty(ppr))
-import Tree                     (FileArray, DirArray)
-import Style                    (StringA(Fast), defaultSty, UIStyle)
-import qualified Config (defaultStyle)
+import Decoder                  (Status, Frame, Id3, Cmd, cmdToBS)
+import Playlist                 (FileArray, DirArray)
+import Style                    (StringA, UIStyle)
 
-import Text.Regex.PCRE.Light    (Regex)
-import Data.Array               (listArray)
 import Data.ByteString          (hPut)
-import Data.Sequence            (Seq)
 import System.Clock             (TimeSpec(..))
 import System.IO                (hFlush)
 import System.Process           (ProcessHandle)
-import System.Random
+import System.Random            (StdGen)
+import Text.Regex.PCRE.Light    (Regex)
 
 
--- | The editor state type
-data HState = HState {
-        music           :: !FileArray
-       ,folders         :: !DirArray
-       ,size            :: !Int                  -- cache size of list
-       ,current         :: !Int                  -- currently playing mp3
-       ,cursor          :: !Int                  -- mp3 under the cursor
-       ,clock           :: !(Maybe Frame)        -- current clock value
-       ,clockUpdate     :: !Bool
-       ,randomGen       :: !StdGen               -- random seed
-       ,mpgPid          :: !(Maybe ProcessHandle) -- pid of decoder
-       ,spawns          :: !Integer              -- count of decoder spawns
-       ,threads         :: ![ThreadId]           -- all our threads
-       ,id3             :: !(Maybe Id3)          -- maybe mp3 id3 info
-       ,info            :: !(Maybe Info)         -- mp3 info
-       ,status          :: !Status
-       ,minibuffer      :: !StringA              -- contents of minibuffer
-       ,helpVisible     :: !Bool                 -- is the help window shown?
-       ,histVisible     :: !(Maybe [(ByteString, (Int, ByteString))]) -- history pop-up if shown
-       ,exitVisible     :: !Bool                 -- confirm exit modal shown
-       ,miniFocused     :: !Bool                 -- is the mini buffer focused?
-       ,mode            :: !Mode
-       ,uptime          :: !ByteString
-       ,boottime        :: !TimeSpec
-       ,regex           :: !(Maybe (Regex,Bool)) -- most recent search pattern and direction
-       ,searchHist      :: ![String]             -- history of searches
-       ,xterm           :: !Bool
-       ,doNotResuscitate :: !Bool                -- should we just let mpg123 die?
-       ,playHist        :: !(Seq (TimeSpec, Int)) -- limited history of songs played
-       ,config          :: !UIStyle             -- config values
-       ,configPath      :: !(Maybe FilePath)     -- style.conf override (CLI)
-
-       ,modified        :: !(MVar ())           -- Set when redrawable components of 
-                                                -- the state are modified. The ui
-                                                -- refresh thread waits on this.
-       ,drawLock        :: !(MVar ())           -- simple semaphore for display
+-- | Player state
+data HState = HState
+    -- These never change
+    { music           :: !FileArray
+    , folders         :: !DirArray
+    , size            :: !Int                  -- cache size of list
+    , bootTime        :: !TimeSpec
+    , configPath      :: !(Maybe FilePath)     -- style.conf override (CLI)
+    -- These can
+    , current         :: !Int                  -- currently playing mp3
+    , cursor          :: !Int                  -- mp3 under the cursor
+    , clock           :: !(Maybe Frame)        -- current clock value
+    , randomGen       :: !StdGen               -- random seed
+    , mpgPid          :: !(Maybe ProcessHandle) -- pid of decoder
+    , spawns          :: !Integer              -- count of decoder spawns
+    , threads         :: ![ThreadId]           -- all our threads
+    , id3             :: !(Maybe Id3)          -- maybe mp3 id3 info
+    , info            :: !(Maybe ByteString)   -- mp3 info
+    , status          :: !Status
+    , minibuffer      :: !StringA              -- contents of minibuffer
+    , modal           :: !(Maybe Modal)        -- modal visible
+    , miniFocused     :: !Bool                 -- is the mini buffer focused?
+    , mode            :: !Mode
+    , uptime          :: !ByteString
+    , regex           :: !(Maybe (Regex,Bool)) -- most recent search pattern and direction
+    , searchHist      :: ![String]
+    , exiting         :: !Bool                 -- let mpg123 die?
+    , playHist        :: !(Seq (TimeSpec, Int))
+    , histSize        :: Int
+    , config          :: !UIStyle
     }
 
-------------------------------------------------------------------------
---
--- | The initial state
---
-newEmptyHS :: IO HState
-newEmptyHS = do
-    modified  <- newEmptyMVar
-    drawLock  <- newMVar ()
-    randomGen <- newStdGen
-    pure HState {
-        music        = listArray (0,0) []
-       ,folders      = listArray (0,0) []
+data Mode = Once | Loop | Random | Single
+    deriving stock (Eq, Bounded, Enum, Show, Read)
 
-       ,size         = 0
-       ,current      = 0
-       ,cursor       = 0
+-- Each is (timestamp-string, (song-index, song-name)).
+type HistDisplay = [(ByteString, (Int, ByteString))]
 
-       ,threads      = []
-       ,modified
+-- (list-of-keys, description)
+type KeysHelp = ([Char], ByteString)
 
-       ,mpgPid       = Nothing
-       ,spawns       = 0
-       ,clock        = Nothing
-       ,info         = Nothing
-       ,id3          = Nothing
-       ,regex        = Nothing
-       ,searchHist   = []
+data Modal = HelpModal ![KeysHelp] | ExitModal | HistModal !HistDisplay
 
-       ,clockUpdate      = False
-       ,helpVisible      = False
-       ,histVisible      = Nothing
-       ,exitVisible      = False
-       ,miniFocused      = False
-       ,xterm            = False
-       ,doNotResuscitate = False    -- mpg123 should be restarted
-
-       ,randomGen
-       ,playHist     = mempty
-       ,config       = Config.defaultStyle
-       ,configPath   = Nothing
-       ,boottime     = 0
-       ,status       = Stopped
-       ,mode         = minBound
-       ,minibuffer   = Fast mempty defaultSty
-       ,uptime       = mempty
-       ,drawLock
-    }
-
---
 -- | A global variable holding the state.
---
 hState :: MVar HState
-hState = unsafePerformIO $ newMVar =<< newEmptyHS
+hState = unsafePerformIO newEmptyMVar
 {-# NOINLINE hState #-}
 
-data Mpg = Mpg
-    { writeh :: !Handle
-    , readf  :: !FiltHandle
-    , errh   :: !FiltHandle
-    }
+-- | The refresh thread waits on this
+modified :: MVar ()
+modified = unsafePerformIO newEmptyMVar
+{-# NOINLINE modified #-}
+
+-- | Queues a refresh.
+setModified :: IO ()
+setModified = void $ tryPutMVar modified ()
+
+------------------------------------------------------------------------
+-- The decoder.
+
+data Mpg = Mpg { errh :: !Handle, writeh :: !Handle }
 
 mpg :: MVar Mpg
 mpg = unsafePerformIO newEmptyMVar
 {-# NOINLINE mpg #-}
 
-sendMpg :: Pretty a => a -> IO ()
-sendMpg s = withMVar mpg $ (. writeh) \h ->
-    hPut h (ppr s) >> hPut h "\n" >> hFlush h
+sendMpg :: Cmd -> IO ()
+sendMpg c = withMVar mpg $ (. writeh) \h ->
+    hPut h (cmdToBS c) *> hPut h "\n" *> hFlush h
 
 ------------------------------------------------------------------------
 -- state accessor functions
@@ -139,28 +98,14 @@ sendMpg s = withMVar mpg $ (. writeh) \h ->
 getsHS :: (HState -> a) -> IO a
 getsHS f = f <$> readMVar hState
 
--- | Modify the state with a pure function
+-- | Modify the state with a pure function and no refresh
 silentlyModifyHS :: (HState -> HState) -> IO ()
 silentlyModifyHS  f = modifyMVar_ hState (pure . f)
 
 modifyHS_ :: (HState -> HState) -> IO ()
-modifyHS_ f = silentlyModifyHS f <* touchHS
+modifyHS_ f = silentlyModifyHS f <* setModified
 
 -- | Modify the state returning a value
 modifyHS :: (HState -> (HState, a)) -> IO a
-modifyHS f = modifyMVar hState (pure . f) <* touchHS
-
--- | Trigger a refresh. This is the only way to update the screen.
-touchHS :: IO ()
-touchHS = withMVar hState \st -> void $ tryPutMVar (modified st) ()
-
-forceNextPacket :: IO ()
-forceNextPacket = do
-  fh <- readf <$> readMVar mpg
-  writeIORef (frameCount fh) 0
-
-withDrawLock :: IO () -> IO ()
-withDrawLock io = do
-    lock <- getsHS drawLock
-    withMVar lock $ const io
+modifyHS f = modifyMVar hState (pure . f) <* setModified
 
