@@ -39,7 +39,7 @@ import Data.Tuple               (swap)
 import Control.Monad.State.Strict
 import System.Directory         (doesFileExist, findExecutable, createDirectoryIfMissing,
                                  getXdgDirectory, XdgDirectory(..))
-import System.IO                (hPutStrLn, hGetLine, stderr)
+import System.IO                (hPutStrLn, stderr)
 import System.Process           (runInteractiveProcess, waitForProcess)
 import System.Clock             (TimeSpec(..), diffTimeSpec)
 import System.Random            (randomR, newStdGen)
@@ -85,7 +85,6 @@ start opts (Playlist folders music) = do
         , mpgInput
         , refreshLoop
         , uptimeLoop
-        , errorLoop
         ]
 
     putMVar hState HState
@@ -158,12 +157,12 @@ mpgLoop = runForever do
     case mmpg of
       Nothing     -> shutdown $ Just $ "Cannot find " ++ mp3Tool ++ " in path"
       Just mppath -> do
-        mv <- try $ runInteractiveProcess mppath ["-R", "-"] Nothing Nothing
+        mv <- try $ runInteractiveProcess mppath ["-R", "--remote-err"] Nothing Nothing
         case mv of
           Left (ex :: SomeException) ->
             warnA $ mppath ++ " failed to start; retrying: " ++ show ex
 
-          Right (writeh, readh, errh, pid) -> do
+          Right (writeh, _, errh, pid) -> do
             ct <- modifyHS $ \st -> let sp = spawns st + 1 in (st
                 { mpgPid    = Just pid
                 , status    = Stopped
@@ -172,7 +171,7 @@ mpgLoop = runForever do
                 , spawns    = sp
                 }, sp)
 
-            putMVar mpg Mpg { readh, errh, writeh }
+            putMVar mpg Mpg { errh, writeh }
 
             when (ct > 1) $ warnA $ mp3Tool ++ " #" ++ show ct ++ ": Ready"
             catch @SomeException (void $ waitForProcess pid) (const $ pure ())
@@ -229,20 +228,13 @@ showTimeDiff = showTimeDiff_ False
 
 ------------------------------------------------------------------------
 
--- | Handle, and display errors produced by mpg123
-errorLoop :: IO ()
-errorLoop = runForever $
-    readMVar mpg <&> errh >>= hGetLine >>= (warnA . ("mpg123 err: " ++))
-
-------------------------------------------------------------------------
-
 -- | Handle messages arriving over a pipe from the decoder process. When
 -- shutdown kills the other end of the pipe, hGetLine will fail, so we
 -- take that chance to exit.
 --
 mpgInput :: IO ()
 mpgInput = runForever $ do
-    line <- P.hGetLine =<< readh <$> readMVar mpg
+    line <- P.hGetLine =<< errh <$> readMVar mpg
     case mpgParser line of
         Right m       -> handleMsg m
         Left (Just e) -> warnA ("mpg123: " ++ e)
