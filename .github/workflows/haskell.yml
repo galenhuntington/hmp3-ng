@@ -2,25 +2,28 @@ on: [push]
 name: build
 jobs:
   cabal:
-    runs-on: 'ubuntu-22.04'
+    runs-on: 'ubuntu-latest'
     strategy:
       matrix:
         ghc: ['9.2.1', '9.10', '9.12', 'latest']
     name: GHC ${{ matrix.ghc }}
     steps:
       - uses: actions/checkout@v6
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libpcre3-dev
       - uses: haskell-actions/setup@v2
         with:
           ghc-version: ${{ matrix.ghc }}
       - run: cabal build all
       - run: cabal test all --test-show-details=streaming
   stack:
-    runs-on: 'ubuntu-22.04'
+    runs-on: 'ubuntu-latest'
     name: Stack
     steps:
       - uses: actions/checkout@v6
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libpcre3-dev
       - uses: haskell-actions/setup@v2
         with:
           enable-stack: true
       - run: stack test
-
