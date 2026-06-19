@@ -4,14 +4,14 @@ jobs:
   cabal:
     strategy:
       matrix:
-        host: ['macos-latest']
+        host: ['ubuntu-26.04']
     runs-on: ${{ matrix.host }}
-    name: Stack on ${{ matrix.host }}
+    name: GHC on ${{ matrix.host }}
     steps:
       - uses: actions/checkout@v6
-      - run: brew install pcre
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libpcre3-dev
       - uses: haskell-actions/setup@v2
-        with:
-          enable-stack: true
-      - run: stack test
+      - run: cabal build all
+      - run: cabal test all --test-show-details=streaming
 
