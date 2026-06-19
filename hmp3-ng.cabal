@@ -74,7 +74,7 @@ library
     filepath,
     hscurses,
     mtl,
-    pcre2 >=2.3,
+    pcre2 >=2.2,
     posix-paths,
     process,
     random,
