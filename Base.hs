@@ -30,6 +30,8 @@ import System.IO as X (Handle, hClose)
 import System.IO.Unsafe as X
 import Text.Printf as X
 import Text.Read as X (readMaybe)
+import Text.Regex.PCRE.Light (match, compileM, utf8, caseless)
+
 import System.Clock
 
 
@@ -47,4 +49,10 @@ whenJust = flip $ maybe $ pure ()
 -- Compatibility: List.!? only added in GHC 9.8
 (!?) :: [a] -> Int -> Maybe a
 xs !? n = listToMaybe $ drop n xs
+
+-- API for regex
+matches :: ByteString -> ByteString -> Bool
+matches s = case compileM s [caseless, utf8] of
+    Right p -> \t -> isJust $ match p t []
+    _       -> const False
 
