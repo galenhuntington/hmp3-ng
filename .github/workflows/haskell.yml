@@ -2,11 +2,12 @@ on: [push]
 name: build
 jobs:
   cabal:
-    runs-on: 'ubuntu-22.04'
     strategy:
       matrix:
-        ghc: ['9.2.1', '9.10', '9.12', 'latest']
-    name: GHC ${{ matrix.ghc }}
+        ghc: ['latest']
+        system: ['ubuntu-22.04', 'ubuntu-24.04', 'ubuntu-26.04']
+    runs-on: ${{ matrix.system }}
+    name: GHC ${{ matrix.ghc }} on ${{ matrix.system }}
     steps:
       - uses: actions/checkout@v6
       - uses: haskell-actions/setup@v2
@@ -15,7 +16,7 @@ jobs:
       - run: cabal build all
       - run: cabal test all --test-show-details=streaming
   stack:
-    runs-on: 'ubuntu-22.04'
+    runs-on: 'ubuntu-latest'
     name: Stack
     steps:
       - uses: actions/checkout@v6
