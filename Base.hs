@@ -71,7 +71,7 @@ matches s = case makeRegexOptsM compCaseless 0 s of
 -}
 
 {-
--- pcre2 version (inefficient, mass Text conversion)
+-- pcre2 version (inefficient, mass Text conversion, ugly)
 -- needs text dep/import
 matches s =
     let p = decodeUtf8Lenient s

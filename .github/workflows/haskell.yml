@@ -4,10 +4,15 @@ jobs:
   cabal:
     strategy:
       matrix:
-        ghc: ['latest']
-        system: ['macos-latest']
-    runs-on: ${{ matrix.system }}
+        system: ['ubuntu-latest']
+        ghc: ['9.2.1', '9.12', 'latest']
+        include:
+          - system: ubuntu-22.04
+            ghc: latest
+          - system: ubuntu-26.04
+            ghc: latest
     name: GHC ${{ matrix.ghc }} on ${{ matrix.system }}
+    runs-on: ${{ matrix.system }}
     steps:
       - uses: actions/checkout@v6
       - uses: haskell-actions/setup@v2
@@ -15,4 +20,13 @@ jobs:
           ghc-version: ${{ matrix.ghc }}
       - run: cabal build all
       - run: cabal test all --test-show-details=streaming
+  stack:
+    runs-on: 'ubuntu-latest'
+    name: Stack
+    steps:
+      - uses: actions/checkout@v6
+      - uses: haskell-actions/setup@v2
+        with:
+          enable-stack: true
+      - run: stack test
 
