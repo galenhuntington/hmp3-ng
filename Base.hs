@@ -30,7 +30,7 @@ import System.IO as X (Handle, hClose)
 import System.IO.Unsafe as X
 import Text.Printf as X
 import Text.Read as X (readMaybe)
-import Text.Regex.PCRE.Light (match, compileM, utf8, caseless)
+import Text.Regex.PCRE2 (compCaseless, match, makeRegexOptsM)
 
 import System.Clock
 
@@ -50,9 +50,22 @@ whenJust = flip $ maybe $ pure ()
 (!?) :: [a] -> Int -> Maybe a
 xs !? n = listToMaybe $ drop n xs
 
+
 -- API for regex
 matches :: ByteString -> ByteString -> Bool
+
+-- Layer allowing switching back end
+
+{-
+-- pcre-light version (can't use due to pcre dep)
 matches s = case compileM s [caseless, utf8] of
     Right p -> \t -> isJust $ match p t []
     _       -> const False
+-}
+
+-- regex-pcre2 version
+matches s = case makeRegexOptsM compCaseless 0 s of
+    Just p -> match p
+    _      -> const False
+
 
