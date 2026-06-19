@@ -21,7 +21,6 @@ import Data.List as X hiding ((!?))
 import Data.Maybe as X
 import Data.Sequence as X (Seq, (<|), (|>))
 import Data.String as X
-import Data.Text.Encoding (decodeUtf8Lenient)
 import Data.Traversable as X
 import Data.Version as X
 import Data.Void as X
@@ -31,7 +30,7 @@ import System.IO as X (Handle, hClose)
 import System.IO.Unsafe as X
 import Text.Printf as X
 import Text.Read as X (readMaybe)
-import Text.Regex.Pcre2 (matchesOpt, Option(Caseless))
+import Text.Regex.Posix (match, makeRegexOptsM, compIgnoreCase)
 
 import System.Clock
 
@@ -52,13 +51,13 @@ whenJust = flip $ maybe $ pure ()
 xs !? n = listToMaybe $ drop n xs
 
 
--- API for regex
+-- API for searching
 matches :: ByteString -> ByteString -> Bool
 
 -- Layer allowing switching back end
 
 {-
--- pcre-light version (can't use due to pcre dep)
+-- pcre-light version (can't use currently due to pcre3 dep)
 matches s = case compileM s [caseless, utf8] of
     Right p -> \t -> isJust $ match p t []
     _       -> const False
@@ -71,8 +70,22 @@ matches s = case makeRegexOptsM compCaseless 0 s of
     _      -> const False
 -}
 
--- pcre2 version (highly inefficient, mass Text conversion)
-matches s t = unsafePerformIO
-    $ handle @SomeException (const $ pure False) $ evaluate
-    $ matchesOpt Caseless (decodeUtf8Lenient s) (decodeUtf8Lenient t)
+{-
+-- pcre2 version (inefficient, mass Text conversion)
+-- needs text dep/import
+matches s =
+    let p = decodeUtf8Lenient s
+    in \t -> unsafePerformIO
+        $ handle @SomeException (const $ pure False) $ evaluate
+        $ matchesOpt Caseless p (decodeUtf8Lenient t)
+-}
+
+-- regex-posix version (reputed to be slow and buggy)
+matches s = case makeRegexOptsM compIgnoreCase 0 s of
+    Just p -> match p
+    _      -> const False
+
+-- not yet tried:
+-- regex-tdfa (mass Text conversion, parsec dep) text import
+-- regex-dfa (not in Stackage, unknown engine)
 
