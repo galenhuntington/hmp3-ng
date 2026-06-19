@@ -104,10 +104,10 @@ start opts (Playlist folders music) = do
         , clock        = Nothing
         , info         = Nothing
         , id3          = Nothing
-        , regex        = Nothing
         , modal        = Nothing
         , playHist     = mempty
         , searchHist   = []
+        , searchFw     = True
         , histSize     = optHistSize opts
         , miniFocused  = False
         , exiting      = False
@@ -470,11 +470,13 @@ genericJumpToMatch :: Lookup a
                    -> IO ()
 genericJumpToMatch re sw k sel = do
     found <- modifyHS \st -> let
-        mre = case re of
-            Nothing -> (\(r, d) -> (st, r, d == sw)) <$> regex st
-            Just s  -> case compileM (P.pack s) [caseless, utf8] of
-                Left _      -> Nothing
-                Right v     -> Just (st { regex = Just (v, sw) }, v, sw)
+        mdata = case re of
+            Just s -> Just (st { searchFw = sw }, s, sw)
+            _      -> listToMaybe [ (st, s, searchFw st == sw) | s <- searchHist st ]
+        mre = mdata >>= \ (st', s, sw') ->
+            case compileM (P.pack s) [caseless, utf8] of
+                Right p -> Just (st', p, sw')
+                Left _  -> Nothing
         in flip (maybe (st, False)) mre \(st', p, forwards) -> do
             let (fs, cur, m) = k st
                 l = if forwards then [cur+1..m-1] ++ [0..cur]
