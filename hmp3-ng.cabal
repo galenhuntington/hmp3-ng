@@ -74,10 +74,11 @@ library
     filepath,
     hscurses,
     mtl,
-    regex-pcre2 >=1,
+    pcre2 >=2.3,
     posix-paths,
     process,
     random,
+    text,
     unix >=2.8,
     utf8-string,
 

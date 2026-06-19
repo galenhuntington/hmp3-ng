@@ -21,6 +21,7 @@ import Data.List as X hiding ((!?))
 import Data.Maybe as X
 import Data.Sequence as X (Seq, (<|), (|>))
 import Data.String as X
+import Data.Text.Encoding (decodeUtf8Lenient)
 import Data.Traversable as X
 import Data.Version as X
 import Data.Void as X
@@ -30,7 +31,7 @@ import System.IO as X (Handle, hClose)
 import System.IO.Unsafe as X
 import Text.Printf as X
 import Text.Read as X (readMaybe)
-import Text.Regex.PCRE2 (compCaseless, match, makeRegexOptsM)
+import Text.Regex.Pcre2 (matchesOpt, Option(Caseless))
 
 import System.Clock
 
@@ -63,9 +64,15 @@ matches s = case compileM s [caseless, utf8] of
     _       -> const False
 -}
 
--- regex-pcre2 version
+{-
+-- regex-pcre2 version (fails to build in CI, not in Stackage)
 matches s = case makeRegexOptsM compCaseless 0 s of
     Just p -> match p
     _      -> const False
+-}
 
+-- pcre2 version (highly inefficient, mass Text conversion)
+matches s t = unsafePerformIO
+    $ handle @SomeException (const $ pure False) $ evaluate
+    $ matchesOpt Caseless (decodeUtf8Lenient s) (decodeUtf8Lenient t)
 
