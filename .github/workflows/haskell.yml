@@ -5,7 +5,7 @@ jobs:
     strategy:
       matrix:
         ghc: ['latest']
-        system: ['ubuntu-22.04', 'ubuntu-24.04', 'ubuntu-26.04']
+        system: ['ubuntu-24.04', 'ubuntu-26.04']
     runs-on: ${{ matrix.system }}
     name: GHC ${{ matrix.ghc }} on ${{ matrix.system }}
     steps:
@@ -15,13 +15,4 @@ jobs:
           ghc-version: ${{ matrix.ghc }}
       - run: cabal build all
       - run: cabal test all --test-show-details=streaming
-  stack:
-    runs-on: 'ubuntu-latest'
-    name: Stack
-    steps:
-      - uses: actions/checkout@v6
-      - uses: haskell-actions/setup@v2
-        with:
-          enable-stack: true
-      - run: stack test
 
