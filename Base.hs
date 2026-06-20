@@ -30,7 +30,7 @@ import System.IO as X (Handle, hClose)
 import System.IO.Unsafe as X
 import Text.Printf as X
 import Text.Read as X (readMaybe)
-import Text.Regex.Posix (match, makeRegexOptsM, compIgnoreCase)
+import Text.Regex.Posix (match, makeRegexOptsM, compIgnoreCase, compExtended)
 
 import System.Clock
 
@@ -81,9 +81,8 @@ matches s =
 -}
 
 -- regex-posix version (reputed to be slow and buggy)
-matches s = case makeRegexOptsM compIgnoreCase 0 s of
-    Just p -> match p
-    _      -> const False
+matches s = maybe (const False) match $
+    makeRegexOptsM (compIgnoreCase + compExtended) 0 s
 
 -- not yet tried:
 -- regex-tdfa (mass Text conversion, parsec dep) text import

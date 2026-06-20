@@ -2,6 +2,7 @@ module Main (main) where
 
 import Test.Tasty
 
+import BaseSpec qualified
 import ConfigSpec qualified
 import CoreSpec qualified
 import DecoderSpec qualified
@@ -11,7 +12,8 @@ import WidthSpec qualified
 
 main :: IO ()
 main = defaultMain $ testGroup "hmp3-ng"
-    [ ConfigSpec.tests
+    [ BaseSpec.tests
+    , ConfigSpec.tests
     , CoreSpec.tests
     , DecoderSpec.tests
     , StyleSpec.tests
