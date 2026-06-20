@@ -18,7 +18,6 @@ import System.Clock             (TimeSpec(..))
 import System.IO                (hFlush)
 import System.Process           (ProcessHandle)
 import System.Random            (StdGen)
-import Text.Regex.PCRE.Light    (Regex)
 
 
 -- | Player state
@@ -45,7 +44,7 @@ data HState = HState
     , miniFocused     :: !Bool                 -- is the mini buffer focused?
     , mode            :: !Mode
     , uptime          :: !ByteString
-    , regex           :: !(Maybe (Regex,Bool)) -- most recent search pattern and direction
+    , searchFw        :: !Bool                 -- active search direction
     , searchHist      :: ![String]
     , exiting         :: !Bool                 -- let mpg123 die?
     , playHist        :: !(Seq (TimeSpec, Int))

@@ -74,10 +74,10 @@ library
     filepath,
     hscurses,
     mtl,
-    pcre-light >=0.3,
     posix-paths,
     process,
     random,
+    regex-posix,
     unix >=2.8,
     utf8-string,
 
@@ -99,6 +99,7 @@ test-suite test
   main-is: Main.hs
   hs-source-dirs: test
   other-modules:
+    BaseSpec
     ConfigSpec
     CoreSpec
     DecoderSpec

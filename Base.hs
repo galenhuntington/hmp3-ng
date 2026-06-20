@@ -30,6 +30,8 @@ import System.IO as X (Handle, hClose)
 import System.IO.Unsafe as X
 import Text.Printf as X
 import Text.Read as X (readMaybe)
+import Text.Regex.Posix (match, makeRegexOptsM, compIgnoreCase, compExtended)
+
 import System.Clock
 
 
@@ -47,4 +49,42 @@ whenJust = flip $ maybe $ pure ()
 -- Compatibility: List.!? only added in GHC 9.8
 (!?) :: [a] -> Int -> Maybe a
 xs !? n = listToMaybe $ drop n xs
+
+
+-- API for searching
+matches :: ByteString -> ByteString -> Bool
+
+-- Layer allowing switching back end
+
+{-
+-- pcre-light version (can't use currently due to pcre3 dep)
+matches s = case compileM s [caseless, utf8] of
+    Right p -> \t -> isJust $ match p t []
+    _       -> const False
+-}
+
+{-
+-- regex-pcre2 version (fails to build in CI, not in Stackage)
+matches s = case makeRegexOptsM compCaseless 0 s of
+    Just p -> match p
+    _      -> const False
+-}
+
+{-
+-- pcre2 version (inefficient, mass Text conversion, ugly)
+-- needs text dep/import
+matches s =
+    let p = decodeUtf8Lenient s
+    in \t -> unsafePerformIO
+        $ handle @SomeException (const $ pure False) $ evaluate
+        $ matchesOpt Caseless p (decodeUtf8Lenient t)
+-}
+
+-- regex-posix version (reputed to be slow and buggy)
+matches s = maybe (const False) match $
+    makeRegexOptsM (compIgnoreCase + compExtended) 0 s
+
+-- not yet tried:
+-- regex-tdfa (mass Text conversion, parsec dep) text import
+-- regex-dfa (not in Stackage, unknown engine)
 

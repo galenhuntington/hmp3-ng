@@ -48,8 +48,6 @@ import System.Posix.FilePath    (takeFileName)
 
 import System.Posix.Process     (exitImmediately)
 
-import Text.Regex.PCRE.Light
-
 
 mp3Tool :: String
 mp3Tool = "mpg123"
@@ -104,10 +102,10 @@ start opts (Playlist folders music) = do
         , clock        = Nothing
         , info         = Nothing
         , id3          = Nothing
-        , regex        = Nothing
         , modal        = Nothing
         , playHist     = mempty
         , searchHist   = []
+        , searchFw     = True
         , histSize     = optHistSize opts
         , miniFocused  = False
         , exiting      = False
@@ -470,16 +468,15 @@ genericJumpToMatch :: Lookup a
                    -> IO ()
 genericJumpToMatch re sw k sel = do
     found <- modifyHS \st -> let
-        mre = case re of
-            Nothing -> (\(r, d) -> (st, r, d == sw)) <$> regex st
-            Just s  -> case compileM (P.pack s) [caseless, utf8] of
-                Left _      -> Nothing
-                Right v     -> Just (st { regex = Just (v, sw) }, v, sw)
-        in flip (maybe (st, False)) mre \(st', p, forwards) -> do
+        info = case re of
+            Just s -> Just (st { searchFw = sw }, s, sw)
+            _      -> listToMaybe [ (st, s, searchFw st == sw) | s <- searchHist st ]
+        in flip (maybe (st, False)) info \(st', p, forwards) -> do
             let (fs, cur, m) = k st
-                l = if forwards then [cur+1..m-1] ++ [0..cur]
-                                else [cur-1,cur-2..0] ++ [m-1,m-2..cur]
-            case [ i | i <- l, isJust $ match p (extract (fs ! i)) [] ] of
+                l = if forwards then [cur+1 .. m-1] ++ [0 .. cur]
+                                else [cur-1, cur-2 .. 0] ++ [m-1, m-2 .. cur]
+                match = matches (P.pack p)
+            case [ i | i <- l, match $ extract (fs ! i) ] of
                 i:_ -> (st' { cursor = sel i st }, True)
                 _   -> (st', False)
     unless found $ putMessage $ Fast "No match found." defaultSty
