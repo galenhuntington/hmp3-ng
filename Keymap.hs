@@ -86,13 +86,15 @@ searchMode stype = step where
     step z = renderSearch stype z $> KeyMap (`dispatch` z)
 
     dispatch c z
-        | c == '\ESC'      = clearMessage *> leave
+        | c `elem` ['\ESC', '\^C']
+                           = clearMessage *> leave
         | c `elem` enter'  = commit z
         | c `elem` delete' = step $ zipEdit dropLast z
         | k == KeyUp       = step $ zipUp z
         | k == KeyDown     = step $ zipDown z
         | k == KeyDC       = histDelete z
-        | c > '\255'       = step z         -- ignore other special keys
+        | c < ' ' || c > '\255'
+                           = step z   -- ignore other special keys
         | otherwise        = step $ zipEdit (++ [c]) z
       where k = charToKey c
 
