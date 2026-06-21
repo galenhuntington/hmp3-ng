@@ -450,18 +450,18 @@ class Lookup a       where extract :: a -> RawFilePath
 instance Lookup Dir  where extract = takeFileName . dname
 instance Lookup File where extract = fbase
 
-jumpToMatchFile :: Maybe String -> Bool -> IO ()
+jumpToMatchFile :: Maybe ByteString -> Bool -> IO ()
 jumpToMatchFile re sw = genericJumpToMatch re sw k sel
     where k st = (music st, cursor st, size st)
           sel i _ = i
 
-jumpToMatchDir :: Maybe String -> Bool -> IO ()
+jumpToMatchDir :: Maybe ByteString -> Bool -> IO ()
 jumpToMatchDir re sw = genericJumpToMatch re sw k sel
     where k st = (folders st, fdir (music st ! cursor st), length $ folders st)
           sel i st = dlo (folders st ! i)
 
 genericJumpToMatch :: Lookup a
-                   => Maybe String
+                   => Maybe ByteString
                    -> Bool
                    -> (HState -> (Array Int a, Int, Int))
                    -> (Int -> HState -> Int)
@@ -475,7 +475,7 @@ genericJumpToMatch re sw k sel = do
             let (fs, cur, m) = k st
                 l = if forwards then [cur+1 .. m-1] ++ [0 .. cur]
                                 else [cur-1, cur-2 .. 0] ++ [m-1, m-2 .. cur]
-                match = matches (P.pack p)
+                match = matches p
             case [ i | i <- l, match $ extract (fs ! i) ] of
                 i:_ -> (st' { cursor = sel i st }, True)
                 _   -> (st', False)

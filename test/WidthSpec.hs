@@ -3,12 +3,10 @@ module WidthSpec (tests) where
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import Data.ByteString (ByteString)
-import Data.ByteString.UTF8 qualified as UTF8
-
 import Width (displayWidth, toMaxWidth, toWidth)
+import UI (u)
 
--- These tests depend on wcwidth's behaviour under a UTF-8 locale and on a
+-- These tests depend on wcwidth's behavior under a UTF-8 locale and on a
 -- handful of codepoints whose canonical widths are well-known:
 --   * ASCII chars are 1 column.
 --   * Latin-Extended chars (é, ñ) are 1 column.
@@ -55,11 +53,9 @@ tests = testGroup "Width"
         , testCase "exact width unchanged"
             $ toWidth 5 "hello"        @?= "hello"
         , testCase "truncate matches toMaxWidth when over-width"
-            $ toWidth 4 "hello"        @?= "hel" <> u"…"
+            $ toWidth 4 "hello"        @?= u"hel…"
         , testCase "pads after a wide-char content too"
-            $ toWidth 5 (u "中a")      @?= u"中a" <> "  "
+            $ toWidth 5 (u"中a")       @?= u"中a  "
         ]
     ]
 
-u :: String -> ByteString
-u = UTF8.fromString

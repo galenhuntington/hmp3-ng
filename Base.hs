@@ -55,3 +55,15 @@ matches :: ByteString -> ByteString -> Bool
 matches s = maybe (const False) match $
     makeRegexOptsM (compIgnoreCase + compExtended) 0 s
 
+-- | Zipper structure, representing a list with a cursor.
+data Zipper a = Zipper { zipperCur :: !a, zipperBack :: ![a], zipperFront :: ![a] }
+
+zipEdit :: (a -> a) -> Zipper a -> Zipper a
+zipEdit f z = z { zipperCur = f (zipperCur z) }
+
+zipUp, zipDown :: Zipper a -> Zipper a
+zipUp   (Zipper c (nx:rest) f)  = Zipper nx rest (c:f)
+zipUp   z                       = z
+zipDown (Zipper c b (pv:rest))  = Zipper pv (c:b) rest
+zipDown z                       = z
+

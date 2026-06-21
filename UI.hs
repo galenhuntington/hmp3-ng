@@ -15,7 +15,9 @@ module UI (
     -- * Construction, destruction
     start, end, screenSize, refresh, refreshClock, resetui,
     -- * Input
-    getKey
+    getKey,
+    -- * Tool
+    u,
   ) where
 
 import Base

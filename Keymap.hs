@@ -10,7 +10,7 @@
 -- transitions (entering search, popping up the song-history modal,
 -- confirming a quit) are just "return a different 'KeyMap'."
 --
-module Keymap (keyLoop, keyTable, unkey, charToKey) where
+module Keymap (keyLoop, keyTable, unkey, charToKey, dropLastUTF8) where
 
 import Base
 
@@ -76,12 +76,7 @@ historyKeyMap = M.fromList $ zip (toList historyKeys) [0..]
 ------------------------------------------------------------------------
 -- Search mode
 
--- | Zipper over the search-history list, with the currently edited
--- string in the focus.  'back' holds older entries we can step back
--- to (Up); 'front' holds entries we've stepped back from (Down).
-data Zipper = Zipper { cur :: !String, _back :: ![String], _front :: ![String] }
-
-searchMode :: Char -> Zipper -> IO KeyMap
+searchMode :: Char -> Zipper ByteString -> IO KeyMap
 searchMode stype = step where
     step z = renderSearch stype z $> KeyMap (`dispatch` z)
 
@@ -89,16 +84,16 @@ searchMode stype = step where
         | c `elem` ['\ESC', '\^C']
                            = clearMessage *> leave
         | c `elem` enter'  = commit z
-        | c `elem` delete' = step $ zipEdit dropLast z
+        | c `elem` delete' = step $ zipEdit dropLastUTF8 z
         | k == KeyUp       = step $ zipUp z
         | k == KeyDown     = step $ zipDown z
         | k == KeyDC       = histDelete z
         | c < ' ' || c > '\255'
                            = step z   -- ignore other special keys
-        | otherwise        = step $ zipEdit (++ [c]) z
+        | otherwise        = step $ zipEdit (`P.snoc` c) z
       where k = charToKey c
 
-    commit (Zipper []  _ _) = clearMessage *> leave
+    commit (Zipper ""  _ _) = clearMessage *> leave
     commit (Zipper pat _ _) = do
         let jumpy = if stype `elem` ['/', '?']
                     then jumpToMatchFile else jumpToMatchDir
@@ -110,26 +105,17 @@ searchMode stype = step where
         let z' = case z of
                 Zipper _ b (pv:rest) -> Zipper pv b rest
                 Zipper _ b _         -> Zipper "" b []
-        modifyHS_ \st -> st { searchHist = filter (/= cur z) (searchHist st) }
+        modifyHS_ \st -> st { searchHist = filter (/= zipperCur z) (searchHist st) }
         step z'
 
     leave = toggleFocus $> mainMode
 
-renderSearch :: Char -> Zipper -> IO ()
-renderSearch prefix z = putMessage $ Fast (P.pack (prefix : cur z)) defaultSty
+renderSearch :: Char -> Zipper ByteString -> IO ()
+renderSearch prefix z = putMessage $ Fast (prefix `P.cons` zipperCur z) defaultSty
 
-dropLast :: [a] -> [a]
-dropLast [] = []
-dropLast xs = init xs
-
-zipEdit :: (String -> String) -> Zipper -> Zipper
-zipEdit f z = z { cur = f (cur z) }
-
-zipUp, zipDown :: Zipper -> Zipper
-zipUp   (Zipper c (nx:rest) f)  = Zipper nx rest (c:f)
-zipUp   z                       = z
-zipDown (Zipper c b (pv:rest))  = Zipper pv (c:b) rest
-zipDown z                       = z
+dropLastUTF8 :: ByteString -> ByteString
+dropLastUTF8 = P.dropEnd 1 . P.dropWhileEnd isCB
+    where isCB b = b >= '\128' && b < '\192'
 
 enter', delete' :: [Char]
 enter'  = ['\n', '\r']
