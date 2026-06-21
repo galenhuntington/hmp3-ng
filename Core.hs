@@ -35,7 +35,9 @@ import Data.Sequence qualified as Seq
 
 import Data.Array               ((!), Array)
 import Data.Proxy
+import Data.Time
 import Data.Tuple               (swap)
+import Control.Monad.Except
 import Control.Monad.State.Strict
 import System.Directory         (doesFileExist, findExecutable, createDirectoryIfMissing,
                                  getXdgDirectory, XdgDirectory(..))
@@ -45,12 +47,8 @@ import System.Clock             (TimeSpec(..), diffTimeSpec)
 import System.Random            (randomR, newStdGen)
 import System.FilePath          ((</>))
 import System.Posix.FilePath    (takeFileName)
-
 import System.Posix.Process     (exitImmediately)
 
-
-mp3Tool :: String
-mp3Tool = "mpg123"
 
 ------------------------------------------------------------------------
 
@@ -149,17 +147,27 @@ exitTime e | is @IOException Proxy e = False -- ignore
 --
 mpgLoop :: IO ()
 mpgLoop = runForever do
-    mmpg <- findExecutable mp3Tool
-    case mmpg of
-      Nothing     -> shutdown $ Just $ "Cannot find " ++ mp3Tool ++ " in path"
-      Just mppath -> do
-        mv <- try $ runInteractiveProcess mppath ["-R", "--remote-err"] Nothing Nothing
-        case mv of
-          Left (ex :: SomeException) ->
-            warnA $ mppath ++ " failed to start; retrying: " ++ show ex
 
-          Right (writeh, _, errh, ph) -> do
+    empg <- runExceptT do
+        mppath <- join $
+            maybe (throwError $ "Cannot find " ++ mp3Tool ++ " in path") pure
+            <$> lift (findExecutable mp3Tool)
+        join $ either
+            (\ex -> throwError $ mp3Tool ++ " failed to start; retrying: " ++ show ex)
+            pure
+            <$> lift (try @SomeException
+                (runInteractiveProcess mppath ["-R", "--remote-err"] Nothing Nothing))
 
+    case empg of
+
+        Left err -> do
+            now <- timeString
+            warnA $ err ++ " (" ++ now ++ ")"
+            -- Hackily count failed initial spawn, for Ready message
+            silentlyModifyHS \st -> st { spawns = spawns st `max` 1 }
+            threadDelay 20_000_000  -- longer wait after these errors
+
+        Right (writeh, _, errh, ph) -> do
             ct <- modifyHS $ \st -> let sp = spawns st + 1 in (st
                 { status    = Stopped
                 , info      = Nothing
@@ -178,11 +186,14 @@ mpgLoop = runForever do
             void $ takeMVar mpg
 
             threadDelay 1_000_000  -- let threads spit errors
-            warnA $ "Restarting " ++ mppath ++ " ..."
+            warnA $ "Restarting " ++ mp3Tool ++ " ..."
 
-        -- Slow spawn loops in case of trouble.
-        threadDelay 4_000_000
+    -- Slow spawn loops in case of trouble.
+    threadDelay 4_000_000
 
+
+timeString :: IO String
+timeString = take 19 . show <$> (utcToLocalZonedTime =<< getCurrentTime)
 
 ------------------------------------------------------------------------
 
@@ -232,7 +243,7 @@ mpgInput = runForever $ do
     line <- P.hGetLine =<< errh <$> readMVar mpg
     case mpgParser line of
         Right m       -> handleMsg m
-        Left (Just e) -> warnA ("mpg123: " ++ e)
+        Left (Just e) -> warnA (mp3Tool ++ ": " ++ e)
         _             -> pure ()
 
 ------------------------------------------------------------------------

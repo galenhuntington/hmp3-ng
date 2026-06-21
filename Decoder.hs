@@ -5,7 +5,7 @@
 -- Wire protocol for mpg123
 
 module Decoder (
-    mpgParser, Cmd(..), cmdToBS,
+    mp3Tool, mpgParser, Cmd(..), cmdToBS,
     Msg(..), Id3(..), Status(..), Frame(..),
 ) where
 
@@ -13,6 +13,10 @@ import Base
 
 import Data.ByteString.Char8 qualified as P
 import Data.ByteString.UTF8 qualified as UTF8
+
+
+mp3Tool :: String
+mp3Tool = "mpg123"
 
 ------------------------------------------------------------------------
 -- Send commands to mpg123

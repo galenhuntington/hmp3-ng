@@ -11,7 +11,7 @@ import Base
 
 import Decoder                  (Status, Frame, Id3, Cmd, cmdToBS)
 import Playlist                 (FileArray, DirArray)
-import Style                    (StringA, UIStyle)
+import Style                    (StringA(Fast), UIStyle, warnings)
 
 import Data.ByteString          (hPut)
 import System.Clock             (TimeSpec(..))
@@ -67,6 +67,7 @@ hState = unsafePerformIO newEmptyMVar
 {-# NOINLINE hState #-}
 
 -- | Decoder process handle
+-- If Just, handles should be somewhere.
 mpgProcess :: IORef (Maybe ProcessHandle)
 mpgProcess = unsafePerformIO $ newIORef Nothing
 {-# NOINLINE mpgProcess #-}
@@ -90,8 +91,17 @@ mpg = unsafePerformIO newEmptyMVar
 {-# NOINLINE mpg #-}
 
 sendMpg :: Cmd -> IO ()
-sendMpg c = withMVar mpg $ (. writeh) \h ->
-    hPut h (cmdToBS c) *> hPut h "\n" *> hFlush h
+sendMpg c = do
+    running <- isJust <$> readIORef mpgProcess
+    if running
+    then withMVar mpg $ (. writeh) \h ->
+        hPut h (cmdToBS c) *> hPut h "\n" *> hFlush h
+    else
+        modifyHS_ \st -> st { minibuffer =
+            case minibuffer st of -- don't overwrite if message already
+                Fast "" _ -> Fast "Decoder process not running" (warnings $ config st)
+                _         -> minibuffer st
+        }
 
 ------------------------------------------------------------------------
 -- state accessor functions
