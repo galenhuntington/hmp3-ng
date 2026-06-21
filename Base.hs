@@ -56,10 +56,10 @@ matches s = maybe (const False) match $
     makeRegexOptsM (compIgnoreCase + compExtended) 0 s
 
 -- | Zipper structure, representing a list with a cursor.
-data Zipper a = Zipper { cur :: !a, back :: ![a], front :: ![a] }
+data Zipper a = Zipper { zipperCur :: !a, zipperBack :: ![a], zipperFront :: ![a] }
 
 zipEdit :: (a -> a) -> Zipper a -> Zipper a
-zipEdit f z = z { cur = f (cur z) }
+zipEdit f z = z { zipperCur = f (zipperCur z) }
 
 zipUp, zipDown :: Zipper a -> Zipper a
 zipUp   (Zipper c (nx:rest) f)  = Zipper nx rest (c:f)

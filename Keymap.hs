@@ -105,13 +105,13 @@ searchMode stype = step where
         let z' = case z of
                 Zipper _ b (pv:rest) -> Zipper pv b rest
                 Zipper _ b _         -> Zipper "" b []
-        modifyHS_ \st -> st { searchHist = filter (/= cur z) (searchHist st) }
+        modifyHS_ \st -> st { searchHist = filter (/= zipperCur z) (searchHist st) }
         step z'
 
     leave = toggleFocus $> mainMode
 
 renderSearch :: Char -> Zipper ByteString -> IO ()
-renderSearch prefix z = putMessage $ Fast (prefix `P.cons` cur z) defaultSty
+renderSearch prefix z = putMessage $ Fast (prefix `P.cons` zipperCur z) defaultSty
 
 dropLastUTF8 :: ByteString -> ByteString
 dropLastUTF8 = P.dropEnd 1 . P.dropWhileEnd isCC
