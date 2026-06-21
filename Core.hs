@@ -107,7 +107,6 @@ start opts (Playlist folders music) = do
         , searchFw     = True
         , histSize     = optHistSize opts
         , miniFocused  = False
-        , exiting      = False
         , status       = Stopped
         , minibuffer   = Fast mempty defaultSty
         , uptime       = mempty
@@ -178,8 +177,6 @@ mpgLoop = runForever do
             writeIORef mpgProcess Nothing
             void $ takeMVar mpg
 
-            stop <- getsHS exiting
-            when stop exitSuccess
             threadDelay 1_000_000  -- let threads spit errors
             warnA $ "Restarting " ++ mppath ++ " ..."
 
@@ -244,7 +241,6 @@ mpgInput = runForever $ do
 shutdown :: Maybe String -> IO ()
 shutdown ms = do
     UI.end
-    silentlyModifyHS $ \st -> st { exiting = True }
     discardErrors writeState
     mph <- readIORef mpgProcess
     whenJust mph \ph -> do
