@@ -114,8 +114,8 @@ renderSearch :: Char -> Zipper ByteString -> IO ()
 renderSearch prefix z = putMessage $ Fast (prefix `P.cons` zipperCur z) defaultSty
 
 dropLastUTF8 :: ByteString -> ByteString
-dropLastUTF8 = P.dropEnd 1 . P.dropWhileEnd isCC
-    where isCC b = b >= '\128' && b < '\192'
+dropLastUTF8 = P.dropEnd 1 . P.dropWhileEnd isCB
+    where isCB b = b >= '\128' && b < '\192'
 
 enter', delete' :: [Char]
 enter'  = ['\n', '\r']

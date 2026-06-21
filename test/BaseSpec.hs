@@ -3,9 +3,8 @@ module BaseSpec (tests) where
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import Data.ByteString.UTF8 qualified as UTF8
-
 import Base (matches)
+import UI (u)
 
 tests :: TestTree
 tests = testGroup "Base"
@@ -25,6 +24,5 @@ tests = testGroup "Base"
 
 
 m :: Bool -> String -> String -> String -> TestTree
-m b tag pat str =
-    testCase tag $ matches (UTF8.fromString pat) (UTF8.fromString str) @?= b
+m b tag pat str = testCase tag $ matches (u pat) (u str) @?= b
 
