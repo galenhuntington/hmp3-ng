@@ -103,6 +103,7 @@ test-suite test
     ConfigSpec
     CoreSpec
     DecoderSpec
+    KeymapSpec
     PlaylistSpec
     StyleSpec
     WidthSpec

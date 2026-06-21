@@ -45,7 +45,7 @@ data HState = HState
     , mode            :: !Mode
     , uptime          :: !ByteString
     , searchFw        :: !Bool                 -- active search direction
-    , searchHist      :: ![String]
+    , searchHist      :: ![ByteString]
     , exiting         :: !Bool                 -- let mpg123 die?
     , playHist        :: !(Seq (TimeSpec, Int))
     , histSize        :: Int

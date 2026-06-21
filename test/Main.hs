@@ -6,6 +6,7 @@ import BaseSpec qualified
 import ConfigSpec qualified
 import CoreSpec qualified
 import DecoderSpec qualified
+import KeymapSpec qualified
 import PlaylistSpec qualified
 import StyleSpec qualified
 import WidthSpec qualified
@@ -16,6 +17,7 @@ main = defaultMain $ testGroup "hmp3-ng"
     , ConfigSpec.tests
     , CoreSpec.tests
     , DecoderSpec.tests
+    , KeymapSpec.tests
     , StyleSpec.tests
     , PlaylistSpec.tests
     , WidthSpec.tests
