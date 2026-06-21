@@ -33,7 +33,6 @@ data HState = HState
     , cursor          :: !Int                  -- mp3 under the cursor
     , clock           :: !(Maybe Frame)        -- current clock value
     , randomGen       :: !StdGen               -- random seed
-    , mpgPid          :: !(Maybe ProcessHandle) -- pid of decoder
     , spawns          :: !Integer              -- count of decoder spawns
     , threads         :: ![ThreadId]           -- all our threads
     , id3             :: !(Maybe Id3)          -- maybe mp3 id3 info
@@ -67,6 +66,11 @@ data Modal = HelpModal ![KeysHelp] | ExitModal | HistModal !HistDisplay
 hState :: MVar HState
 hState = unsafePerformIO newEmptyMVar
 {-# NOINLINE hState #-}
+
+-- | Decoder process handle
+mpgProcess :: IORef (Maybe ProcessHandle)
+mpgProcess = unsafePerformIO $ newIORef Nothing
+{-# NOINLINE mpgProcess #-}
 
 -- | The refresh thread waits on this
 modified :: MVar ()

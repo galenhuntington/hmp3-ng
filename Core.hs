@@ -98,7 +98,6 @@ start opts (Playlist folders music) = do
         , config
         , threads
         , spawns       = 0
-        , mpgPid       = Nothing
         , clock        = Nothing
         , info         = Nothing
         , id3          = Nothing
@@ -160,22 +159,23 @@ mpgLoop = runForever do
           Left (ex :: SomeException) ->
             warnA $ mppath ++ " failed to start; retrying: " ++ show ex
 
-          Right (writeh, _, errh, pid) -> do
+          Right (writeh, _, errh, ph) -> do
+
             ct <- modifyHS $ \st -> let sp = spawns st + 1 in (st
-                { mpgPid    = Just pid
-                , status    = Stopped
+                { status    = Stopped
                 , info      = Nothing
                 , id3       = Nothing
                 , spawns    = sp
                 }, sp)
 
             putMVar mpg Mpg { errh, writeh }
+            writeIORef mpgProcess $ Just ph
 
             when (ct > 1) $ warnA $ mp3Tool ++ " #" ++ show ct ++ ": Ready"
-            catch @SomeException (void $ waitForProcess pid) (const $ pure ())
+            catch @SomeException (void $ waitForProcess ph) (const $ pure ())
 
             -- Must be in this order or risk shutdown deadlock!
-            silentlyModifyHS $ \st -> st { mpgPid = Nothing }
+            writeIORef mpgProcess Nothing
             void $ takeMVar mpg
 
             stop <- getsHS exiting
@@ -241,16 +241,15 @@ mpgInput = runForever $ do
 ------------------------------------------------------------------------
 
 -- | Close most things. Important to do all the jobs:
--- TODO maybe releaseSignals here?
 shutdown :: Maybe String -> IO ()
 shutdown ms = do
     UI.end
     silentlyModifyHS $ \st -> st { exiting = True }
     discardErrors writeState
-    mpid <- getsHS mpgPid
-    whenJust mpid \pid -> do
+    mph <- readIORef mpgProcess
+    whenJust mph \ph -> do
         discardErrors $ sendMpg Quit
-        void $ waitForProcess pid
+        void $ waitForProcess ph
     exitImmediately =<< case ms of
         Just s -> hPutStrLn stderr s *> pure (ExitFailure 1)
         _      -> pure ExitSuccess
