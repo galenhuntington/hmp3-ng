@@ -16,7 +16,7 @@ import Style                    (StringA(Fast), UIStyle, warnings)
 import Data.ByteString          (hPut)
 import System.Clock             (TimeSpec(..))
 import System.IO                (hFlush)
-import System.Process           (ProcessHandle)
+import System.Process           (ProcessHandle, waitForProcess)
 import System.Random            (StdGen)
 
 
@@ -90,6 +90,14 @@ mpg = unsafePerformIO newEmptyMVar
 mpgProcess :: IORef (Maybe ProcessHandle)
 mpgProcess = unsafePerformIO $ newIORef Nothing
 {-# NOINLINE mpgProcess #-}
+
+overseeMpg :: (Handle, Handle, Handle, ProcessHandle) -> IO ()
+overseeMpg (writeh, _, errh, ph) = do
+    putMVar mpg Mpg { errh, writeh }
+    writeIORef mpgProcess $ Just ph
+    void $ try @SomeException $ waitForProcess ph
+    writeIORef mpgProcess Nothing  -- reverse order
+    void $ takeMVar mpg
 
 sendMpg :: Cmd -> IO ()
 sendMpg c = do

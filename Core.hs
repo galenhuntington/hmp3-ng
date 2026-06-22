@@ -137,7 +137,6 @@ exitTime e | is @IOException Proxy e = False -- ignore
 -- | Loop, launching decoder and updating global state.
 mpgLoop :: IO ()
 mpgLoop = runForever do
-
     empg <- runExceptT do
         mppath <- lift (findExecutable mp3Tool) >>=
             maybe (throwError $ "Cannot find " ++ mp3Tool ++ " in path") pure
@@ -145,38 +144,24 @@ mpgLoop = runForever do
             runInteractiveProcess mppath ["-R", "--remote-err"] Nothing Nothing
             ) >>= flip either pure \ex ->
                 throwError $ mp3Tool ++ " failed to start; retrying: " ++ show ex
-
     case empg of
-
         Left err -> do
             warnA err
             -- Hackily count failed initial spawn, for Ready message
             silentlyModifyHS \st -> st { spawns = spawns st `max` 1 }
             threadDelay 20_000_000  -- longer wait after these errors
-
-        Right (writeh, _, errh, ph) -> do
+        Right handles -> do
             ct <- modifyHS $ \st -> let sp = spawns st + 1 in (st
                 { status    = Stopped
                 , info      = Nothing
                 , id3       = Nothing
                 , spawns    = sp
                 }, sp)
-
-            putMVar mpg Mpg { errh, writeh }
-            writeIORef mpgProcess $ Just ph
-
             when (ct > 1) $ warnA $ mp3Tool ++ " #" ++ show ct ++ ": Ready"
-            catch @SomeException (void $ waitForProcess ph) (const $ pure ())
-
-            -- Must be in this order or risk shutdown deadlock!
-            writeIORef mpgProcess Nothing
-            void $ takeMVar mpg
-
+            overseeMpg handles
             threadDelay 1_000_000  -- let threads spit errors
             warnA $ "Restarting " ++ mp3Tool ++ " ..."
-
-    -- Slow spawn loops in case of trouble.
-    threadDelay 4_000_000
+    threadDelay 4_000_000  -- rate-limit respawns
 
 ------------------------------------------------------------------------
 
