@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name: hmp3-ng
-version: 2.18.1
+version: 2.19.0
 synopsis: A 2019 fork of an ncurses mp3 player written in Haskell
 description:
   An mp3 player with a curses frontend.  Playlists are populated by
@@ -74,10 +74,10 @@ library
     filepath,
     hscurses,
     mtl,
-    pcre-light >=0.3,
     posix-paths,
     process,
     random,
+    regex-posix,
     unix >=2.8,
     utf8-string,
 
@@ -99,9 +99,11 @@ test-suite test
   main-is: Main.hs
   hs-source-dirs: test
   other-modules:
+    BaseSpec
     ConfigSpec
     CoreSpec
     DecoderSpec
+    KeymapSpec
     PlaylistSpec
     StyleSpec
     WidthSpec

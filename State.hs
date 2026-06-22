@@ -18,7 +18,6 @@ import System.Clock             (TimeSpec(..))
 import System.IO                (hFlush)
 import System.Process           (ProcessHandle)
 import System.Random            (StdGen)
-import Text.Regex.PCRE.Light    (Regex)
 
 
 -- | Player state
@@ -45,8 +44,8 @@ data HState = HState
     , miniFocused     :: !Bool                 -- is the mini buffer focused?
     , mode            :: !Mode
     , uptime          :: !ByteString
-    , regex           :: !(Maybe (Regex,Bool)) -- most recent search pattern and direction
-    , searchHist      :: ![String]
+    , searchFw        :: !Bool                 -- active search direction
+    , searchHist      :: ![ByteString]
     , exiting         :: !Bool                 -- let mpg123 die?
     , playHist        :: !(Seq (TimeSpec, Int))
     , histSize        :: Int
@@ -81,11 +80,7 @@ setModified = void $ tryPutMVar modified ()
 ------------------------------------------------------------------------
 -- The decoder.
 
-data Mpg = Mpg
-    { writeh :: !Handle
-    , readh  :: !Handle
-    , errh   :: !Handle
-    }
+data Mpg = Mpg { errh :: !Handle, writeh :: !Handle }
 
 mpg :: MVar Mpg
 mpg = unsafePerformIO newEmptyMVar

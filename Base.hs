@@ -30,6 +30,8 @@ import System.IO as X (Handle, hClose)
 import System.IO.Unsafe as X
 import Text.Printf as X
 import Text.Read as X (readMaybe)
+import Text.Regex.Posix (match, makeRegexOptsM, compIgnoreCase, compExtended)
+
 import System.Clock
 
 
@@ -47,4 +49,21 @@ whenJust = flip $ maybe $ pure ()
 -- Compatibility: List.!? only added in GHC 9.8
 (!?) :: [a] -> Int -> Maybe a
 xs !? n = listToMaybe $ drop n xs
+
+-- Swappable API for searching
+matches :: ByteString -> ByteString -> Bool
+matches s = maybe (const False) match $
+    makeRegexOptsM (compIgnoreCase + compExtended) 0 s
+
+-- | Zipper structure, representing a list with a cursor.
+data Zipper a = Zipper { zipperCur :: !a, zipperBack :: ![a], zipperFront :: ![a] }
+
+zipEdit :: (a -> a) -> Zipper a -> Zipper a
+zipEdit f z = z { zipperCur = f (zipperCur z) }
+
+zipUp, zipDown :: Zipper a -> Zipper a
+zipUp   (Zipper c (nx:rest) f)  = Zipper nx rest (c:f)
+zipUp   z                       = z
+zipDown (Zipper c b (pv:rest))  = Zipper pv (c:b) rest
+zipDown z                       = z
 
