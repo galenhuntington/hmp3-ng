@@ -9,7 +9,7 @@ module State where
 
 import Base
 
-import Decoder                  (Status, Frame, Id3, Cmd, cmdToBS)
+import Decoder                  (Status, Frame, Id3, Cmd, cmdToBS, mp3Tool)
 import Playlist                 (FileArray, DirArray)
 import Style                    (StringA(Fast), UIStyle, warnings)
 
@@ -99,7 +99,7 @@ sendMpg c = do
     else
         modifyHS_ \st -> st { minibuffer =
             case minibuffer st of -- don't overwrite if message already
-                Fast "" _ -> Fast "mpg123 process not running" (warnings $ config st)
+                Fast "" _ -> Fast (mp3Tool <> " process not running") (warnings $ config st)
                 _         -> minibuffer st
         }
 

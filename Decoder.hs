@@ -15,7 +15,7 @@ import Data.ByteString.Char8 qualified as P
 import Data.ByteString.UTF8 qualified as UTF8
 
 
-mp3Tool :: String
+mp3Tool :: IsString a => a
 mp3Tool = "mpg123"
 
 ------------------------------------------------------------------------
