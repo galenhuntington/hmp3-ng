@@ -99,7 +99,7 @@ sendMpg c = do
     else
         modifyHS_ \st -> st { minibuffer =
             case minibuffer st of -- don't overwrite if message already
-                Fast "" _ -> Fast "Decoder process not running" (warnings $ config st)
+                Fast "" _ -> Fast "mpg123 process not running" (warnings $ config st)
                 _         -> minibuffer st
         }
 
