@@ -139,12 +139,7 @@ exitTime e | is @IOException Proxy e = False -- ignore
 
 ------------------------------------------------------------------------
 
--- | Process loop, launch mpg123, set the handles in the state
--- and then wait for the process to die. If it does, restart it.
---
--- If we're unable to start at all, we should say something sensible
--- For example, if we can't start it two times in a row, perhaps give up?
---
+-- | Loop, launching decoder and updating global state.
 mpgLoop :: IO ()
 mpgLoop = runForever do
 
@@ -191,7 +186,7 @@ mpgLoop = runForever do
     -- Slow spawn loops in case of trouble.
     threadDelay 4_000_000
 
-
+-- | Timestamp for spawn errors
 timeString :: IO String
 timeString = take 19 . show <$> (utcToLocalZonedTime =<< getCurrentTime)
 
@@ -201,7 +196,6 @@ timeString = take 19 . show <$> (utcToLocalZonedTime =<< getCurrentTime)
 -- for it to be modified again.
 refreshLoop :: IO ()
 refreshLoop = runForever $ takeMVar modified *> UI.refresh
-
 
 ------------------------------------------------------------------------
 
@@ -235,9 +229,7 @@ showTimeDiff = showTimeDiff_ False
 ------------------------------------------------------------------------
 
 -- | Handle messages arriving over a pipe from the decoder process. When
--- shutdown kills the other end of the pipe, hGetLine will fail, so we
--- take that chance to exit.
---
+-- shutdown kills the other end of the pipe, hGetLine will fail.
 mpgInput :: IO ()
 mpgInput = runForever $ do
     line <- P.hGetLine =<< errh <$> readMVar mpg
@@ -262,10 +254,8 @@ shutdown ms = do
         _      -> pure ExitSuccess
 
 ------------------------------------------------------------------------
--- 
--- Write incoming messages from the encoder to the global state in the
--- right pigeon hole.
---
+-- Process incoming messages from the decoder.
+
 handleMsg :: Msg -> IO ()
 
 handleMsg (S i)   = modifyHS_ $ \s -> s { info = Just i }
@@ -281,9 +271,7 @@ handleMsg (F f) = do
     UI.refreshClock
 
 ------------------------------------------------------------------------
---
 -- Basic operations
---
 
 -- | Seek backward in song
 seekLeft :: IO ()
