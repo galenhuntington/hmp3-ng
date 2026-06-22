@@ -144,14 +144,12 @@ mpgLoop :: IO ()
 mpgLoop = runForever do
 
     empg <- runExceptT do
-        mppath <- join $
+        mppath <- lift (findExecutable mp3Tool) >>=
             maybe (throwError $ "Cannot find " ++ mp3Tool ++ " in path") pure
-            <$> lift (findExecutable mp3Tool)
-        join $ either
-            (\ex -> throwError $ mp3Tool ++ " failed to start; retrying: " ++ show ex)
-            pure
-            <$> lift (try @SomeException
-                (runInteractiveProcess mppath ["-R", "--remote-err"] Nothing Nothing))
+        lift (try @SomeException $
+            runInteractiveProcess mppath ["-R", "--remote-err"] Nothing Nothing
+            ) >>= flip either pure \ex ->
+                throwError $ mp3Tool ++ " failed to start; retrying: " ++ show ex
 
     case empg of
 
