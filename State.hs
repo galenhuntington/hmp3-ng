@@ -66,12 +66,6 @@ hState :: MVar HState
 hState = unsafePerformIO newEmptyMVar
 {-# NOINLINE hState #-}
 
--- | Decoder process handle
--- If Just, handles should be somewhere.
-mpgProcess :: IORef (Maybe ProcessHandle)
-mpgProcess = unsafePerformIO $ newIORef Nothing
-{-# NOINLINE mpgProcess #-}
-
 -- | The refresh thread waits on this
 modified :: MVar ()
 modified = unsafePerformIO newEmptyMVar
@@ -84,11 +78,18 @@ setModified = void $ tryPutMVar modified ()
 ------------------------------------------------------------------------
 -- The decoder.
 
+-- | Read/write handles.
 data Mpg = Mpg { errh :: !Handle, writeh :: !Handle }
 
 mpg :: MVar Mpg
 mpg = unsafePerformIO newEmptyMVar
 {-# NOINLINE mpg #-}
+
+-- | Decoder process handle
+-- If Just, read/write handles should exist.
+mpgProcess :: IORef (Maybe ProcessHandle)
+mpgProcess = unsafePerformIO $ newIORef Nothing
+{-# NOINLINE mpgProcess #-}
 
 sendMpg :: Cmd -> IO ()
 sendMpg c = do
@@ -104,7 +105,7 @@ sendMpg c = do
         }
 
 ------------------------------------------------------------------------
--- state accessor functions
+-- State accessor functions.
 
 -- | Access a component of the state with a projection function
 getsHS :: (HState -> a) -> IO a
