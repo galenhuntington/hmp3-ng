@@ -64,11 +64,7 @@ data Options = Options
 start :: Options -> Playlist -> IO ()
 start opts (Playlist folders music) = do
 
-    config <- catch @SomeException UI.start \err -> do
-        -- An uncaught exception here would deadlock.
-        -- XXX more state model revisions should obviate need
-        hPutStrLn stderr $ "Curses failed to start: " ++ show err
-        exitImmediately $ ExitFailure 1
+    config <- UI.start
     bootTime <- getMonoTime
     let size = length music
     mode <- maybe readState pure (optPlayMode opts)
@@ -242,11 +238,12 @@ mpgInput = runForever $ do
 shutdown :: Maybe String -> IO ()
 shutdown ms = do
     UI.end
-    discardErrors writeState
     mph <- readIORef mpgProcess
     whenJust mph \ph -> do
-        discardErrors $ sendMpg Quit
-        void $ waitForProcess ph
+        discardErrors writeState
+        discardErrors do
+            sendMpg Quit
+            void $ waitForProcess ph
     exitImmediately =<< case ms of
         Just s -> hPutStrLn stderr s *> pure (ExitFailure 1)
         _      -> pure ExitSuccess
