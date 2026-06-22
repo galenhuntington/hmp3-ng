@@ -78,7 +78,6 @@ library
     process,
     random,
     regex-posix,
-    time,
     unix >=2.8,
     utf8-string,
 

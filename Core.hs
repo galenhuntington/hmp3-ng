@@ -35,7 +35,6 @@ import Data.Sequence qualified as Seq
 
 import Data.Array               ((!), Array)
 import Data.Proxy
-import Data.Time
 import Data.Tuple               (swap)
 import Control.Monad.Except
 import Control.Monad.State.Strict
@@ -150,8 +149,7 @@ mpgLoop = runForever do
     case empg of
 
         Left err -> do
-            now <- timeString
-            warnA $ err ++ " (" ++ now ++ ")"
+            warnA err
             -- Hackily count failed initial spawn, for Ready message
             silentlyModifyHS \st -> st { spawns = spawns st `max` 1 }
             threadDelay 20_000_000  -- longer wait after these errors
@@ -179,10 +177,6 @@ mpgLoop = runForever do
 
     -- Slow spawn loops in case of trouble.
     threadDelay 4_000_000
-
--- | Timestamp for spawn errors
-timeString :: IO String
-timeString = take 19 . show <$> (utcToLocalZonedTime =<< getCurrentTime)
 
 ------------------------------------------------------------------------
 
