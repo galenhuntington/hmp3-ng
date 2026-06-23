@@ -263,14 +263,15 @@ shutdown ms = do
 handleMsg :: Msg -> IO ()
 handleMsg (S i)   = modifyHS_ $ \st -> st { info = Just i }
 handleMsg (I id3) = modifyHS_ $ \st -> st { id3 = Just id3 }
-handleMsg (P t) = do
-    modifyHS_ $ \s -> s { status = t }
-    when (t == Stopped) do
-        modifyHS_ \st -> st { -- force clock to end if near
-            clock = (\c -> c {
-                timeLeft = if timeLeft c < 0.1 then 0 else timeLeft c
-                }) <$> clock st }
-        playNext
+handleMsg (P t)   = do
+    modifyHS_ \st -> st
+        { status = t
+        , clock = case clock st of
+            Just f@Frame{ timeLeft } | t == Stopped && timeLeft < 0.1
+                -> Just f { timeLeft = 0 } -- force clock to end if near
+            c   -> c
+        }
+    when (t == Stopped) playNext
 handleMsg (F f) = do
     silentlyModifyHS \st -> st { clock = Just f }
     UI.refreshClock
