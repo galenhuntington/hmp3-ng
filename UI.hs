@@ -279,11 +279,10 @@ progressBar dd@DD{drawSize=Size{sizeW}, drawState=st} = case drawFrame dd of
         , (spaces distance, fgs)
         , (spaces (width - distance), bgs) ]
       where
-        total    = curr + left - ε
+        total    = curr + toRational timeLeft - ε
         distance = ceiling (curr * fromIntegral (width - 1) / total)
         curr     = toRational currentTime
-        left     = toRational timeLeft
-        ε        = 1 / 200
+        ε        = toRational (succ 0 `asTypeOf` currentTime) / 2
   where
     width       = sizeW - 4
     Style fg bg = progress (config st)
