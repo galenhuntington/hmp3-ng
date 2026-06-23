@@ -261,15 +261,17 @@ shutdown ms = do
 -- right pigeon hole.
 --
 handleMsg :: Msg -> IO ()
-
-handleMsg (S i)   = modifyHS_ $ \s -> s { info = Just i }
-
-handleMsg (I id3) = modifyHS_ $ \s -> s { id3 = Just id3 }
-
-handleMsg (P t) = do
-    modifyHS_ $ \s -> s { status = t }
-    when (t == Stopped) playNext   -- transition to next song
-
+handleMsg (S i)   = modifyHS_ $ \st -> st { info = Just i }
+handleMsg (I id3) = modifyHS_ $ \st -> st { id3 = Just id3 }
+handleMsg (P t)   = do
+    modifyHS_ \st -> st
+        { status = t
+        , clock = case clock st of
+            Just f@Frame{ timeLeft } | t == Stopped && timeLeft < 0.1
+                -> Just f { timeLeft = 0 } -- force clock to end if near
+            c   -> c
+        }
+    when (t == Stopped) playNext
 handleMsg (F f) = do
     silentlyModifyHS \st -> st { clock = Just f }
     UI.refreshClock
@@ -403,11 +405,12 @@ runPlayOp op = do
                 f  = P.intercalate (P.singleton '/')
                         [dname $ folders ! fdir fe, fbase fe]
             modify' \st -> st
-                { current = new
-                , status  = Playing
-                , cursor  = if current == cursor then new else cursor
+                { current  = new
+                , status   = Playing
+                , cursor   = if current == cursor then new else cursor
                 , playHist = Seq.take histSize $ (now, new) <| playHist
-                , id3     = Nothing
+                , id3      = Nothing
+                , clock    = Nothing
                 }
             pure f
     forM_ mfile $ sendMpg . Load
