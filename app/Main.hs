@@ -60,6 +60,7 @@ invocation = (,) <$> opts <*> files
         <*> option auto (
             long "history" <> short 'h' <> metavar "NUM" <> value 61
                 <> help "Size of play history, up to 61 selectable" <> showDefault)
+        <*> switch (long "random" <> help "Start on a random song")
     files = some $ argument (UTF8.fromString <$> str) (metavar "FILE|DIR...")
 
 parserInfo :: ParserInfo (Options, [ByteString])

@@ -10,7 +10,7 @@ module Core (
     start, shutdown,
     seekLeft, seekRight, upOne, downOne, pause, nextMode, playNext, playPrev,
     forcePause, putMessage, clearMessage, playCursor, playCur,
-    jumpToPlaying, jump, jumpRel,
+    jumpToPlaying, jump, jumpRel, jumpRandom,
     upPage, downPage,
     seekStart,
     blacklist,
@@ -57,6 +57,7 @@ data Options = Options
     , optConfigPath :: !(Maybe FilePath) -- ^ override the style.conf location
     , optPlayMode   :: Maybe Mode        -- ^ play mode
     , optHistSize   :: Int               -- ^ history size
+    , optRandom     :: Bool              -- ^ start on random song
     }
 
 -- | Sets up state, spawns sub-threads, and starts player.
@@ -68,8 +69,8 @@ start opts (Playlist folders music) = do
     let size = length music
     mode <- maybe readState pure (optPlayMode opts)
     gen <- newStdGen
-    let (current, randomGen) =
-            if mode == Random then randomR (0, size-1) gen else (0, gen)
+    let (current, randomGen) = if mode == Random || optRandom opts
+        then randomR (0, size-1) gen else (0, gen)
 
     threads <- traverse forkIO
         [ mpgLoop
@@ -275,7 +276,7 @@ jumpFn fn = modifyHS_ \st ->
 -- | Move cursor up or down
 upOne, downOne :: IO ()
 upOne   = jumpFn (subtract 1)
-downOne = jumpFn (+1)
+downOne = jumpFn (+ 1)
 
 page :: Int -> IO ()
 page dir = do
@@ -351,13 +352,24 @@ playNextOp = do
         Loop    -> pure $ Just 0
         Once    -> pure Nothing
 
--- | Random song
-playRandomOp :: PlayOp
-playRandomOp = do
+-- | Generate a random song
+getRandom :: State HState Int
+getRandom = do
     HState { size, randomGen } <- get
     let (new, gen') = randomR (0, size-1) randomGen
     modify' \st -> st { randomGen = gen' }
-    pure $ Just new
+    pure new
+
+-- | Random song
+playRandomOp :: PlayOp
+playRandomOp = Just <$> getRandom
+
+-- | Jump to random song
+jumpRandom :: Bool -> IO ()
+jumpRandom play = runPlayOp do
+    cursor <- getRandom
+    modify' \st -> st { cursor }
+    pure $ if play then Just cursor else Nothing
 
 -- | Generic next song selection
 -- If cursor is on current, drag it along.
