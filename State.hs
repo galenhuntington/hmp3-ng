@@ -47,7 +47,7 @@ data HState = HState
     , searchHist      :: ![ByteString]
     , playHist        :: !(Seq (TimeSpec, Int))
     , histSize        :: Int
-    , config          :: !UIStyle
+    , uiStyle         :: !UIStyle
     }
 
 data Mode = Once | Loop | Random | Single
@@ -117,7 +117,7 @@ sendMpg c = do
     when (not ok) do
         modifyHS_ \st -> st { minibuffer =
             case minibuffer st of -- don't overwrite if message already
-                Fast "" _ -> Fast (mp3Tool <> " process not running") (warnings $ config st)
+                Fast "" _ -> Fast (mp3Tool <> " process not running") (warnings $ uiStyle st)
                 _         -> minibuffer st
         }
 

@@ -244,9 +244,7 @@ data Config = Config {
        , hmp3_progress    :: (String,String)
      } deriving stock (Show,Read)
 
---
 -- | Read style.conf, and construct a UIStyle from it, to insert into
---
 buildStyle :: Config -> UIStyle
 buildStyle bs = UIStyle {
          window      = f $ hmp3_window      bs
@@ -263,4 +261,32 @@ buildStyle bs = UIStyle {
     where 
         f (x,y) = Style (g x) (g y)
         g x     = fromMaybe Default $ stringToColor x
+
+-- Built-in styles
+
+defaultStyle :: UIStyle
+defaultStyle  = UIStyle
+    { window     = style "default"      "default"
+    , titlebar   = style "brightwhite"  "green"
+    , selected   = style "blue"         "default"
+    , cursors    = style "black"        "cyan"
+    , combined   = style "brightwhite"  "cyan"
+    , warnings   = style "red"          "default"
+    , modals     = style "black"        "white"
+    , blockcursor= style "black"        "red"
+    , progress   = style "cyan"         "white"
+    }
+
+monoStyle :: UIStyle
+monoStyle = UIStyle
+    { window      = style "default"     "default"
+    , titlebar    = style "reverse"     "reverse"
+    , selected    = style "brightwhite" "default"
+    , cursors     = style "reverse"     "reverse"
+    , combined    = style "reverse"     "reverse"
+    , warnings    = style "reverse"     "reverse"
+    , modals      = style "reverse"     "reverse"
+    , blockcursor = style "reverse"     "reverse"
+    , progress    = style "reverse"     "reverse"
+    }
 

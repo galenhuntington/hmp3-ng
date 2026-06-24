@@ -21,12 +21,11 @@ module UI (
   ) where
 
 import Base
-
+import Config
 import Style
 import Playlist                 (File(fdir, fbase), Dir(dname))
 import State
 import Decoder
-import Config
 import Text                     (u, displayWidth, toMaxWidth, toWidth)
 import UI.HSCurses.Curses qualified as Curses
 import Keyboard                 (unkey, charToKey, historyKeys)
@@ -67,7 +66,7 @@ start = do
         _        -> pure () -- handled elsewhere
 
     colorify <- Curses.hasColors
-    let sty = if colorify then defaultStyle else bwStyle
+    let sty = if colorify then defaultStyle else monoStyle
 
     initcolours sty
     Curses.keypad Curses.stdScr True    -- grab the keyboard
@@ -279,7 +278,7 @@ progressBar dd@DD{drawSize=Size{sizeW}, drawState=st} = case drawFrame dd of
         ε        = toRational (succ 0 `asTypeOf` currentTime) / 2
   where
     width       = sizeW - 4
-    Style fg bg = progress (config st)
+    Style fg bg = progress (uiStyle st)
     bgs         = Style bg bg
     fgs         = Style fg fg
 
@@ -345,7 +344,7 @@ playTitle dd =
     gapl    = 1 `max` ((side - lsize) `min` (gap - 1))
     gapr    = gap - gapl
     indicl  = 6 -- length indic
-    hl      = titlebar . config $ drawState dd
+    hl      = titlebar . uiStyle $ drawState dd
 
 -- | The scrolling playlist (title + visible tracks + minibuffer).
 playList :: DrawData -> [StringA]
@@ -387,7 +386,7 @@ playList dd@DD{ drawSize=Size y x, drawPos=Pos{posY=o}, drawState=st } =
     indent = (round $ (0.334 :: Float) * fromIntegral x) :: Int
 
     (sty1, sty2, sty3) = (selected cs, cursors cs, combined cs)
-        where cs = config st
+        where cs = uiStyle st
 
     color :: ((Maybe Int, ByteString), Int)
                 -> (Maybe Int, (Style, [ByteString]))
@@ -435,7 +434,7 @@ renderModal st (Size h w) mkr = do
         hoffset = max 0 $ (w - mw) `div` 2
         vislines = (h - 5) `min` length modal'
         voffset = ((h - vislines) `div` 2) `max` 4
-        sty = modals $ config st
+        sty = modals $ uiStyle st
     Curses.wMove Curses.stdScr voffset hoffset
     for_ (take vislines modal') \t -> do
         drawLine $ Fast (toWidth mw t) sty
@@ -476,7 +475,7 @@ redraw = Draw $ discardErrors {- TODO what errors are discarded? -} do
     Curses.wMove Curses.stdScr (h-1) 0
     drawLine (last a)
     when (miniFocused st) do -- a fake cursor
-        drawLine (Fast (spaces 1) (blockcursor . config $ st ))
+        drawLine (Fast (spaces 1) (blockcursor . uiStyle $ st ))
         -- XXX is this TODO from 2005 still relevant?
         -- todo rendering bug here when deleting backwards in minibuffer
 
