@@ -3,6 +3,9 @@ module StyleSpec (tests) where
 import Test.Tasty
 import Test.Tasty.HUnit
 
+import Control.Exception
+
+import Base (isRight)
 import Style
 
 -- Lock in the config-string -> Color mapping and, with it, the intensity
@@ -32,5 +35,25 @@ tests = testGroup "Style"
         , testCase "unknown name"
             $ stringToColor "chartreuse" @?= Nothing
         ]
+    , testGroup "styles"
+        [ testStyles "built-in styles valid" [defaultStyle, monoStyle] True
+        , testStyles "wrong style invalid" badStyles False
+        ]
+    ]
+
+-- Check WHNF evaluation doesn't throw.
+-- Suffices because UIStyle is recursively strict.
+evalOk :: a -> IO Bool
+evalOk = fmap isRight . try @SomeException . evaluate
+
+testStyles :: Traversable t => String -> t UIStyle -> Bool -> TestTree
+testStyles s m b = testCase s $ (@?= b) . and =<< traverse evalOk m
+
+-- Test that test actually tests.
+badStyles :: [UIStyle]
+badStyles =
+    [ defaultStyle
+    , defaultStyle { window = style "badcolor" "default" }
+    , defaultStyle
     ]
 

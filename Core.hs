@@ -65,7 +65,7 @@ data Options = Options
 start :: Options -> Playlist -> IO ()
 start opts (Playlist folders music) = do
 
-    config <- UI.start
+    uiStyle <- UI.start
     bootTime <- getMonoTime
     let size = length music
     mode <- maybe readState pure (optPlayMode opts)
@@ -90,7 +90,7 @@ start opts (Playlist folders music) = do
         , cursor       = current
         , randomGen
         , mode
-        , config
+        , uiStyle
         , threads
         , spawns       = 0
         , clock        = Nothing
@@ -540,7 +540,7 @@ loadConfig = do
             Just rsty -> do
                 let sty = buildStyle rsty
                 initcolours sty
-                modifyHS_ $ \st -> st { config = sty }
+                modifyHS_ $ \st -> st { uiStyle = sty }
     else
         pure () -- TODO in some cases show a warning
     UI.resetui
@@ -556,6 +556,6 @@ clearMessage = putMessage $ Fast P.empty defaultSty
 
 warnA :: String -> IO ()
 warnA x = do
-    sty <- getsHS config
+    sty <- getsHS uiStyle
     putMessage $ Fast (P.pack x) (warnings sty)
 
