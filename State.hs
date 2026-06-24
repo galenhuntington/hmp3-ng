@@ -9,14 +9,14 @@ module State where
 
 import Base
 
-import Decoder                  (Status, Frame, Id3, Cmd, cmdToBS)
+import Decoder                  (Status, Frame, Id3, Cmd, cmdToBS, mp3Tool)
 import Playlist                 (FileArray, DirArray)
-import Style                    (StringA, UIStyle)
+import Style                    (StringA(Fast), UIStyle, warnings)
 
 import Data.ByteString          (hPut)
 import System.Clock             (TimeSpec(..))
 import System.IO                (hFlush)
-import System.Process           (ProcessHandle)
+import System.Process           (ProcessHandle, waitForProcess)
 import System.Random            (StdGen)
 
 
@@ -33,7 +33,6 @@ data HState = HState
     , cursor          :: !Int                  -- mp3 under the cursor
     , clock           :: !(Maybe Frame)        -- current clock value
     , randomGen       :: !StdGen               -- random seed
-    , mpgPid          :: !(Maybe ProcessHandle) -- pid of decoder
     , spawns          :: !Integer              -- count of decoder spawns
     , threads         :: ![ThreadId]           -- all our threads
     , id3             :: !(Maybe Id3)          -- maybe mp3 id3 info
@@ -46,7 +45,6 @@ data HState = HState
     , uptime          :: !ByteString
     , searchFw        :: !Bool                 -- active search direction
     , searchHist      :: ![ByteString]
-    , exiting         :: !Bool                 -- let mpg123 die?
     , playHist        :: !(Seq (TimeSpec, Int))
     , histSize        :: Int
     , config          :: !UIStyle
@@ -80,18 +78,51 @@ setModified = void $ tryPutMVar modified ()
 ------------------------------------------------------------------------
 -- The decoder.
 
-data Mpg = Mpg { errh :: !Handle, writeh :: !Handle }
+-- | Decoder read handle (mpg123 stderr).
+mpgRead :: MVar Handle
+mpgRead = unsafePerformIO newEmptyMVar
+{-# NOINLINE mpgRead #-}
 
-mpg :: MVar Mpg
-mpg = unsafePerformIO newEmptyMVar
-{-# NOINLINE mpg #-}
+data Mpg = Mpg { mpgPH :: !ProcessHandle, writeHM :: !(MVar Handle) }
 
+-- | Decoder process and write handles.
+mpgRef :: IORef (Maybe Mpg)
+mpgRef = unsafePerformIO $ newIORef Nothing
+{-# NOINLINE mpgRef #-}
+
+overseeMpg :: (Handle, Handle, Handle, ProcessHandle) -> IO ()
+overseeMpg (writeH, _, errH, mpgPH) = do
+    putMVar mpgRead errH
+    writeHM <- newMVar writeH
+    writeIORef mpgRef $ Just Mpg { mpgPH, writeHM }
+    void $ try @SomeException $ waitForProcess mpgPH
+    writeIORef mpgRef Nothing
+    void $ takeMVar mpgRead
+
+-- | Returns whether succeeded.
+sendMpg' :: Cmd -> IO Bool
+sendMpg' c = do
+    mpg <- readIORef mpgRef
+    case mpg of
+        Just Mpg { writeHM } -> do
+            h <- readMVar writeHM
+            fmap isRight $ try @SomeException $
+                hPut h (cmdToBS c) *> hPut h "\n" *> hFlush h
+        _ -> pure False
+
+-- | Runs above and posts warning on failure.
 sendMpg :: Cmd -> IO ()
-sendMpg c = withMVar mpg $ (. writeh) \h ->
-    hPut h (cmdToBS c) *> hPut h "\n" *> hFlush h
+sendMpg c = do
+    ok <- sendMpg' c
+    when (not ok) do
+        modifyHS_ \st -> st { minibuffer =
+            case minibuffer st of -- don't overwrite if message already
+                Fast "" _ -> Fast (mp3Tool <> " process not running") (warnings $ config st)
+                _         -> minibuffer st
+        }
 
 ------------------------------------------------------------------------
--- state accessor functions
+-- State accessor functions.
 
 -- | Access a component of the state with a projection function
 getsHS :: (HState -> a) -> IO a

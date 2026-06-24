@@ -36,6 +36,7 @@ import Data.Sequence qualified as Seq
 import Data.Array               ((!), Array)
 import Data.Proxy
 import Data.Tuple               (swap)
+import Control.Monad.Except
 import Control.Monad.State.Strict
 import System.Directory         (doesFileExist, findExecutable, createDirectoryIfMissing,
                                  getXdgDirectory, XdgDirectory(..))
@@ -45,12 +46,8 @@ import System.Clock             (TimeSpec(..), diffTimeSpec)
 import System.Random            (randomR, newStdGen)
 import System.FilePath          ((</>))
 import System.Posix.FilePath    (takeFileName)
-
 import System.Posix.Process     (exitImmediately)
 
-
-mp3Tool :: String
-mp3Tool = "mpg123"
 
 ------------------------------------------------------------------------
 
@@ -66,11 +63,7 @@ data Options = Options
 start :: Options -> Playlist -> IO ()
 start opts (Playlist folders music) = do
 
-    config <- catch @SomeException UI.start \err -> do
-        -- An uncaught exception here would deadlock.
-        -- XXX more state model revisions should obviate need
-        hPutStrLn stderr $ "Curses failed to start: " ++ show err
-        exitImmediately $ ExitFailure 1
+    config <- UI.start
     bootTime <- getMonoTime
     let size = length music
     mode <- maybe readState pure (optPlayMode opts)
@@ -98,7 +91,6 @@ start opts (Playlist folders music) = do
         , config
         , threads
         , spawns       = 0
-        , mpgPid       = Nothing
         , clock        = Nothing
         , info         = Nothing
         , id3          = Nothing
@@ -108,7 +100,6 @@ start opts (Playlist folders music) = do
         , searchFw     = True
         , histSize     = optHistSize opts
         , miniFocused  = False
-        , exiting      = False
         , status       = Stopped
         , minibuffer   = Fast mempty defaultSty
         , uptime       = mempty
@@ -143,49 +134,34 @@ exitTime e | is @IOException Proxy e = False -- ignore
 
 ------------------------------------------------------------------------
 
--- | Process loop, launch mpg123, set the handles in the state
--- and then wait for the process to die. If it does, restart it.
---
--- If we're unable to start at all, we should say something sensible
--- For example, if we can't start it two times in a row, perhaps give up?
---
+-- | Loop, launching decoder and updating global state.
 mpgLoop :: IO ()
 mpgLoop = runForever do
-    mmpg <- findExecutable mp3Tool
-    case mmpg of
-      Nothing     -> shutdown $ Just $ "Cannot find " ++ mp3Tool ++ " in path"
-      Just mppath -> do
-        mv <- try $ runInteractiveProcess mppath ["-R", "--remote-err"] Nothing Nothing
-        case mv of
-          Left (ex :: SomeException) ->
-            warnA $ mppath ++ " failed to start; retrying: " ++ show ex
-
-          Right (writeh, _, errh, pid) -> do
+    empg <- runExceptT do
+        mppath <- lift (findExecutable mp3Tool) >>=
+            maybe (throwError $ "Cannot find " ++ mp3Tool ++ " in path") pure
+        lift (try @SomeException $
+            runInteractiveProcess mppath ["-R", "--remote-err"] Nothing Nothing
+            ) >>= flip either pure \ex ->
+                throwError $ mp3Tool ++ " failed to start; retrying: " ++ show ex
+    case empg of
+        Left err -> do
+            warnA err
+            -- Hackily count failed initial spawn, for Ready message
+            silentlyModifyHS \st -> st { spawns = spawns st `max` 1 }
+            threadDelay 20_000_000  -- longer wait after these errors
+        Right handles -> do
             ct <- modifyHS $ \st -> let sp = spawns st + 1 in (st
-                { mpgPid    = Just pid
-                , status    = Stopped
+                { status    = Stopped
                 , info      = Nothing
                 , id3       = Nothing
                 , spawns    = sp
                 }, sp)
-
-            putMVar mpg Mpg { errh, writeh }
-
             when (ct > 1) $ warnA $ mp3Tool ++ " #" ++ show ct ++ ": Ready"
-            catch @SomeException (void $ waitForProcess pid) (const $ pure ())
-
-            -- Must be in this order or risk shutdown deadlock!
-            silentlyModifyHS $ \st -> st { mpgPid = Nothing }
-            void $ takeMVar mpg
-
-            stop <- getsHS exiting
-            when stop exitSuccess
+            overseeMpg handles
             threadDelay 1_000_000  -- let threads spit errors
-            warnA $ "Restarting " ++ mppath ++ " ..."
-
-        -- Slow spawn loops in case of trouble.
-        threadDelay 4_000_000
-
+            warnA $ "Restarting " ++ mp3Tool ++ " ..."
+    threadDelay 4_000_000  -- rate-limit respawns
 
 ------------------------------------------------------------------------
 
@@ -193,7 +169,6 @@ mpgLoop = runForever do
 -- for it to be modified again.
 refreshLoop :: IO ()
 refreshLoop = runForever $ takeMVar modified *> UI.refresh
-
 
 ------------------------------------------------------------------------
 
@@ -227,39 +202,33 @@ showTimeDiff = showTimeDiff_ False
 ------------------------------------------------------------------------
 
 -- | Handle messages arriving over a pipe from the decoder process. When
--- shutdown kills the other end of the pipe, hGetLine will fail, so we
--- take that chance to exit.
---
+-- shutdown kills the other end of the pipe, hGetLine will fail.
 mpgInput :: IO ()
 mpgInput = runForever $ do
-    line <- P.hGetLine =<< errh <$> readMVar mpg
+    line <- P.hGetLine =<< readMVar mpgRead
     case mpgParser line of
         Right m       -> handleMsg m
-        Left (Just e) -> warnA ("mpg123: " ++ e)
+        Left (Just e) -> warnA (mp3Tool ++ ": " ++ e)
         _             -> pure ()
 
 ------------------------------------------------------------------------
 
 -- | Close most things. Important to do all the jobs:
--- TODO maybe releaseSignals here?
 shutdown :: Maybe String -> IO ()
 shutdown ms = do
     UI.end
-    silentlyModifyHS $ \st -> st { exiting = True }
-    discardErrors writeState
-    mpid <- getsHS mpgPid
-    whenJust mpid \pid -> do
-        discardErrors $ sendMpg Quit
-        void $ waitForProcess pid
+    mpg <- readIORef mpgRef
+    whenJust mpg \Mpg { mpgPH } -> do
+        discardErrors writeState
+        void $ sendMpg' Quit
+        void $ waitForProcess mpgPH
     exitImmediately =<< case ms of
         Just s -> hPutStrLn stderr s *> pure (ExitFailure 1)
         _      -> pure ExitSuccess
 
 ------------------------------------------------------------------------
--- 
--- Write incoming messages from the encoder to the global state in the
--- right pigeon hole.
---
+-- Process incoming messages from the decoder.
+
 handleMsg :: Msg -> IO ()
 handleMsg (S i)   = modifyHS_ $ \st -> st { info = Just i }
 handleMsg (I id3) = modifyHS_ $ \st -> st { id3 = Just id3 }
@@ -277,9 +246,7 @@ handleMsg (F f) = do
     UI.refreshClock
 
 ------------------------------------------------------------------------
---
 -- Basic operations
---
 
 -- | Seek backward in song
 seekLeft :: IO ()
