@@ -78,34 +78,43 @@ setModified = void $ tryPutMVar modified ()
 ------------------------------------------------------------------------
 -- The decoder.
 
--- | Read/write handles.
-data Mpg = Mpg { errh :: !Handle, writeh :: !Handle }
+-- | Decoder read handle (mpg123 stderr).
+mpgRead :: MVar Handle
+mpgRead = unsafePerformIO newEmptyMVar
+{-# NOINLINE mpgRead #-}
 
-mpg :: MVar Mpg
-mpg = unsafePerformIO newEmptyMVar
-{-# NOINLINE mpg #-}
+data Mpg = Mpg { mpgPH :: !ProcessHandle, writeHM :: !(MVar Handle) }
 
--- | Decoder process handle
--- If Just, read/write handles should exist.
-mpgProcess :: IORef (Maybe ProcessHandle)
-mpgProcess = unsafePerformIO $ newIORef Nothing
-{-# NOINLINE mpgProcess #-}
+-- | Decoder process and write handles.
+mpgRef :: IORef (Maybe Mpg)
+mpgRef = unsafePerformIO $ newIORef Nothing
+{-# NOINLINE mpgRef #-}
 
 overseeMpg :: (Handle, Handle, Handle, ProcessHandle) -> IO ()
-overseeMpg (writeh, _, errh, ph) = do
-    putMVar mpg Mpg { errh, writeh }
-    writeIORef mpgProcess $ Just ph
-    void $ try @SomeException $ waitForProcess ph
-    writeIORef mpgProcess Nothing  -- reverse order
-    void $ takeMVar mpg
+overseeMpg (writeH, _, errH, mpgPH) = do
+    putMVar mpgRead errH
+    writeHM <- newMVar writeH
+    writeIORef mpgRef $ Just Mpg { mpgPH, writeHM }
+    void $ try @SomeException $ waitForProcess mpgPH
+    writeIORef mpgRef Nothing
+    void $ takeMVar mpgRead
 
+-- | Returns whether succeeded.
+sendMpg' :: Cmd -> IO Bool
+sendMpg' c = do
+    mpg <- readIORef mpgRef
+    case mpg of
+        Just Mpg { writeHM } -> do
+            h <- readMVar writeHM
+            fmap isRight $ try @SomeException $
+                hPut h (cmdToBS c) *> hPut h "\n" *> hFlush h
+        _ -> pure False
+
+-- | Runs above and posts warning on failure.
 sendMpg :: Cmd -> IO ()
 sendMpg c = do
-    running <- isJust <$> readIORef mpgProcess
-    if running
-    then withMVar mpg $ (. writeh) \h ->
-        hPut h (cmdToBS c) *> hPut h "\n" *> hFlush h
-    else
+    ok <- sendMpg' c
+    when (not ok) do
         modifyHS_ \st -> st { minibuffer =
             case minibuffer st of -- don't overwrite if message already
                 Fast "" _ -> Fast (mp3Tool <> " process not running") (warnings $ config st)

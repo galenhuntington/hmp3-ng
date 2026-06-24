@@ -205,7 +205,7 @@ showTimeDiff = showTimeDiff_ False
 -- shutdown kills the other end of the pipe, hGetLine will fail.
 mpgInput :: IO ()
 mpgInput = runForever $ do
-    line <- P.hGetLine =<< errh <$> readMVar mpg
+    line <- P.hGetLine =<< readMVar mpgRead
     case mpgParser line of
         Right m       -> handleMsg m
         Left (Just e) -> warnA (mp3Tool ++ ": " ++ e)
@@ -217,12 +217,11 @@ mpgInput = runForever $ do
 shutdown :: Maybe String -> IO ()
 shutdown ms = do
     UI.end
-    mph <- readIORef mpgProcess
-    whenJust mph \ph -> do
+    mpg <- readIORef mpgRef
+    whenJust mpg \Mpg { mpgPH } -> do
         discardErrors writeState
-        discardErrors do
-            sendMpg Quit
-            void $ waitForProcess ph
+        void $ sendMpg' Quit
+        void $ waitForProcess mpgPH
     exitImmediately =<< case ms of
         Just s -> hPutStrLn stderr s *> pure (ExitFailure 1)
         _      -> pure ExitSuccess

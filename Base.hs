@@ -13,6 +13,7 @@ import Control.Exception as X
 import Control.Monad as X
 import Data.ByteString as X (ByteString)
 import Data.Char as X
+import Data.Either as X
 import Data.Fixed as X
 import Data.Foldable as X
 import Data.Functor as X hiding (unzip)
