@@ -52,8 +52,8 @@ library
     Playlist
     State
     Style
+    Text
     UI
-    Width
 
   other-modules:
     Paths_hmp3_ng
@@ -99,14 +99,12 @@ test-suite test
   main-is: Main.hs
   hs-source-dirs: test
   other-modules:
-    BaseSpec
     ConfigSpec
     CoreSpec
     DecoderSpec
-    KeymapSpec
     PlaylistSpec
     StyleSpec
-    WidthSpec
+    TextSpec
 
   build-depends:
     base,

@@ -19,6 +19,7 @@ import Config (package)
 import Keyboard (unkey, charToKey, Key(..), historyKeys)
 import State (getsHS, modifyHS_, KeysHelp, Modal(..), HState(..))
 import Style (defaultSty, StringA(Fast))
+import Text (dropLastUTF8)
 import UI qualified (getKey, resetui)
 
 import Data.ByteString.Char8 qualified as P
@@ -112,10 +113,6 @@ searchMode stype = step where
 
 renderSearch :: Char -> Zipper ByteString -> IO ()
 renderSearch prefix z = putMessage $ Fast (prefix `P.cons` zipperCur z) defaultSty
-
-dropLastUTF8 :: ByteString -> ByteString
-dropLastUTF8 = P.dropEnd 1 . P.dropWhileEnd isCB
-    where isCB b = b >= '\128' && b < '\192'
 
 enter', delete' :: [Char]
 enter'  = ['\n', '\r']

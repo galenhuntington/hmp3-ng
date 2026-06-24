@@ -1,10 +1,9 @@
-module WidthSpec (tests) where
+module TextSpec (tests) where
 
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import Width (displayWidth, toMaxWidth, toWidth)
-import UI (u)
+import Text
 
 -- These tests depend on wcwidth's behavior under a UTF-8 locale and on a
 -- handful of codepoints whose canonical widths are well-known:
@@ -15,8 +14,37 @@ import UI (u)
 -- They are not deterministic under the C locale.
 
 tests :: TestTree
-tests = testGroup "Width"
-    [ testGroup "displayWidth"
+tests = testGroup "Text"
+    [ testGroup "match"
+        [ m True "exact"         "foo"       "fooBar"
+        , m True "caseless"      "FOO"       "fooBar"
+        , m False "invalid"      "["         "any[thing"
+        , m True "alt"           "(foo|az)Q" "bazQux"
+        , m True "dot"           "o.a"       "foobar"
+        , m True "Unicode"       "jör"       "Björk"
+        , m True "dot Unicode"   "j.r"       "Björk"
+        , m True "Nordic case"   "bør"       "BØrnE"
+        , m True "Greek case"    "Λω"        "ΦλΩα"
+        , m True "dot CJK"       "中.人"     "中國人"
+        ]
+    , testGroup "dropLastUTF8"
+        [ testCase "ASCII"    $ dropLastUTF8 "abc"          @?= "ab"
+        , testCase "empty"    $ dropLastUTF8 ""             @?= ""
+        , testCase "French"   $ dropLastUTF8 (u"été")       @?= u"ét"
+        , testCase "CJK"      $ dropLastUTF8 (u"中國")      @?= u"中"
+        , testCase "Emoji"    $ dropLastUTF8 (u"Yes👍")     @?= u"Yes"
+        , testCase "invalid"  $ dropLastUTF8 "\x80"         @?= ""
+        ]
+    , testGroup "trim"
+        [ testCase "empty"      $ trim ""                   @?= ""
+        , testCase "whitespace" $ trim "  \tfoo bar \n"     @?= "foo bar"
+        ]
+    , testGroup "guessEncoding"
+        [ testCase "ASCII"    $ guessEncoding "abc"         @?= "abc"
+        , testCase "ISO-8859" $ guessEncoding "encöde"      @?= u"encöde"
+        , testCase "UTF-8"    $ guessEncoding (u"encöde")   @?= u"encöde"
+        ]
+    , testGroup "displayWidth"
         [ testCase "empty"             $ displayWidth ""              @?= 0
         , testCase "ascii"             $ displayWidth "hello"         @?= 5
         , testCase "latin-extended"    $ displayWidth (u"café")       @?= 4
@@ -58,4 +86,8 @@ tests = testGroup "Width"
             $ toWidth 5 (u"中a")       @?= u"中a  "
         ]
     ]
+
+
+m :: Bool -> String -> String -> String -> TestTree
+m b tag pat str = testCase tag $ matches (u pat) (u str) @?= b
 
