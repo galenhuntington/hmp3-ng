@@ -10,9 +10,9 @@ module Decoder (
 ) where
 
 import Base
+import Text (trim, readIntM, guessEncoding)
 
 import Data.ByteString.Char8 qualified as P
-import Data.ByteString.UTF8 qualified as UTF8
 
 
 mp3Tool :: IsString a => a
@@ -62,13 +62,6 @@ data Frame = Frame {
 data Status = Stopped | Paused | Playing
     deriving stock (Eq, Show)
 
--- | Strip leading and trailing whitespace.
-trim :: ByteString -> ByteString
-trim = P.dropWhileEnd isSpace . P.dropSpace
-
-readPS :: ByteString -> Maybe Int
-readPS = fmap fst . P.readInt
-
 doP :: ByteString -> Maybe Msg
 doP s = do
     (p, _) <- P.uncons s
@@ -82,8 +75,8 @@ doP s = do
 doF :: ByteString -> Maybe Msg
 doF s = do
     f0 : f1 : f2 : f3 : _ <- pure $ P.split ' ' s
-    currentFrame <- readPS f0
-    framesLeft   <- readPS f1
+    currentFrame <- readIntM f0
+    framesLeft   <- readIntM f1
     currentTime  <- readMaybe $ P.unpack f2
     timeLeft     <- max 0 <$> readMaybe (P.unpack f3)
     pure $ F Frame { currentFrame, framesLeft, currentTime, timeLeft }
@@ -106,7 +99,7 @@ doS :: ByteString -> Maybe Msg
 doS s = do
     let fs = P.split ' ' s
     guard $ length fs >= 11
-    hz <- readPS $ fs !! 2
+    hz <- readIntM $ fs !! 2
     pure $ S $ mconcat [
         "mpeg ", fs !! 0, " ", fs !! 10, "kb/s ",
             P.pack $ show $ hz `div` 1000, "kHz"]
@@ -124,18 +117,11 @@ doI s = I <$> do
 parseId3 :: ByteString -> Id3
 parseId3 = toId . cut where
     cut f | P.null f = []
-          | True     = let (a, xs) = P.splitAt 30 f in normalise a : cut xs
+          | True     = let (a, xs) = P.splitAt 30 f
+                       in guessEncoding (trim a) : cut xs
     toId ls = Id3 (arg 0) (arg 1) (arg 2) $ mconcat $ intersperse " : "
         $ filter (not . P.null) [arg 1, arg 2, arg 0]
       where arg = fromMaybe "" . (ls !?)
-
--- | Strip spaces, and if seeming ISO-8859-1 convert to UTF-8
-normalise :: ByteString -> ByteString
-normalise raw =
-    let bs = trim raw
-    in if UTF8.replacement_char `elem` UTF8.toString bs
-        then UTF8.fromString $ P.unpack bs
-        else bs
 
 -- Parse line; on failure, return Just only if error to report.
 mpgParser :: ByteString -> Either (Maybe String) Msg

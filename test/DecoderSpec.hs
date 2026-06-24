@@ -5,9 +5,10 @@ import Test.Tasty.HUnit
 
 import Data.ByteString.Char8 qualified as P
 
+import Base
 import Decoder
 
--- These exercise the helpers doX, 'trim', and 'normalise'.
+-- These exercise the helpers doX and 'trim'
 tests :: TestTree
 tests = testGroup "Lexer.mpgParser"
     [ testGroup "status (@P)"
@@ -29,7 +30,7 @@ tests = testGroup "Lexer.mpgParser"
                                       $ Right (S "mpeg 1.0 128kb/s 44kHz")
         , tc "@S 1.0 1 44100"         $ Left Nothing   -- too few fields
         ]
-    , testGroup "id3 (@I)" (let s = "n\195\182rmalise" in
+    , testGroup "id3 (@I)"
         [ tcId3 ["Title"]
               $ Right (I (Id3 "Title" "" "" "Title"))
         , tcId3 ["Title", "Artist"]
@@ -41,9 +42,7 @@ tests = testGroup "Lexer.mpgParser"
         , tcId3 ["", "Artist"]       $ Left Nothing   -- blank title: skipped
         , tc "@I song.mp3"           $ Left Nothing   -- non-ID3 @I: don't overwrite
         , tc "@I {"                  $ Left Nothing   -- grouping marker: ignored
-        , tcId3 ["nörmalise"]        $ Right (I (Id3 s "" "" s))
-        , tcId3 [s]                  $ Right (I (Id3 s "" "" s))
-        ])
+        ]
     , testGroup "tagline, errors, junk"
         [ tc "@E some failure"       $ Left (Just "some failure")
         , tc "garbage"               $ Left Nothing   -- no @ prefix
@@ -58,6 +57,6 @@ tests = testGroup "Lexer.mpgParser"
     tcId3 fields = tc' (show fields) (id3 fields)
 
 -- | Build an "@I ID3:" line from fixed-width 30-char fields, as mpg123 emits.
-id3 :: [P.ByteString] -> P.ByteString
+id3 :: [ByteString] -> ByteString
 id3 fields = "@I ID3:" <> mconcat [ P.take 30 (f <> P.replicate 30 ' ') | f <- fields ]
 

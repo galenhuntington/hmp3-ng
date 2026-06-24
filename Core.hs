@@ -28,6 +28,7 @@ import Decoder
 import State
 import Style
 import Playlist
+import Text (matches)
 import UI qualified
 
 import Data.ByteString.Char8 qualified as P

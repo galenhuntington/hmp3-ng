@@ -27,7 +27,7 @@ import Playlist                 (File(fdir, fbase), Dir(dname))
 import State
 import Decoder
 import Config
-import Width                    (displayWidth, toMaxWidth, toWidth)
+import Text                     (u, displayWidth, toMaxWidth, toWidth)
 import UI.HSCurses.Curses qualified as Curses
 import Keyboard                 (unkey, charToKey, historyKeys)
 
@@ -43,12 +43,6 @@ import Foreign.C.Error (Errno(..), getErrno)
 
 import Data.ByteString.Char8 qualified as P
 import Data.ByteString.Unsafe qualified as P
-import Data.ByteString.UTF8 qualified as UTF8
-
-
--- Write u-strings like it's Python 2.
-u :: String -> ByteString
-u = UTF8.fromString
 
 
 newtype Draw = Draw (IO ())
