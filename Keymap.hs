@@ -15,7 +15,7 @@ module Keymap (keyLoop, keyTable, unkey, charToKey, dropLastUTF8) where
 import Base
 
 import Core
-import Config (package)
+import Elements (package)
 import Keyboard (unkey, charToKey, Key(..), historyKeys)
 import State (getsHS, modifyHS_, KeysHelp, Modal(..), HState(..))
 import Style (defaultSty, StringA(Fast))

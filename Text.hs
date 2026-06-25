@@ -6,7 +6,7 @@
 
 module Text (
     u, matches,
-    trim, guessEncoding, dropLastUTF8,
+    trim, spaces, guessEncoding, dropLastUTF8,
     readIntM,
     displayWidth, toMaxWidth, toWidth
 ) where
@@ -19,6 +19,7 @@ import Text.Regex.Posix (match, makeRegexOptsM, compIgnoreCase, compExtended)
 
 import Foreign.C.Types (CWchar(..), CInt(..))
 
+
 -- | Write u-strings like it's Python 2.
 u :: String -> ByteString
 u = UTF8.fromString
@@ -26,6 +27,9 @@ u = UTF8.fromString
 -- | Strip leading and trailing whitespace.
 trim :: ByteString -> ByteString
 trim = P.dropWhileEnd isSpace . P.dropSpace
+
+spaces :: Int -> ByteString
+spaces = flip P.replicate ' '
 
 -- | Swappable API for searching
 -- TODO report invalid regex

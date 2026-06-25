@@ -19,7 +19,6 @@ module Core (
     toggleFocus, jumpToNextDir, jumpToPrevDir,
     loadConfig,
     discardErrors,
-    showTimeDiff_,
 ) where
 
 import Base
@@ -30,6 +29,7 @@ import Style
 import Playlist
 import Text (matches)
 import UI qualified
+import Elements qualified as El
 
 import Data.ByteString.Char8 qualified as P
 import Data.Sequence qualified as Seq
@@ -43,7 +43,6 @@ import System.Directory         (doesFileExist, findExecutable, createDirectoryI
                                  getXdgDirectory, XdgDirectory(..))
 import System.IO                (hPutStrLn, stderr)
 import System.Process           (runInteractiveProcess, waitForProcess)
-import System.Clock             (TimeSpec(..), diffTimeSpec)
 import System.Random            (randomR, newStdGen)
 import System.FilePath          ((</>))
 import System.Posix.FilePath    (takeFileName)
@@ -178,28 +177,8 @@ refreshLoop = runForever $ takeMVar modified *> UI.refresh
 uptimeLoop :: IO ()
 uptimeLoop = runForever $ do
     now <- getMonoTime
-    modifyHS_ $ \st -> st { uptime = showTimeDiff (bootTime st) now }
+    modifyHS_ $ \st -> st { uptime = El.showDuration False (now - bootTime st) }
     threadDelay 3_000_000
-
-------------------------------------------------------------------------
-
-showTimeDiff_ :: Bool -> TimeSpec -> TimeSpec -> ByteString
-showTimeDiff_ secs before now
-    | ms == 0 && secs
-              = go ""
-    | hs == 0 = go $ printf "%dm" m
-    | d == 0  = go $ printf "%dh%02dm" h m
-    | True    = go $ printf "%dd%02dh%02dm" d h m
-    where
-        go     = P.pack . ss
-        stot   = sec $ diffTimeSpec before now
-        (ms,s) = quotRem stot 60
-        (hs,m) = quotRem ms 60
-        (d,h)  = quotRem hs 24
-        ss     = if secs then (<> printf (if ms > 0 then "%02ds" else "%ds") s) else id
-
-showTimeDiff :: TimeSpec -> TimeSpec -> ByteString
-showTimeDiff = showTimeDiff_ False
 
 ------------------------------------------------------------------------
 
@@ -479,7 +458,7 @@ showHist :: IO ()
 showHist = do
     now <- getMonoTime
     setsModal \st -> Just $ HistModal [
-        (showTimeDiff_ True tm now, (ix, fbase $ music st ! ix))
+        (El.showDuration True (now - tm), (ix, fbase $ music st ! ix))
             | (tm, ix) <- toList $ playHist st ]
 
 -- | Focus the minibuffer
