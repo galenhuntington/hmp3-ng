@@ -117,9 +117,8 @@ getKey = do
 
 -- | Resize the window
 -- From "Writing Programs with NCURSES", by Eric S. Raymond and Zeyd M. Ben-Halim
---
 resizeui :: Draw
-resizeui = Draw $ void $ do
+resizeui = Draw do
     Curses.endWin
     Curses.resetParams
     do
@@ -131,7 +130,7 @@ resizeui = Draw $ void $ do
         -- Curses.meta stdScr True -- not in module
         -- not sure about intrFlush, raw - set in hscurses
     Curses.refresh
-    Curses.scrSize
+    void Curses.scrSize
 
 refresh :: IO ()
 refresh = runDraw $ redraw <> Draw Curses.refresh
@@ -203,18 +202,17 @@ playInfo DD{drawState=st} = mconcat
 playTitle :: DrawData -> StringA
 playTitle dd@DD{drawWidth=w, drawState=st} =
     flip Fast hl $ mconcat if gap >= 2
-        then [" ", inf, spaces gapl, u indic, spaces gapr, uptime, " ", ver, " "]
+        then [" ", inf, spaces gapl, u indic, spaces gapr, st.uptime, " ", ver, " "]
         else let gap' = w - indicl; gapl' = gap' `div` 2
              in if gap' >= 2
                 then [spaces gapl', u indic, spaces $ gap' - gapl']
                 else [" ", u $ take (w-2) indic, " "]
   where
     inf     = playInfo dd
-    uptime  = st.uptime
     indic   = pState dd ++ ' ' : pMode dd
     ver     = El.pVersion
     lsize   = 1 + P.length inf
-    rsize   = 2 + P.length uptime + P.length ver
+    rsize   = 2 + P.length st.uptime + P.length ver
     side    = (w - indicl) `div` 2
     gap     = w - indicl - lsize - rsize
     gapl    = 1 `max` ((side - lsize) `min` (gap - 1))
@@ -241,13 +239,13 @@ playList buflen DD{ drawWidth=w, drawState=st } =
         loop _ []     = []
         loop n (v:vs) =
             let r = if v.fdir > n then Just v.fdir else Nothing
-            in (r, toWidth (w - indent - 1) v.fbase) : loop v.fdir vs
+            in (r, toMaxWidth (w - indent - 1) v.fbase) : loop v.fdir vs
 
     list   = [ drawIt . color $ n | n <- zip visible' [0..] ]
 
     indent = (round $ (0.334 :: Float) * fromIntegral w) :: Int
 
-    (sty1, sty2, sty3) = (selected cs, cursors cs, combined cs)
+    (sty1, sty2, sty3) = (cs.selected, cs.cursors, cs.combined)
         where cs = st.uiStyle
 
     color :: ((Maybe Int, ByteString), Int)
@@ -269,10 +267,10 @@ playList buflen DD{ drawWidth=w, drawState=st } =
         : map (, sty) v
       where
         sty' = if sty == sty2 || sty == sty3 then sty2 else sty1
-        d = toMaxWidth (indent - 1) $ takeFileName (folders st ! i).dname
+        d = toMaxWidth (indent - 1) $ takeFileName (st.folders ! i).dname
 
 ------------------------------------------------------------------------
--- | Now write out just the clock line
+-- | Write out only the clock lines.
 redrawJustClock :: Draw
 redrawJustClock = Draw do
     st <- getsHS id
@@ -307,10 +305,9 @@ redraw :: Draw
 redraw = Draw do
     st <- getsHS id
     sz@(h, w) <- screenSize
-    let dd  = DD w st
-        tot = pPlaying dd : clockLines dd ++ playTitle dd : playList (h-5) dd
     setXterm st
-    drawFullLines (h-1) 0 tot
+    drawFullLines (h-1) 0 $ let dd = DD w st in
+        pPlaying dd : clockLines dd ++ playTitle dd : playList (h-5) dd
     renderModals st sz
     -- minibuffer
     Curses.wMove Curses.stdScr (h-1) 0
@@ -319,7 +316,7 @@ redraw = Draw do
         drawLine $ Fast " " st.uiStyle.blockcursor
     fillLine
 
--- | Render whole lines without going below height.
+-- | Render whole lines without going below limit.
 drawFullLines :: Int -> Int -> [StringA] -> IO ()
 drawFullLines limit y ls =
     for_ (zip [y .. limit-1] ls) \ (y', t) -> do
@@ -367,13 +364,11 @@ setXtermTitle strs = do
 
 -- set xterm title.  Don't need to do this on each refresh...
 setXterm :: HState -> IO ()
-setXterm s = setXtermTitle $ case status s of
-    Playing -> case id3 s of
-        Nothing -> [fbase $ music s ! current s]
-        Just ti -> id3artist ti :
-                   if P.null (id3title ti)
-                        then []
-                        else [": ", id3title ti]
+setXterm st = setXtermTitle case st.status of
+    Playing -> case st.id3 of
+        Just id3 -> id3.id3artist :
+                       if P.null id3.id3title then [] else [": ", id3.id3title]
+        _        -> [(st.music ! st.current).fbase]
     Paused  -> ["paused"]
     Stopped -> ["stopped"]
 
