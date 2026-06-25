@@ -66,11 +66,10 @@ start opts (Playlist folders music) = do
 
     uiStyle <- UI.start
     bootTime <- getMonoTime
-    let size = length music
     mode <- maybe readState pure (optPlayMode opts)
     gen <- newStdGen
     let (current, randomGen) = if mode == Random || optRandom opts
-        then randomR (0, size-1) gen else (0, gen)
+        then randomR (0, length music - 1) gen else (0, gen)
 
     threads <- traverse forkIO
         [ mpgLoop
@@ -82,7 +81,6 @@ start opts (Playlist folders music) = do
     putMVar hState HState
         { music
         , folders
-        , size
         , bootTime
         , configPath   = optConfigPath opts
         , current
@@ -252,7 +250,7 @@ seek fn = do
 -- | Generic jump
 jumpFn :: (Int -> Int) -> IO ()
 jumpFn fn = modifyHS_ \st ->
-    st { cursor = (fn (cursor st) `min` (size st - 1)) `max` 0 }
+    st { cursor = (fn (cursor st) `min` (st.size - 1)) `max` 0 }
 
 -- | Move cursor up or down
 upOne, downOne :: IO ()
@@ -276,7 +274,7 @@ jump = jumpFn . const
 jumpRel :: Rational -> IO ()
 jumpRel r | r < 0 || r >= 1 = pure ()
           | True = modifyHS_ $ \st ->
-              st { cursor = floor $ fromIntegral (size st) * r }
+              st { cursor = floor $ fromIntegral st.size * r }
 
 -- | Experimental feature concept.
 blacklist :: IO ()
@@ -306,13 +304,13 @@ playCur = runPlayOp $ Just <$> gets cursor
 -- If we're in random mode, play the next random track
 playPrev :: IO ()
 playPrev = runPlayOp do
-    HState { mode, size, current } <- get
-    case mode of
+    st <- get
+    case st.mode of
         Random  -> playRandomOp
         Single  -> pure Nothing
-        _ | current > 0
-                -> pure $ Just $ current - 1
-        Loop    -> pure $ Just $ size - 1
+        _ | st.current > 0
+                -> pure $ Just $ st.current - 1
+        Loop    -> pure $ Just $ st.size - 1
         Once    -> pure Nothing
 
 -- | Play the song following the current song, if we're not at the end
@@ -323,12 +321,12 @@ playNext = runPlayOp playNextOp
 
 playNextOp :: PlayOp
 playNextOp = do
-    HState { mode, current, size } <- get
-    let next = current + 1
-    case mode of
+    st <- get
+    let next = st.current + 1
+    case st.mode of
         Random  -> playRandomOp
         Single  -> pure Nothing
-        _ | next < size
+        _ | next < st.size
                 -> pure $ Just next
         Loop    -> pure $ Just 0
         Once    -> pure Nothing
@@ -336,9 +334,9 @@ playNextOp = do
 -- | Generate a random song
 getRandom :: State HState Int
 getRandom = do
-    HState { size, randomGen } <- get
-    let (new, gen') = randomR (0, size-1) randomGen
-    modify' \st -> st { randomGen = gen' }
+    st <- get
+    let (new, gen') = randomR (0, st.size - 1) st.randomGen
+    put $ st { randomGen = gen' }
     pure new
 
 -- | Random song
@@ -415,7 +413,7 @@ instance Lookup File where extract = fbase
 
 jumpToMatchFile :: Maybe ByteString -> Bool -> IO ()
 jumpToMatchFile re sw = genericJumpToMatch re sw k sel
-    where k st = (music st, cursor st, size st)
+    where k st = (st.music, st.cursor, st.size)
           sel i _ = i
 
 jumpToMatchDir :: Maybe ByteString -> Bool -> IO ()

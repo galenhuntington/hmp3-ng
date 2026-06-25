@@ -14,6 +14,7 @@ import Playlist                 (FileArray, DirArray)
 import Style                    (StringA(Fast), UIStyle, warnings)
 
 import Data.ByteString          (hPut)
+import GHC.Records
 import System.Clock             (TimeSpec(..))
 import System.IO                (hFlush)
 import System.Process           (ProcessHandle, waitForProcess)
@@ -25,7 +26,6 @@ data HState = HState
     -- These never change
     { music           :: !FileArray
     , folders         :: !DirArray
-    , size            :: !Int                  -- cache size of list
     , bootTime        :: !TimeSpec
     , configPath      :: !(Maybe FilePath)     -- style.conf override (CLI)
     , histSize        :: Int
@@ -49,6 +49,8 @@ data HState = HState
     , playHist        :: !(Seq (TimeSpec, Int))
     , uiStyle         :: !UIStyle
     }
+
+instance HasField "size" HState Int where getField hs = length hs.music
 
 data Mode = Once | Loop | Random | Single
     deriving stock (Eq, Bounded, Enum, Show, Read)

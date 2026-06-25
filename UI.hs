@@ -252,11 +252,11 @@ playInfo dd = mconcat
   where
     st   = drawState dd
     tobs = P.pack . show
-    curf  = tobs $ 1 + cursor st
-    numf  = tobs $ size st
-    mydir = fdir $ music st ! cursor st
+    curf  = tobs $ 1 + st.cursor
+    numf  = tobs $ st.size
+    mydir = fdir $ st.music ! st.cursor
     curd  = tobs $ 1 + mydir
-    numd  = tobs $ length $ folders st
+    numd  = tobs $ length $ st.folders
 
 -- | The top title bar: cursor position + play indicator + uptime + version.
 playTitle :: DrawData -> StringA
