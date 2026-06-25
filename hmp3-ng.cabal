@@ -15,7 +15,6 @@ maintainer: Galen Huntington
 license: GPL-2.0-or-later
 license-file: LICENSE
 build-type: Simple
-
 extra-doc-files:
   README.md
 
@@ -28,9 +27,11 @@ common opts
   default-extensions:
     BlockArguments
     MultiWayIf
+    OverloadedRecordDot
     OverloadedStrings
     RecordWildCards
     -- In GHC2024
+    DataKinds
     DerivingStrategies
     LambdaCase
 
