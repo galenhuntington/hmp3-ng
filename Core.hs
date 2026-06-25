@@ -175,10 +175,11 @@ refreshLoop = runForever $ takeMVar modified *> UI.refresh
 
 -- | The clock ticks once per minute, but check more often in case of drift.
 uptimeLoop :: IO ()
-uptimeLoop = runForever $ do
+uptimeLoop = runForever do
     now <- getMonoTime
-    modifyHS_ $ \st -> st { uptime = El.showDuration False (now - bootTime st) }
-    threadDelay 3_000_000
+    μs <- modifyHS \st -> let diff = now - bootTime st in
+        (st { uptime = El.showDuration False diff }, diff `div` 1000)
+    threadDelay $ fromIntegral $ let m = 60_000_000 in m - μs `mod` m
 
 ------------------------------------------------------------------------
 
