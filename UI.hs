@@ -144,12 +144,8 @@ refreshClock = runDraw $ redrawJustClock <> Draw Curses.refresh
 
 ------------------------------------------------------------------------
 
--- (prefix some with underscore to avoid unused warnings)
-data Size = Size { _sizeH, sizeW :: !Int }
-
--- | Renderable widgets are functions @DrawData -> ...@.
 data DrawData = DD {
-    drawSize  :: Size,
+    drawWidth :: Int,
     drawState :: HState
     }
 
@@ -158,7 +154,7 @@ data DrawData = DD {
 -- | Info about the current track
 pPlaying :: DrawData -> StringA
 pPlaying dd = flip Fast defaultSty $ "  " <> mconcat line <> "  " where
-    x = sizeW $ drawSize dd
+    x = dd.drawWidth
     a = pId3 dd
     b = pInfo dd
     line | gap >= 0 = a : spaces gap : right
@@ -182,7 +178,7 @@ pInfo DD{drawState=st} = fromMaybe "" $ info st
 
 -- | The time used and time left
 pTimes :: DrawData -> StringA
-pTimes DD { drawState=st, drawSize=Size{sizeW=w} } =
+pTimes DD { drawState=st, drawWidth=w } =
     flip Fast defaultSty $ if w - 4 < P.length elapsed
         then ""
         else mconcat $ ["  ", elapsed] ++ [gap <> "-" <> remaining | distance > 0]
@@ -196,7 +192,7 @@ pTimes DD { drawState=st, drawSize=Size{sizeW=w} } =
 
 -- | A progress bar
 progressBar :: DrawData -> StringA
-progressBar DD{drawSize=Size{sizeW}, drawState=st} = case st.clock of
+progressBar DD {drawWidth=sizeW, drawState=st} = case st.clock of
     Nothing         -> FancyS [pad, (spaces width, bgs)]
     Just Frame {..} -> FancyS
         [pad, (spaces distance, fgs), (spaces (width - distance), bgs)]
@@ -262,7 +258,7 @@ playTitle dd =
     time    = pTime dd
     indic   = pState dd ++ ' ' : pMode dd
     ver     = El.pVersion
-    x       = sizeW $ drawSize dd
+    x       = dd.drawWidth
     lsize   = 1 + P.length inf
     rsize   = 2 + P.length time + P.length ver
     side    = (x - indicl) `div` 2
@@ -274,7 +270,7 @@ playTitle dd =
 
 -- | The scrolling playlist (visible tracks).
 playList :: Int -> DrawData -> [StringA]
-playList buflen DD{ drawSize=Size _ x, drawState=st } =
+playList buflen DD{ drawWidth=w, drawState=st } =
     list ++ replicate (buflen - length list) (Fast "" defaultSty)
 
   where
@@ -291,11 +287,11 @@ playList buflen DD{ drawSize=Size _ x, drawState=st } =
         loop _ []     = []
         loop n (v:vs) =
             let r = if v.fdir > n then Just v.fdir else Nothing
-            in (r, toWidth (x - indent - 1) v.fbase) : loop v.fdir vs
+            in (r, toWidth (w - indent - 1) v.fbase) : loop v.fdir vs
 
     list   = [ drawIt . color $ n | n <- zip visible' [0..] ]
 
-    indent = (round $ (0.334 :: Float) * fromIntegral x) :: Int
+    indent = (round $ (0.334 :: Float) * fromIntegral w) :: Int
 
     (sty1, sty2, sty3) = (selected cs, cursors cs, combined cs)
         where cs = uiStyle st
@@ -308,7 +304,7 @@ playList buflen DD{ drawSize=Size _ x, drawState=st } =
         (_   , True) -> f sty1
         _            -> (defaultSty, [s])
       where
-        f sty = (sty, [s, spaces (x - indent - 1 - displayWidth s)])
+        f sty = (sty, [s, spaces (w - indent - 1 - displayWidth s)])
 
     drawIt :: (Maybe Int, (Style, [ByteString])) -> StringA
     drawIt (Nothing, (sty, v)) =
@@ -327,7 +323,7 @@ redrawJustClock :: Draw
 redrawJustClock = Draw $ discardErrors do
     st     <- getsHS id
     (h, w) <- screenSize
-    let dd = DD (Size h w) st
+    let dd = DD w st
     Curses.wMove Curses.stdScr 1 0
     drawLine $ progressBar dd
     Curses.wMove Curses.stdScr 2 0
@@ -335,8 +331,8 @@ redrawJustClock = Draw $ discardErrors do
 
 ------------------------------------------------------------------------
 -- | General modal renderer.
-renderModal :: HState -> Size -> ModalMaker -> IO ()
-renderModal st (Size h w) mkr = do
+renderModal :: HState -> (Int, Int) -> ModalMaker -> IO ()
+renderModal st (h, w) mkr = do
     let (mw, modal') = mkr w
         hoffset = max 0 $ (w - mw) `div` 2
         vislines = (h - 5) `min` length modal'
@@ -349,7 +345,7 @@ renderModal st (Size h w) mkr = do
         Curses.wMove Curses.stdScr (y'+1) hoffset
 
 -- | Choose modal to render based on state.
-renderModals :: HState -> Size -> IO ()
+renderModals :: HState -> (Int, Int) -> IO ()
 renderModals st sz =
     whenJust st.modal $ renderModal st sz . \case
         HelpModal h -> El.helpModal h
@@ -361,9 +357,8 @@ renderModals st sz =
 redraw :: Draw
 redraw = Draw $ discardErrors {- TODO what errors are discarded? -} do
     st <- getsHS id
-    (h, w) <- screenSize
-    let sz  = Size h w
-        dd  = DD sz st
+    sz@(h, w) <- screenSize
+    let dd  = DD w st
         tot = [pPlaying dd, progressBar dd, pTimes dd, playTitle dd]
                 ++ playList (h-5) dd
     setXterm st
