@@ -145,13 +145,11 @@ refreshClock = runDraw $ redrawJustClock <> Draw Curses.refresh
 ------------------------------------------------------------------------
 
 -- (prefix some with underscore to avoid unused warnings)
-data Pos  = Pos  { posY, _posX :: !Int }
 data Size = Size { _sizeH, sizeW :: !Int }
 
 -- | Renderable widgets are functions @DrawData -> ...@.
 data DrawData = DD {
     drawSize  :: Size,
-    drawPos   :: Pos,
     drawState :: HState
     }
 
@@ -282,8 +280,8 @@ playTitle dd =
     hl      = titlebar . uiStyle $ drawState dd
 
 -- | The scrolling playlist (title + visible tracks + minibuffer).
-playList :: DrawData -> [StringA]
-playList dd@DD{ drawSize=Size y x, drawPos=Pos{posY=o}, drawState=st } =
+playList :: Int -> DrawData -> [StringA]
+playList height dd@DD{ drawSize=Size _ x, drawState=st } =
     playTitle dd
     : list
     ++ replicate (height - length list - 2) (Fast P.empty defaultSty)
@@ -292,7 +290,6 @@ playList dd@DD{ drawSize=Size y x, drawPos=Pos{posY=o}, drawState=st } =
     songs  = music st
     this   = current st
     curr   = cursor  st
-    height = y - o
 
     -- number of screens down, and then offset
     buflen = height - 2
@@ -350,7 +347,7 @@ redrawJustClock :: Draw
 redrawJustClock = Draw $ discardErrors do
     st     <- getsHS id
     (h, w) <- screenSize
-    let dd = DD (Size h w) undefined st
+    let dd = DD (Size h w) st
     Curses.wMove Curses.stdScr 1 0
     drawLine $ progressBar dd
     Curses.wMove Curses.stdScr 2 0
@@ -386,8 +383,8 @@ redraw = Draw $ discardErrors {- TODO what errors are discarded? -} do
     st <- getsHS id    -- another refresh could be triggered?
     (h, w) <- screenSize
     let sz     = Size h w
-        screen = playScreen (DD sz (Pos 0 0) st)
-        a      = screen ++ playList (DD sz (Pos (length screen) 0) st)
+        screen = playScreen (DD sz st)
+        a      = screen ++ playList (h - length screen) (DD sz st)
 
     setXterm st
 
