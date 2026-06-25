@@ -152,8 +152,7 @@ data Size = Size { _sizeH, sizeW :: !Int }
 data DrawData = DD {
     drawSize  :: Size,
     drawPos   :: Pos,
-    drawState :: HState,
-    drawFrame :: Maybe Frame
+    drawState :: HState
     }
 
 ------------------------------------------------------------------------
@@ -191,13 +190,13 @@ pInfo DD{drawState=st} = fromMaybe "" $ info st
 
 -- | The time used and time left
 pTimes :: DrawData -> StringA
-pTimes DD { drawFrame, drawSize=Size{sizeW=w} } =
+pTimes DD { drawState=st, drawSize=Size{sizeW=w} } =
     flip Fast defaultSty $ if w - 4 < P.length elapsed
         then ""
         else mconcat $ ["  ", elapsed] ++ [gap <> "-" <> remaining | distance > 0]
   where
-    elapsed   = showClock (maybe 0 currentTime drawFrame)
-    remaining = maybe "?:??.?" (showClock . timeLeft) drawFrame
+    elapsed   = showClock (maybe 0 (.currentTime) st.clock)
+    remaining = maybe "?:??.?" (showClock . (.timeLeft)) st.clock
     gap       = spaces distance
     distance  = w - 5 - P.length elapsed - P.length remaining
 
@@ -205,7 +204,7 @@ pTimes DD { drawFrame, drawSize=Size{sizeW=w} } =
 
 -- | A progress bar
 progressBar :: DrawData -> StringA
-progressBar dd@DD{drawSize=Size{sizeW}, drawState=st} = case drawFrame dd of
+progressBar DD{drawSize=Size{sizeW}, drawState=st} = case st.clock of
     Nothing         -> FancyS [("  ", defaultSty), (spaces width, bgs)]
     Just Frame {..} -> FancyS
         [ ("  ", defaultSty)
@@ -218,7 +217,7 @@ progressBar dd@DD{drawSize=Size{sizeW}, drawState=st} = case drawFrame dd of
         ε        = toRational (succ 0 `asTypeOf` currentTime) / 2
   where
     width       = sizeW - 4
-    Style fg bg = progress (uiStyle st)
+    Style fg bg = progress st.uiStyle
     bgs         = Style bg bg
     fgs         = Style fg fg
 
@@ -351,7 +350,7 @@ redrawJustClock :: Draw
 redrawJustClock = Draw $ discardErrors do
     st     <- getsHS id
     (h, w) <- screenSize
-    let dd = DD (Size h w) undefined st (clock st)
+    let dd = DD (Size h w) undefined st
     Curses.wMove Curses.stdScr 1 0
     drawLine $ progressBar dd
     Curses.wMove Curses.stdScr 2 0
@@ -387,8 +386,8 @@ redraw = Draw $ discardErrors {- TODO what errors are discarded? -} do
     st <- getsHS id    -- another refresh could be triggered?
     (h, w) <- screenSize
     let sz     = Size h w
-        screen = playScreen (DD sz (Pos 0 0) st (clock st))
-        a      = screen ++ playList (DD sz (Pos (length screen) 0) st (clock st))
+        screen = playScreen (DD sz (Pos 0 0) st)
+        a      = screen ++ playList (DD sz (Pos (length screen) 0) st)
 
     setXterm st
 
