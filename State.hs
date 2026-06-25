@@ -28,6 +28,7 @@ data HState = HState
     , size            :: !Int                  -- cache size of list
     , bootTime        :: !TimeSpec
     , configPath      :: !(Maybe FilePath)     -- style.conf override (CLI)
+    , histSize        :: Int
     -- These can
     , current         :: !Int                  -- currently playing mp3
     , cursor          :: !Int                  -- mp3 under the cursor
@@ -46,7 +47,6 @@ data HState = HState
     , searchFw        :: !Bool                 -- active search direction
     , searchHist      :: ![ByteString]
     , playHist        :: !(Seq (TimeSpec, Int))
-    , histSize        :: Int
     , uiStyle         :: !UIStyle
     }
 

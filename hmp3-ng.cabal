@@ -44,9 +44,9 @@ library
   hs-source-dirs: ./
   exposed-modules:
     Base
-    Config
     Core
     Decoder
+    Elements
     Keyboard
     Keymap
     Playlist
@@ -99,8 +99,8 @@ test-suite test
   main-is: Main.hs
   hs-source-dirs: test
   other-modules:
-    CoreSpec
     DecoderSpec
+    ElementsSpec
     PlaylistSpec
     StyleSpec
     TextSpec

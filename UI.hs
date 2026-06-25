@@ -21,14 +21,14 @@ module UI (
   ) where
 
 import Base
-import Config
+import Elements as El
 import Style
 import Playlist                 (File(fdir, fbase), Dir(dname))
 import State
 import Decoder
-import Text                     (u, displayWidth, toMaxWidth, toWidth)
+import Text                     (u, displayWidth, toMaxWidth, toWidth, spaces)
 import UI.HSCurses.Curses qualified as Curses
-import Keyboard                 (unkey, charToKey, historyKeys)
+import Keyboard                 (unkey)
 
 import Data.Array               ((!), bounds, Array)
 import Data.Array.Base          (unsafeAt)
@@ -156,9 +156,6 @@ data DrawData = DD {
     drawFrame :: Maybe Frame
     }
 
--- screen width -> (modal width, list of lines)
-type ModalMaker = Int -> (Int, [ByteString])
-
 ------------------------------------------------------------------------
 
 -- | The three lines of the play info widget.
@@ -190,64 +187,7 @@ pId3 DD{drawState=st} = case id3 st of
 pInfo :: DrawData -> ByteString
 pInfo DD{drawState=st} = fromMaybe "" $ info st
 
-commonModalWidth :: Int -> Int
-commonModalWidth w = max (min w 3) $ round $ fromIntegral w * (0.8::Float)
-
 ------------------------------------------------------------------------
-
-helpModal :: [KeysHelp] -> ModalMaker
-helpModal help swd = (wd, map showLine help) where
-    wd = commonModalWidth swd
-    showLine :: ([Char], ByteString) -> ByteString
-    showLine (cs, ps) = toWidth clen cmds <> ps where
-        clen = max 4 $ round $ fromIntegral wd * (0.2::Float)
-        cmds = P.unwords ("" : map pprIt cs)
-        pprIt c = case c of
-            '\n' -> "Enter"
-            '\f' -> "^L"
-            '\\' -> "\\"
-            ' '  -> "Space"
-            _ -> case charToKey c of
-                Curses.KeyUp        -> u"↑"
-                Curses.KeyDown      -> u"↓"
-                Curses.KeyPPage     -> "PgUp"
-                Curses.KeyNPage     -> "PgDn"
-                Curses.KeyLeft      -> u"←"
-                Curses.KeyRight     -> u"→"
-                Curses.KeyEnd       -> "End"
-                Curses.KeyHome      -> "Home"
-                Curses.KeyBackspace -> "Backspace"
-                _ -> u[c]
-
-------------------------------------------------------------------------
-
-histModal :: HistDisplay -> ModalMaker
-histModal []   _   = let s = "  No history  " in (P.length s, [s])
-histModal hist swd = do
-    let wd = commonModalWidth swd
-        mtlen = maximum $ map (displayWidth . fst) hist
-        tlen = min (mtlen + 1) $ wd `div` 3
-    (wd, [
-        let tstr = toMaxWidth tlen $ P.replicate (tlen - displayWidth time) ' ' <> time
-        in mconcat [" ", P.singleton c, " ", tstr, " ", song]
-        | (c, (time, (_, song))) <- zip (toList historyKeys ++ repeat ' ') hist ])
-
-------------------------------------------------------------------------
-
-exitModal :: ModalMaker
-exitModal swd = (wd, ["", padl <> "Exit (y)?", ""]) where
-    wd = commonModalWidth swd `min` 19
-    padl = P.replicate ((wd - 9) `div` 2) ' '
-
-------------------------------------------------------------------------
-
-showClock :: Fixed E2 -> ByteString
-showClock t =
-    let m, si, sd :: Int
-        (m, s) = t `divMod'` 60
-        si     = floor s
-        sd     = floor (s*10) `mod` 10
-    in P.pack $ printf "%d:%02d.%d" m si sd
 
 -- | The time used and time left
 pTimes :: DrawData -> StringA
@@ -283,10 +223,6 @@ progressBar dd@DD{drawSize=Size{sizeW}, drawState=st} = case drawFrame dd of
     fgs         = Style fg fg
 
 ------------------------------------------------------------------------
-
--- | Version info
-pVersion :: ByteString
-pVersion = P.pack versinfo
 
 -- | Uptime
 pTime :: DrawData -> ByteString
@@ -335,7 +271,7 @@ playTitle dd =
     inf     = playInfo dd
     time    = pTime dd
     indic   = pState dd ++ ' ' : pMode dd
-    ver     = pVersion
+    ver     = El.pVersion
     x       = sizeW $ drawSize dd
     lsize   = 1 + P.length inf
     rsize   = 2 + P.length time + P.length ver
@@ -410,11 +346,6 @@ playList dd@DD{ drawSize=Size y x, drawPos=Pos{posY=o}, drawState=st } =
         d = toMaxWidth (indent - 1) $ takeFileName $ dname $ folders st ! i
 
 ------------------------------------------------------------------------
-
-spaces :: Int -> ByteString
-spaces = flip P.replicate ' '
-
-------------------------------------------------------------------------
 -- | Now write out just the clock line
 redrawJustClock :: Draw
 redrawJustClock = Draw $ discardErrors do
@@ -445,9 +376,9 @@ renderModal st (Size h w) mkr = do
 renderModals :: HState -> Size -> IO ()
 renderModals st sz =
     whenJust (modal st) $ renderModal st sz . \case
-        HelpModal h -> helpModal h
-        HistModal h -> histModal h
-        ExitModal   -> exitModal
+        HelpModal h -> El.helpModal h
+        HistModal h -> El.histModal h
+        ExitModal   -> El.exitModal
 
 ------------------------------------------------------------------------
 -- | Draw the screen

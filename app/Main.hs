@@ -8,7 +8,7 @@ module Main where
 import Base
 
 import Core     (start, shutdown, Options(..))
-import Config qualified
+import Elements (fullVersion)
 import Keymap   (keyLoop)
 import Playlist (buildPlaylist, isEmpty)
 
@@ -66,10 +66,10 @@ invocation = (,) <$> opts <*> files
 parserInfo :: ParserInfo (Options, [ByteString])
 parserInfo = info (invocation <**> versionOpt <**> helper) $
        fullDesc
-    <> header Config.versinfo
+    <> header fullVersion
     <> progDesc "Play mp3 files in a curses interface."
   where
-    versionOpt = infoOption Config.versinfo
+    versionOpt = infoOption fullVersion
         (hidden <> long "version" <> short 'V' <> help "Show version information")
 
 -- XXX should this have tests?
