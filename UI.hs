@@ -155,15 +155,9 @@ data DrawData = DD {
 
 ------------------------------------------------------------------------
 
--- | The three lines of the play info widget.
-playScreen :: DrawData -> [StringA]
-playScreen dd = [pPlaying dd, progressBar dd, pTimes dd]
-
-------------------------------------------------------------------------
-
 -- | Info about the current track
 pPlaying :: DrawData -> StringA
-pPlaying dd = flip Fast defaultSty $ "  " <> mconcat line where
+pPlaying dd = flip Fast defaultSty $ "  " <> mconcat line <> "  " where
     x = sizeW $ drawSize dd
     a = pId3 dd
     b = pInfo dd
@@ -203,17 +197,16 @@ pTimes DD { drawState=st, drawSize=Size{sizeW=w} } =
 -- | A progress bar
 progressBar :: DrawData -> StringA
 progressBar DD{drawSize=Size{sizeW}, drawState=st} = case st.clock of
-    Nothing         -> FancyS [("  ", defaultSty), (spaces width, bgs)]
+    Nothing         -> FancyS [pad, (spaces width, bgs)]
     Just Frame {..} -> FancyS
-        [ ("  ", defaultSty)
-        , (spaces distance, fgs)
-        , (spaces (width - distance), bgs) ]
+        [pad, (spaces distance, fgs), (spaces (width - distance), bgs)]
       where
         total    = curr + toRational timeLeft - ε
         distance = ceiling (curr * fromIntegral (width - 1) / total)
         curr     = toRational currentTime
         ε        = toRational (succ 0 `asTypeOf` currentTime) / 2
   where
+    pad         = ("  ", defaultSty)
     width       = sizeW - 4
     Style fg bg = progress st.uiStyle
     bgs         = Style bg bg
@@ -279,39 +272,26 @@ playTitle dd =
     indicl  = 6 -- length indic
     hl      = titlebar . uiStyle $ drawState dd
 
--- | The scrolling playlist (title + visible tracks + minibuffer).
+-- | The scrolling playlist (visible tracks).
 playList :: Int -> DrawData -> [StringA]
-playList height dd@DD{ drawSize=Size _ x, drawState=st } =
-    playTitle dd
-    : list
-    ++ replicate (height - length list - 2) (Fast P.empty defaultSty)
-    ++ [minibuffer st]
+playList buflen DD{ drawSize=Size _ x, drawState=st } =
+    list ++ replicate (buflen - length list) (Fast "" defaultSty)
+
   where
-    songs  = music st
-    this   = current st
-    curr   = cursor  st
-
     -- number of screens down, and then offset
-    buflen = height - 2
-    (screens, select) = quotRem curr buflen -- keep cursor in screen
-
-    playing = let top = screens * buflen
-                  bot = (screens + 1) * buflen
-              in if this >= top && this < bot
-                    then this - top -- playing song is visible
-                    else (-1)
+    (screens, select) = st.cursor `quotRem` buflen -- keep cursor in screen
+    playing = st.current - screens * buflen -- invisible if out of bounds
 
     -- visible slice of the playlist
-    visible = slice off (off + buflen) songs
+    visible = slice off (off + buflen - 1) st.music
         where off = screens * buflen
 
     visible' :: [(Maybe Int, ByteString)]
     visible' = loop (-1) visible where
         loop _ []     = []
         loop n (v:vs) =
-            let r = if fdir v > n then Just (fdir v) else Nothing
-            in (r, toMaxWidth (x - indent - 1) $ fbase v)
-                    : loop (fdir v) vs
+            let r = if v.fdir > n then Just v.fdir else Nothing
+            in (r, toWidth (x - indent - 1) v.fbase) : loop v.fdir vs
 
     list   = [ drawIt . color $ n | n <- zip visible' [0..] ]
 
@@ -339,7 +319,7 @@ playList height dd@DD{ drawSize=Size _ x, drawState=st } =
         : map (, sty) v
       where
         sty' = if sty == sty2 || sty == sty3 then sty2 else sty1
-        d = toMaxWidth (indent - 1) $ takeFileName $ dname $ folders st ! i
+        d = toMaxWidth (indent - 1) $ takeFileName (folders st ! i).dname
 
 ------------------------------------------------------------------------
 -- | Now write out just the clock line
@@ -371,7 +351,7 @@ renderModal st (Size h w) mkr = do
 -- | Choose modal to render based on state.
 renderModals :: HState -> Size -> IO ()
 renderModals st sz =
-    whenJust (modal st) $ renderModal st sz . \case
+    whenJust st.modal $ renderModal st sz . \case
         HelpModal h -> El.helpModal h
         HistModal h -> El.histModal h
         ExitModal   -> El.exitModal
@@ -380,31 +360,23 @@ renderModals st sz =
 -- | Draw the screen
 redraw :: Draw
 redraw = Draw $ discardErrors {- TODO what errors are discarded? -} do
-    st <- getsHS id    -- another refresh could be triggered?
+    st <- getsHS id
     (h, w) <- screenSize
-    let sz     = Size h w
-        screen = playScreen (DD sz st)
-        a      = screen ++ playList (h - length screen) (DD sz st)
-
+    let sz  = Size h w
+        dd  = DD sz st
+        tot = [pPlaying dd, progressBar dd, pTimes dd, playTitle dd]
+                ++ playList (h-5) dd
     setXterm st
-
-    gotoTop
-    for_ (take (h-1) (init a)) \t -> do
-        drawLine t
-        (y, x) <- Curses.getYX Curses.stdScr
-        fillLine
-        maybeLineDown t h y x
+    for_ (zip [0..h-2] tot) \ (y, t) -> do
+        Curses.wMove Curses.stdScr y 0
+        drawLine t *> fillLine
     renderModals st sz
-
     -- minibuffer
     Curses.wMove Curses.stdScr (h-1) 0
+    drawLine st.minibuffer
+    when st.miniFocused do -- a fake cursor
+        drawLine $ Fast " " st.uiStyle.blockcursor
     fillLine
-    Curses.wMove Curses.stdScr (h-1) 0
-    drawLine (last a)
-    when (miniFocused st) do -- a fake cursor
-        drawLine (Fast (spaces 1) (blockcursor . uiStyle $ st ))
-        -- XXX is this TODO from 2005 still relevant?
-        -- todo rendering bug here when deleting backwards in minibuffer
 
 ------------------------------------------------------------------------
 -- | Draw a coloured (or not) string to the screen
@@ -421,25 +393,9 @@ drawSegment bs sty = withStyle sty $ void $
 
 ------------------------------------------------------------------------
 
-maybeLineDown :: StringA -> Int -> Int -> Int -> IO ()
-maybeLineDown (Fast s _) h y _ | s == P.empty = lineDown h y
-maybeLineDown _ h y x
-    | x == 0    = pure ()     -- already moved down
-    | otherwise = lineDown h y
-
-------------------------------------------------------------------------
-
-lineDown :: Int -> Int -> IO ()
-lineDown h y = Curses.wMove Curses.stdScr (min h (y+1)) 0
-
 -- | Fill to end of line spaces
 fillLine :: IO ()
 fillLine = discardErrors Curses.clrToEol -- harmless?
-
--- | move cursor to origin of stdScr.
-gotoTop :: IO ()
-gotoTop = Curses.wMove Curses.stdScr 0 0
-{-# INLINE gotoTop #-}
 
 -- | Take a slice of an array efficiently
 slice :: Int -> Int -> Array Int e -> [e]
