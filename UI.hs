@@ -164,37 +164,11 @@ pId3 DD{drawState=st} = maybe (st.music ! st.current).fbase (.id3str) st.id3
 
 ------------------------------------------------------------------------
 
--- | The time used and time left
-pTimes :: DrawData -> StringA
-pTimes DD { drawState=st, drawWidth=w } =
-    flip Fast defaultSty $ if w - 4 < P.length elapsed
-        then ""
-        else mconcat $ ["  ", elapsed] ++ [gap <> "-" <> remaining | distance > 0]
-  where
-    elapsed   = showClock (maybe 0 (.currentTime) st.clock)
-    remaining = maybe "?:??.?" (showClock . (.timeLeft)) st.clock
-    gap       = spaces distance
-    distance  = w - 5 - P.length elapsed - P.length remaining
-
-------------------------------------------------------------------------
-
--- | A progress bar
-progressBar :: DrawData -> StringA
-progressBar DD {drawWidth=sizeW, drawState=st} = case st.clock of
-    Nothing         -> FancyS [pad, (spaces width, bgs)]
-    Just Frame {..} -> FancyS
-        [pad, (spaces distance, fgs), (spaces (width - distance), bgs)]
-      where
-        total    = curr + toRational timeLeft - ε
-        distance = ceiling (curr * fromIntegral (width - 1) / total)
-        curr     = toRational currentTime
-        ε        = toRational (succ 0 `asTypeOf` currentTime) / 2
-  where
-    pad         = ("  ", defaultSty)
-    width       = sizeW - 4
-    Style fg bg = st.uiStyle.progress
-    bgs         = Style bg bg
-    fgs         = Style fg fg
+-- | Two lines showing clock.
+clockLines :: DrawData -> [StringA]
+clockLines (DD w st) = [
+    El.progressBar st.uiStyle.progress w st.clock,
+    Fast (El.pTimes w st.clock) defaultSty ]
 
 ------------------------------------------------------------------------
 
@@ -300,14 +274,10 @@ playList buflen DD{ drawWidth=w, drawState=st } =
 ------------------------------------------------------------------------
 -- | Now write out just the clock line
 redrawJustClock :: Draw
-redrawJustClock = Draw $ discardErrors do
-    st     <- getsHS id
-    (_, w) <- screenSize
-    let dd = DD w st
-    Curses.wMove Curses.stdScr 1 0
-    drawLine $ progressBar dd
-    Curses.wMove Curses.stdScr 2 0
-    drawLine $ pTimes dd
+redrawJustClock = Draw do
+    st <- getsHS id
+    (h, w) <- screenSize
+    drawFullLines (h-1) 1 $ clockLines $ DD w st
 
 ------------------------------------------------------------------------
 -- | General modal renderer.
@@ -338,12 +308,9 @@ redraw = Draw do
     st <- getsHS id
     sz@(h, w) <- screenSize
     let dd  = DD w st
-        tot = [pPlaying dd, progressBar dd, pTimes dd, playTitle dd]
-                ++ playList (h-5) dd
+        tot = pPlaying dd : clockLines dd ++ playTitle dd : playList (h-5) dd
     setXterm st
-    for_ (zip [0..h-2] tot) \ (y, t) -> do
-        Curses.wMove Curses.stdScr y 0
-        drawLine t *> fillLine
+    drawFullLines (h-1) 0 tot
     renderModals st sz
     -- minibuffer
     Curses.wMove Curses.stdScr (h-1) 0
@@ -351,6 +318,13 @@ redraw = Draw do
     when st.miniFocused do -- a fake cursor
         drawLine $ Fast " " st.uiStyle.blockcursor
     fillLine
+
+-- | Render whole lines without going below height.
+drawFullLines :: Int -> Int -> [StringA] -> IO ()
+drawFullLines limit y ls =
+    for_ (zip [y .. limit-1] ls) \ (y', t) -> do
+        Curses.wMove Curses.stdScr y' 0
+        drawLine t *> fillLine
 
 ------------------------------------------------------------------------
 -- | Draw a coloured (or not) string to the screen
