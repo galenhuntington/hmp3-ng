@@ -7,7 +7,7 @@
 module Text (
     u, matches,
     trim, spaces, guessEncoding, dropLastUTF8,
-    readIntM,
+    readIntM, showInt,
     displayWidth, toMaxWidth, toWidth
 ) where
 
@@ -39,6 +39,9 @@ matches s = maybe (const False) match $
 
 readIntM :: ByteString -> Maybe Int
 readIntM = fmap fst . P.readInt
+
+showInt :: Int -> ByteString
+showInt = P.pack . show
 
 -- | If seeming ISO-8859-1, convert to UTF-8.
 guessEncoding :: ByteString -> ByteString

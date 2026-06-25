@@ -5,10 +5,7 @@
 -- Derived from: riot/UI.hs Copyright (c) Tuomo Valkonen 2004.
 -- Released under the same license.
 
---
 -- | This module defines a user interface implemented using ncurses. 
---
---
 
 module UI (
     runDraw,
@@ -26,7 +23,7 @@ import Style
 import Playlist                 (File(fdir, fbase), Dir(dname))
 import State
 import Decoder
-import Text                     (u, displayWidth, toMaxWidth, toWidth, spaces)
+import Text                     (u, displayWidth, toMaxWidth, toWidth, spaces, showInt)
 import UI.HSCurses.Curses qualified as Curses
 import Keyboard                 (unkey)
 
@@ -144,10 +141,7 @@ refreshClock = runDraw $ redrawJustClock <> Draw Curses.refresh
 
 ------------------------------------------------------------------------
 
-data DrawData = DD {
-    drawWidth :: Int,
-    drawState :: HState
-    }
+data DrawData = DD { drawWidth :: Int, drawState :: HState }
 
 ------------------------------------------------------------------------
 
@@ -156,7 +150,7 @@ pPlaying :: DrawData -> StringA
 pPlaying dd = flip Fast defaultSty $ "  " <> mconcat line <> "  " where
     x = dd.drawWidth
     a = pId3 dd
-    b = pInfo dd
+    b = fromMaybe "" dd.drawState.info  -- mp3 info
     line | gap >= 0 = a : spaces gap : right
          | True     = toMaxWidth lim a : right
         where lim = x - 5 - (if showId3 then P.length b else -1)
@@ -166,13 +160,7 @@ pPlaying dd = flip Fast defaultSty $ "  " <> mconcat line <> "  " where
 
 -- | Id3 info
 pId3 :: DrawData -> ByteString
-pId3 DD{drawState=st} = case id3 st of
-    Just i  -> id3str i
-    Nothing -> fbase $ music st ! current st
-
--- | mp3 information
-pInfo :: DrawData -> ByteString
-pInfo DD{drawState=st} = fromMaybe "" $ info st
+pId3 DD{drawState=st} = maybe (st.music ! st.current).fbase (.id3str) st.id3
 
 ------------------------------------------------------------------------
 
@@ -204,69 +192,61 @@ progressBar DD {drawWidth=sizeW, drawState=st} = case st.clock of
   where
     pad         = ("  ", defaultSty)
     width       = sizeW - 4
-    Style fg bg = progress st.uiStyle
+    Style fg bg = st.uiStyle.progress
     bgs         = Style bg bg
     fgs         = Style fg fg
 
 ------------------------------------------------------------------------
 
--- | Uptime
-pTime :: DrawData -> ByteString
-pTime = uptime . drawState
-
 -- | Play state
 pState :: DrawData -> String
-pState dd = case status (drawState dd) of
+pState dd = case dd.drawState.status of
     Stopped -> "◼"
     Paused  -> "⏸"
     Playing -> "▶"
 
 -- | Play mode
 pMode :: DrawData -> String
-pMode dd = take 4 $ map toLower $ show $ mode $ drawState dd
+pMode dd = take 4 $ map toLower $ show dd.drawState.mode
 
 ------------------------------------------------------------------------
 
 -- | "x/n dirs y/m files" cursor position read-out.
 playInfo :: DrawData -> ByteString
-playInfo dd = mconcat
+playInfo DD{drawState=st} = mconcat
     [ spaces (P.length numd - P.length curd)
     , curd, "/", numd, " dirs"
     , spaces (1 + P.length numf - P.length curf)
     , curf, "/", numf, " files"
     ]
   where
-    st   = drawState dd
-    tobs = P.pack . show
-    curf  = tobs $ 1 + st.cursor
-    numf  = tobs $ st.size
-    mydir = fdir $ st.music ! st.cursor
-    curd  = tobs $ 1 + mydir
-    numd  = tobs $ length $ st.folders
+    curf  = showInt $ st.cursor + 1
+    numf  = showInt $ st.size
+    curd  = showInt $ (st.music ! st.cursor).fdir + 1
+    numd  = showInt $ length $ st.folders
 
 -- | The top title bar: cursor position + play indicator + uptime + version.
 playTitle :: DrawData -> StringA
-playTitle dd =
+playTitle dd@DD{drawWidth=w, drawState=st} =
     flip Fast hl $ mconcat if gap >= 2
-        then [" ", inf, spaces gapl, u indic, spaces gapr, time, " ", ver, " "]
-        else let gap' = x - indicl; gapl' = gap' `div` 2
+        then [" ", inf, spaces gapl, u indic, spaces gapr, uptime, " ", ver, " "]
+        else let gap' = w - indicl; gapl' = gap' `div` 2
              in if gap' >= 2
                 then [spaces gapl', u indic, spaces $ gap' - gapl']
-                else [" ", u $ take (x-2) indic, " "]
+                else [" ", u $ take (w-2) indic, " "]
   where
     inf     = playInfo dd
-    time    = pTime dd
+    uptime  = st.uptime
     indic   = pState dd ++ ' ' : pMode dd
     ver     = El.pVersion
-    x       = dd.drawWidth
     lsize   = 1 + P.length inf
-    rsize   = 2 + P.length time + P.length ver
-    side    = (x - indicl) `div` 2
-    gap     = x - indicl - lsize - rsize
+    rsize   = 2 + P.length uptime + P.length ver
+    side    = (w - indicl) `div` 2
+    gap     = w - indicl - lsize - rsize
     gapl    = 1 `max` ((side - lsize) `min` (gap - 1))
     gapr    = gap - gapl
     indicl  = 6 -- length indic
-    hl      = titlebar . uiStyle $ drawState dd
+    hl      = st.uiStyle.titlebar
 
 -- | The scrolling playlist (visible tracks).
 playList :: Int -> DrawData -> [StringA]
@@ -294,7 +274,7 @@ playList buflen DD{ drawWidth=w, drawState=st } =
     indent = (round $ (0.334 :: Float) * fromIntegral w) :: Int
 
     (sty1, sty2, sty3) = (selected cs, cursors cs, combined cs)
-        where cs = uiStyle st
+        where cs = st.uiStyle
 
     color :: ((Maybe Int, ByteString), Int)
                 -> (Maybe Int, (Style, [ByteString]))
@@ -322,7 +302,7 @@ playList buflen DD{ drawWidth=w, drawState=st } =
 redrawJustClock :: Draw
 redrawJustClock = Draw $ discardErrors do
     st     <- getsHS id
-    (h, w) <- screenSize
+    (_, w) <- screenSize
     let dd = DD w st
     Curses.wMove Curses.stdScr 1 0
     drawLine $ progressBar dd
@@ -337,10 +317,9 @@ renderModal st (h, w) mkr = do
         hoffset = max 0 $ (w - mw) `div` 2
         vislines = (h - 5) `min` length modal'
         voffset = ((h - vislines) `div` 2) `max` 4
-        sty = modals $ uiStyle st
     Curses.wMove Curses.stdScr voffset hoffset
     for_ (take vislines modal') \t -> do
-        drawLine $ Fast (toWidth mw t) sty
+        drawLine $ Fast (toWidth mw t) st.uiStyle.modals
         (y', _) <- Curses.getYX Curses.stdScr
         Curses.wMove Curses.stdScr (y'+1) hoffset
 
@@ -355,7 +334,7 @@ renderModals st sz =
 ------------------------------------------------------------------------
 -- | Draw the screen
 redraw :: Draw
-redraw = Draw $ discardErrors {- TODO what errors are discarded? -} do
+redraw = Draw do
     st <- getsHS id
     sz@(h, w) <- screenSize
     let dd  = DD w st
@@ -385,12 +364,12 @@ drawSegment bs sty = withStyle sty $ void $
     P.unsafeUseAsCStringLen bs \(cstr, len) ->
         waddnstr Curses.stdScr cstr (fromIntegral len)
 
-
 ------------------------------------------------------------------------
 
 -- | Fill to end of line spaces
+-- (Curses throws error if already at end.)
 fillLine :: IO ()
-fillLine = discardErrors Curses.clrToEol -- harmless?
+fillLine = discardErrors Curses.clrToEol
 
 -- | Take a slice of an array efficiently
 slice :: Int -> Int -> Array Int e -> [e]
