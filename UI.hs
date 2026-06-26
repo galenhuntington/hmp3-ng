@@ -159,7 +159,7 @@ pPlaying dd = flip Fast defaultSty $ "  " <> mconcat line where
 
 -- | Id3 info
 pId3 :: DrawData -> ByteString
-pId3 DD{drawState=st} = maybe (st.music ! st.current).fbase (.id3str) st.id3
+pId3 DD{drawState=st} = maybe (st.music ! st.current).fbase (.str) st.id3
 
 ------------------------------------------------------------------------
 
@@ -363,8 +363,8 @@ setXtermTitle strs = do
 setXterm :: HState -> IO ()
 setXterm st = setXtermTitle case st.status of
     Playing -> case st.id3 of
-        Just id3 -> id3.id3artist :
-                       if P.null id3.id3title then [] else [": ", id3.id3title]
+        Just id3 -> id3.artist :
+                       if P.null id3.title then [] else [": ", id3.title]
         _        -> [(st.music ! st.current).fbase]
     Paused  -> ["paused"]
     Stopped -> ["stopped"]

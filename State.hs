@@ -11,7 +11,7 @@ import Base
 
 import Decoder                  (Status, Frame, Id3, Cmd, cmdToBS, mp3Tool)
 import Playlist                 (FileArray, DirArray)
-import Style                    (StringA(Fast), UIStyle, warnings)
+import Style                    (StringA(Fast), UIStyle(warnings))
 
 import Data.ByteString          (hPut)
 import GHC.Records
@@ -117,7 +117,7 @@ sendMpg c = do
     ok <- sendMpg' c
     when (not ok) do
         modifyHS_ \st -> st { minibuffer =
-            Fast (mp3Tool <> " process not running") (warnings $ uiStyle st) }
+            Fast (mp3Tool <> " process not running") st.uiStyle.warnings }
 
 ------------------------------------------------------------------------
 -- State accessor functions.

@@ -51,10 +51,10 @@ whenJust = flip $ maybe $ pure ()
 xs !? n = listToMaybe $ drop n xs
 
 -- | Zipper structure, representing a list with a cursor.
-data Zipper a = Zipper { zipperCur :: !a, zipperBack :: ![a], zipperFront :: ![a] }
+data Zipper a = Zipper { cur :: !a, back :: ![a], front :: ![a] }
 
 zipEdit :: (a -> a) -> Zipper a -> Zipper a
-zipEdit f z = z { zipperCur = f (zipperCur z) }
+zipEdit f z = z { cur = f z.cur }
 
 zipUp, zipDown :: Zipper a -> Zipper a
 zipUp   (Zipper c (nx:rest) f)  = Zipper nx rest (c:f)

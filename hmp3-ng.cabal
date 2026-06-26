@@ -27,6 +27,7 @@ common opts
   default-extensions:
     BlockArguments
     MultiWayIf
+    NoFieldSelectors
     OverloadedRecordDot
     OverloadedStrings
     RecordWildCards
