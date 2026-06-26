@@ -9,7 +9,7 @@ import Elements (showDuration)
 
 tests :: TestTree
 tests = testGroup "Elements"
-    [ testGroup "showDuration (secs=False)"
+    [ testGroup "showDuration (showSecs=False)"
         [ testCase "under a minute is 0m"
             $ showDuration False (t 30)    @?= "0m"
         , testCase "exactly one minute"
@@ -25,7 +25,7 @@ tests = testGroup "Elements"
         , testCase "day, hour, minute"
             $ showDuration False (t 90060) @?= "1d01h01m"
         ]
-    , testGroup "showDuration (secs=True)"
+    , testGroup "showDuration (showSecs=True)"
         [ testCase "thirty seconds"
             $ showDuration True (t 30)      @?= "30s"
         , testCase "one minute exactly appends 00s"
