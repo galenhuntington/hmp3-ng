@@ -146,7 +146,7 @@ data DrawData = DD { drawWidth :: Int, drawState :: HState }
 
 -- | Info about the current track
 pPlaying :: DrawData -> StringA
-pPlaying dd = flip Fast defaultSty $ "  " <> mconcat line <> "  " where
+pPlaying dd = flip Fast defaultSty $ "  " <> mconcat line where
     x = dd.drawWidth
     a = pId3 dd
     b = fromMaybe "" dd.drawState.info  -- mp3 info
@@ -201,27 +201,23 @@ playInfo DD{drawState=st} = mconcat
 -- | The top title bar: cursor position + play indicator + uptime + version.
 playTitle :: DrawData -> StringA
 playTitle dd@DD{drawWidth=w, drawState=st} =
-    flip Fast hl $ mconcat if gap >= 2
-        then [" ", inf, spaces gapl, u indic, spaces gapr, st.uptime, " ", ver, " "]
-        else let gap' = w - indicl; gapl' = gap' `div` 2
-             in if gap' >= 2
-                then [spaces gapl', u indic, spaces $ gap' - gapl']
-                else [" ", u $ take (w-2) indic, " "]
+    flip Fast st.uiStyle.titlebar $ mconcat if gap >= 2
+        then [left, spaces gapl, u centerS, spaces (gap - gapl), right]
+        else if sides >= 2
+            then [spaces side, u centerS, spaces $ sides - side]
+            else [" ", u $ take (w-2) centerS, " "]
   where
-    inf     = playInfo dd
-    indic   = pState dd ++ ' ' : pMode dd
-    ver     = El.pVersion
-    lsize   = 1 + P.length inf
-    rsize   = 2 + P.length st.uptime + P.length ver
-    side    = (w - indicl) `div` 2
-    gap     = w - indicl - lsize - rsize
-    gapl    = 1 `max` ((side - lsize) `min` (gap - 1))
-    gapr    = gap - gapl
-    indicl  = 6 -- length indic
-    hl      = st.uiStyle.titlebar
+    left    = " " <> playInfo dd
+    centerS = pState dd ++ ' ' : pMode dd  -- always 6 chars
+    right   = st.uptime <> " " <> El.pVersion <> " "
+    sides   = w - 6
+    side    = sides `div` 2
+    gap     = sides - P.length left - P.length right
+    gapl    = 1 `max` ((side - P.length left) `min` (gap - 1))
 
 -- | The scrolling playlist (visible tracks).
 playList :: Int -> DrawData -> [StringA]
+playList buflen _ | buflen <= 0 = []  -- extra defense besides laziness
 playList buflen DD{ drawWidth=w, drawState=st } =
     list ++ replicate (buflen - length list) (Fast "" defaultSty)
 
@@ -243,7 +239,7 @@ playList buflen DD{ drawWidth=w, drawState=st } =
 
     list   = [ drawIt . color $ n | n <- zip visible' [0..] ]
 
-    indent = (round $ (0.334 :: Float) * fromIntegral w) :: Int
+    indent = round $ (0.334 :: Float) * fromIntegral w :: Int
 
     (sty1, sty2, sty3) = (cs.selected, cs.cursors, cs.combined)
         where cs = st.uiStyle
@@ -272,7 +268,7 @@ playList buflen DD{ drawWidth=w, drawState=st } =
 ------------------------------------------------------------------------
 -- | Write out only the clock lines.
 redrawJustClock :: Draw
-redrawJustClock = Draw do
+redrawJustClock = Draw $ discardErrors do
     st <- getsHS id
     (h, w) <- screenSize
     drawFullLines (h-1) 1 $ clockLines $ DD w st
@@ -301,8 +297,9 @@ renderModals st sz =
 
 ------------------------------------------------------------------------
 -- | Draw the screen
+-- Errors can maybe be thrown if screen gets resized mid-render.
 redraw :: Draw
-redraw = Draw do
+redraw = Draw $ discardErrors do
     st <- getsHS id
     sz@(h, w) <- screenSize
     setXterm st
@@ -346,7 +343,7 @@ fillLine = discardErrors Curses.clrToEol
 slice :: Int -> Int -> Array Int e -> [e]
 slice i j arr = 
     let (a, b) = bounds arr
-    in [unsafeAt arr n | n <- [max a i .. min b j] ]
+    in [unsafeAt arr n | n <- [max a i .. min b j]]
 {-# INLINE slice #-}
 
 ------------------------------------------------------------------------

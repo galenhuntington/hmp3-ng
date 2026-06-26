@@ -76,7 +76,7 @@ progressBar sty sizeW = \case
         total    = curr + toRational timeLeft - ε
         distance = ceiling (curr * fromIntegral (width - 1) / total)
         curr     = toRational currentTime
-        ε        = toRational (succ 0 `asTypeOf` currentTime) / 2
+        ε        = toRational (toEnum 1 `asTypeOf` currentTime) / 2
   where
     pad         = ("  ", defaultSty)
     width       = sizeW - 4
