@@ -44,8 +44,8 @@ import System.Directory         (doesFileExist, findExecutable, createDirectoryI
 import System.IO                (hPutStrLn, stderr)
 import System.Process           (runInteractiveProcess, waitForProcess)
 import System.Random            (randomR, newStdGen)
-import System.FilePath          ((</>))
-import System.Posix.FilePath    (takeFileName)
+import System.FilePath qualified as FP ((</>))
+import System.Posix.FilePath    (takeFileName, (</>))
 import System.Posix.Process     (exitImmediately)
 
 
@@ -53,11 +53,11 @@ import System.Posix.Process     (exitImmediately)
 
 -- | Command-line configuration.
 data Options = Options
-    { optPaused     :: !Bool             -- ^ start in a paused state
-    , optConfigPath :: !(Maybe FilePath) -- ^ override the style.conf location
-    , optPlayMode   :: Maybe Mode        -- ^ play mode
-    , optHistSize   :: Int               -- ^ history size
-    , optRandom     :: Bool              -- ^ start on random song
+    { paused     :: !Bool             -- ^ start in a paused state
+    , configPath :: !(Maybe FilePath) -- ^ override the style.conf location
+    , playMode   :: Maybe Mode        -- ^ play mode
+    , histSize   :: Int               -- ^ history size
+    , random     :: Bool              -- ^ start on random song
     }
 
 -- | Sets up state, spawns sub-threads, and starts player.
@@ -66,16 +66,16 @@ start opts (Playlist folders music) = do
 
     uiStyle <- UI.start
     bootTime <- getMonoTime
-    mode <- maybe readState pure (optPlayMode opts)
+    mode <- maybe readState pure opts.playMode
     gen <- newStdGen
-    let (current, randomGen) = if mode == Random || optRandom opts
+    let (current, randomGen) = if mode == Random || opts.random
         then randomR (0, length music - 1) gen else (0, gen)
 
     putMVar hState HState
         { music
         , folders
         , bootTime
-        , configPath   = optConfigPath opts
+        , configPath   = opts.configPath
         , current
         , cursor       = current
         , randomGen
@@ -89,7 +89,7 @@ start opts (Playlist folders music) = do
         , playHist     = mempty
         , searchHist   = []
         , searchFw     = True
-        , histSize     = optHistSize opts
+        , histSize     = opts.histSize
         , miniFocused  = False
         , status       = Stopped
         , minibuffer   = Fast mempty defaultSty
@@ -113,7 +113,7 @@ start opts (Playlist folders music) = do
             if ready
                 then do
                     playCur
-                    when (optPaused opts) pause -- TODO use LOADPAUSED?
+                    when opts.paused pause -- TODO use LOADPAUSED?
                 else do
                     threadDelay 20_000
                     go (n-1)
@@ -158,10 +158,10 @@ mpgLoop = runForever do
         Left err -> do
             warnA err
             -- Hackily count failed initial spawn, for Ready message
-            silentlyModifyHS \st -> st { spawns = spawns st `max` 1 }
+            silentlyModifyHS \st -> st { spawns = st.spawns `max` 1 }
             threadDelay 20_000_000  -- longer wait after these errors
         Right handles -> do
-            ct <- modifyHS $ \st -> let sp = spawns st + 1 in (st
+            ct <- modifyHS $ \st -> let sp = st.spawns + 1 in (st
                 { status    = Stopped
                 , info      = Nothing
                 , id3       = Nothing
@@ -186,7 +186,7 @@ refreshLoop = runForever $ takeMVar modified *> UI.refresh
 uptimeLoop :: IO ()
 uptimeLoop = runForever do
     now <- getMonoTime
-    μs <- modifyHS \st -> let diff = now - bootTime st in
+    μs <- modifyHS \st -> let diff = now - st.bootTime in
         (st { uptime = El.showDuration False diff }, diff `div` 1000)
     threadDelay $ fromIntegral $ let m = 60_000_000 in m - μs `mod` m
 
@@ -226,7 +226,7 @@ handleMsg (I id3) = modifyHS_ $ \st -> st { id3 = Just id3 }
 handleMsg (P t)   = do
     modifyHS_ \st -> st
         { status = t
-        , clock = case clock st of
+        , clock = case st.clock of
             Just f@Frame{ timeLeft } | t == Stopped && timeLeft < 0.1
                 -> Just f { timeLeft = 0 } -- force clock to end if near
             c   -> c
@@ -241,11 +241,11 @@ handleMsg (F f) = do
 
 -- | Seek backward in song
 seekLeft :: IO ()
-seekLeft = seek \g -> max 0 (currentFrame g - 400)
+seekLeft = seek \g -> max 0 (g.currentFrame - 400)
 
 -- | Seek forward in song
 seekRight :: IO ()
-seekRight = seek \g -> currentFrame g + min 400 (framesLeft g)
+seekRight = seek \g -> g.currentFrame + min 400 g.framesLeft
 
 seekStart :: IO ()
 seekStart = seek $ const 0
@@ -253,7 +253,7 @@ seekStart = seek $ const 0
 -- | Generic seek
 seek :: (Frame -> Int) -> IO ()
 seek fn = do
-    mfr <- getsHS clock
+    mfr <- getsHS (.clock)
     whenJust mfr \fr -> sendMpg $ Jump $ fn fr
 
 ------------------------------------------------------------------------
@@ -261,7 +261,7 @@ seek fn = do
 -- | Generic jump
 jumpFn :: (Int -> Int) -> IO ()
 jumpFn fn = modifyHS_ \st ->
-    st { cursor = (fn (cursor st) `min` (st.size - 1)) `max` 0 }
+    st { cursor = (fn st.cursor `min` (st.size - 1)) `max` 0 }
 
 -- | Move cursor up or down
 upOne, downOne :: IO ()
@@ -292,8 +292,8 @@ blacklist :: IO ()
 blacklist = do
     st <- getsHS id
     appendFile ".hmp3-delete" . (++"\n") . P.unpack $
-        let fe = music st ! cursor st
-        in P.intercalate (P.singleton '/') [dname $ folders st ! fdir fe, fbase fe]
+        let fe = st.music ! st.cursor
+        in (st.folders ! fe.fdir).dname </> fe.fbase
 
 ------------------------------------------------------------------------
 
@@ -308,7 +308,7 @@ playCursor = runPlayOp do
 
 -- | Play the song under the cursor (from the start)
 playCur :: IO ()
-playCur = runPlayOp $ Just <$> gets cursor
+playCur = runPlayOp $ Just <$> gets (.cursor)
 
 -- | Play the song before the current song, if we're not at the beginning
 -- If we're at the beginning, and loop mode is on, then loop to the end
@@ -371,8 +371,7 @@ runPlayOp op = do
         forM mnew \new -> do
             HState { .. } <- get
             let fe = music ! new
-                f  = P.intercalate (P.singleton '/')
-                        [dname $ folders ! fdir fe, fbase fe]
+                f  = (folders ! fe.fdir).dname </> fe.fbase
             modify' \st -> st
                 { current  = new
                 , status   = Playing
@@ -393,14 +392,14 @@ pause = sendMpg Pause
 -- | Always pause
 forcePause :: IO ()
 forcePause = do
-    st <- getsHS status
+    st <- getsHS (.status)
     when (st == Playing) pause
 
 ------------------------------------------------------------------------
 
 -- | Move cursor to currently playing song
 jumpToPlaying :: IO ()
-jumpToPlaying = modifyHS_ $ \st -> st { cursor = current st }
+jumpToPlaying = modifyHS_ $ \st -> st { cursor = st.current }
 
 -- | Move cursor to first song in next directory (or wrap)
 jumpToNextDir, jumpToPrevDir :: IO ()
@@ -410,17 +409,17 @@ jumpToPrevDir = jumpToDir (\i _   -> max (i-1) 0)
 -- | Generic jump to dir
 jumpToDir :: (Int -> Int -> Int) -> IO ()
 jumpToDir fn = modifyHS_ \st ->
-    let i   = fdir (music st ! cursor st)
-        d   = fn i (length $ folders st)
-    in st { cursor = dlo (folders st ! d) }
+    let i   = (st.music ! st.cursor).fdir
+        d   = fn i (length st.folders)
+    in st { cursor = (st.folders ! d).dlo }
 
 ------------------------------------------------------------------------
 
 -- a bit of bounded parametric polymorphism so we can abstract over record selectors
 -- in the regex search stuff below
 class Lookup a       where extract :: a -> RawFilePath
-instance Lookup Dir  where extract = takeFileName . dname
-instance Lookup File where extract = fbase
+instance Lookup Dir  where extract = takeFileName . (.dname)
+instance Lookup File where extract = (.fbase)
 
 jumpToMatchFile :: Maybe ByteString -> Bool -> IO ()
 jumpToMatchFile re sw = genericJumpToMatch re sw k sel
@@ -429,8 +428,8 @@ jumpToMatchFile re sw = genericJumpToMatch re sw k sel
 
 jumpToMatchDir :: Maybe ByteString -> Bool -> IO ()
 jumpToMatchDir re sw = genericJumpToMatch re sw k sel
-    where k st = (folders st, fdir (music st ! cursor st), length $ folders st)
-          sel i st = dlo (folders st ! i)
+    where k st = (st.folders, (st.music ! st.cursor).fdir, length st.folders)
+          sel i st = (st.folders ! i).dlo
 
 genericJumpToMatch :: Lookup a
                    => Maybe ByteString
@@ -442,7 +441,7 @@ genericJumpToMatch re sw k sel = do
     found <- modifyHS \st -> let
         info = case re of
             Just s -> Just (st { searchFw = sw }, s, sw)
-            _      -> listToMaybe [ (st, s, searchFw st == sw) | s <- searchHist st ]
+            _      -> listToMaybe [ (st, s, st.searchFw == sw) | s <- st.searchHist ]
         in flip (maybe (st, False)) info \(st', p, forwards) -> do
             let (fs, cur, m) = k st
                 l = if forwards then [cur+1 .. m-1] ++ [0 .. cur]
@@ -468,16 +467,16 @@ showHist :: IO ()
 showHist = do
     now <- getMonoTime
     setsModal \st -> Just $ HistModal [
-        (El.showDuration True (now - tm), (ix, fbase $ music st ! ix))
-            | (tm, ix) <- toList $ playHist st ]
+        (El.showDuration True (now - tm), (ix, (st.music ! ix).fbase))
+            | (tm, ix) <- toList st.playHist ]
 
 -- | Focus the minibuffer
 toggleFocus :: IO ()
-toggleFocus = modifyHS_ $ \st -> st { miniFocused = not (miniFocused st) }
+toggleFocus = modifyHS_ $ \st -> st { miniFocused = not st.miniFocused }
 
 -- | Toggle the mode flag
 nextMode :: IO ()
-nextMode = modifyHS_ $ \st -> st { mode = next (mode st) } where
+nextMode = modifyHS_ $ \st -> st { mode = next st.mode } where
     next v = if v == maxBound then minBound else succ v
 
 ------------------------------------------------------------------------
@@ -490,14 +489,14 @@ writeState :: IO ()
 writeState = do
     dir <- getStatePath
     createDirectoryIfMissing True dir
-    mode <- getsHS mode
-    writeFile (dir </> "mode") $ show mode ++ "\n"
+    mode <- getsHS (.mode)
+    writeFile (dir FP.</> "mode") $ show mode ++ "\n"
 
 -- | Read mode state
 readState :: IO Mode
 readState = do
     dir <- getStatePath
-    let f = dir </> "mode"
+    let f = dir FP.</> "mode"
     b <- doesFileExist f
     modeM <- if b
         then readMaybe <$!> readFile f
@@ -509,11 +508,11 @@ readState = do
 --
 
 getConfPath :: IO FilePath
-getConfPath = getXdgDirectory XdgConfig $ "hmp3" </> "style.conf"
+getConfPath = getXdgDirectory XdgConfig $ "hmp3" FP.</> "style.conf"
 
 loadConfig :: IO ()
 loadConfig = do
-    f <- maybe getConfPath pure =<< getsHS configPath
+    f <- maybe getConfPath pure =<< getsHS (.configPath)
     b <- doesFileExist f
     if b then do
         str' <- readFile f
@@ -545,6 +544,6 @@ clearMessage = putMessage $ Fast P.empty defaultSty
 
 warnA :: String -> IO ()
 warnA x = do
-    sty <- getsHS uiStyle
-    putMessage $ Fast (P.pack x) (warnings sty)
+    sty <- getsHS (.uiStyle.warnings)
+    putMessage $ Fast (P.pack x) sty
 

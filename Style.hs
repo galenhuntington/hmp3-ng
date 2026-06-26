@@ -109,14 +109,14 @@ reset = setAttribute (Curses.attr0, Curses.Pair 0)
 --
 initcolours :: UIStyle -> IO ()
 initcolours sty = do
-    let ls  = [modals sty, warnings sty, window sty,
-               selected sty, titlebar sty, progress sty,
-               blockcursor sty, cursors sty, combined sty ]
-        (Style fg bg) = progress sty    -- bonus style
+    let ls  = [sty.modals, sty.warnings, sty.window,
+               sty.selected, sty.titlebar, sty.progress,
+               sty.blockcursor, sty.cursors, sty.combined ]
+        Style fg bg = sty.progress    -- bonus style
     pairs <- initUiColors (ls ++ [Style bg bg, Style fg fg])
     writeIORef pairMap pairs
     -- set the background
-    uiAttr (window sty) >>= \(_,p) -> Curses.bkgrndSet nullA p
+    uiAttr sty.window >>= \(_,p) -> Curses.bkgrndSet nullA p
 
 ------------------------------------------------------------------------
 --
@@ -247,15 +247,15 @@ data Config = Config {
 -- | Read style.conf, and construct a UIStyle from it, to insert into
 buildStyle :: Config -> UIStyle
 buildStyle bs = UIStyle {
-         window      = f $ hmp3_window      bs
-       , modals      = f $ hmp3_modals      bs
-       , titlebar    = f $ hmp3_titlebar    bs
-       , selected    = f $ hmp3_selected    bs
-       , cursors     = f $ hmp3_cursors     bs
-       , combined    = f $ hmp3_combined    bs
-       , warnings    = f $ hmp3_warnings    bs
-       , blockcursor = f $ hmp3_blockcursor bs
-       , progress    = f $ hmp3_progress    bs
+         window      = f bs.hmp3_window
+       , modals      = f bs.hmp3_modals
+       , titlebar    = f bs.hmp3_titlebar
+       , selected    = f bs.hmp3_selected
+       , cursors     = f bs.hmp3_cursors
+       , combined    = f bs.hmp3_combined
+       , warnings    = f bs.hmp3_warnings
+       , blockcursor = f bs.hmp3_blockcursor
+       , progress    = f bs.hmp3_progress
     }
 
     where 

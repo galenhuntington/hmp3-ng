@@ -46,7 +46,7 @@ keyLoop = go mainMode where
 -- Top-level normal mode
 
 mainMode :: KeyMap
-mainMode = KeyMap \c -> getsHS modal >>= \case
+mainMode = KeyMap \c -> getsHS (.modal) >>= \case
 
     Just ExitModal
         | c `elem` ['y', 'Y', '\^C'] -> shutdown Nothing $> undefined
@@ -59,7 +59,7 @@ mainMode = KeyMap \c -> getsHS modal >>= \case
     _ -> if
         | c `elem` ['/', '?', '\\', '|'] -> do
             toggleFocus
-            hist <- getsHS searchHist
+            hist <- getsHS (.searchHist)
             searchMode c $ Zipper "" hist []
         | c `elem` ['q', '\^C'] ->
             forcePause *> setsModal (const $ Just ExitModal) $> mainMode
@@ -99,20 +99,20 @@ searchMode stype = step where
         let jumpy = if stype `elem` ['/', '?']
                     then jumpToMatchFile else jumpToMatchDir
         jumpy (Just pat) (stype `elem` ['/', '\\'])
-        modifyHS_ \st -> st { searchHist = pat : filter (/= pat) (searchHist st) }
+        modifyHS_ \st -> st { searchHist = pat : filter (/= pat) st.searchHist }
         leave
 
     histDelete z = do
         let z' = case z of
                 Zipper _ b (pv:rest) -> Zipper pv b rest
                 Zipper _ b _         -> Zipper "" b []
-        modifyHS_ \st -> st { searchHist = filter (/= zipperCur z) (searchHist st) }
+        modifyHS_ \st -> st { searchHist = filter (/= z.cur) st.searchHist }
         step z'
 
     leave = toggleFocus $> mainMode
 
 renderSearch :: Char -> Zipper ByteString -> IO ()
-renderSearch prefix z = putMessage $ Fast (prefix `P.cons` zipperCur z) defaultSty
+renderSearch prefix z = putMessage $ Fast (prefix `P.cons` z.cur) defaultSty
 
 enter', delete' :: [Char]
 enter'  = ['\n', '\r']
@@ -169,5 +169,5 @@ keysHelp = [ (keys, desc) | (desc, keys, _) <- keyTable ]
 
 toggleHelp :: IO ()
 toggleHelp = setsModal \st ->
-    if isNothing $ modal st then Just $ HelpModal keysHelp else Nothing
+    if isNothing st.modal then Just $ HelpModal keysHelp else Nothing
 

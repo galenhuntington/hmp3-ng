@@ -40,10 +40,10 @@ data Msg = I                !Id3
 
 -- ID3 info
 data Id3 = Id3
-    { id3title  :: !ByteString
-    , id3artist :: !ByteString
-    , id3album  :: !ByteString
-    , id3str    :: !ByteString
+    { title  :: !ByteString
+    , artist :: !ByteString
+    , album  :: !ByteString
+    , str    :: !ByteString
     --  , year   :: Maybe ByteString
     --  , genre  :: Maybe ByteString }
     } deriving stock (Eq, Show)
@@ -108,7 +108,7 @@ doI :: ByteString -> Maybe Msg
 doI s = I <$> do
     ("ID3:", info) <- pure $ P.splitAt 4 s
     let id3 = parseId3 info
-    guard $ not $ P.null $ id3title id3 -- title sometimes empty
+    guard $ not $ P.null $ id3.title -- title sometimes empty
     pure id3
 
 -- Format: title (30), author (30), album (30), year (4), comment (30), genre
