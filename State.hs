@@ -35,7 +35,6 @@ data HState = HState
     , clock           :: !(Maybe Frame)        -- current clock value
     , randomGen       :: !StdGen               -- random seed
     , spawns          :: !Integer              -- count of decoder spawns
-    , threads         :: ![ThreadId]           -- all our threads
     , id3             :: !(Maybe Id3)          -- maybe mp3 id3 info
     , info            :: !(Maybe ByteString)   -- mp3 info
     , status          :: !Status
@@ -118,10 +117,7 @@ sendMpg c = do
     ok <- sendMpg' c
     when (not ok) do
         modifyHS_ \st -> st { minibuffer =
-            case minibuffer st of -- don't overwrite if message already
-                Fast "" _ -> Fast (mp3Tool <> " process not running") (warnings $ uiStyle st)
-                _         -> minibuffer st
-        }
+            Fast (mp3Tool <> " process not running") (warnings $ uiStyle st) }
 
 ------------------------------------------------------------------------
 -- State accessor functions.

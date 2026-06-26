@@ -71,13 +71,6 @@ start opts (Playlist folders music) = do
     let (current, randomGen) = if mode == Random || optRandom opts
         then randomR (0, length music - 1) gen else (0, gen)
 
-    threads <- traverse forkIO
-        [ mpgLoop
-        , mpgInput
-        , refreshLoop
-        , uptimeLoop
-        ]
-
     putMVar hState HState
         { music
         , folders
@@ -88,7 +81,6 @@ start opts (Playlist folders music) = do
         , randomGen
         , mode
         , uiStyle
-        , threads
         , spawns       = 0
         , clock        = Nothing
         , info         = Nothing
@@ -106,8 +98,27 @@ start opts (Playlist folders music) = do
 
     loadConfig  -- TODO this should return config rather than setting it
 
-    playCur
-    when (optPaused opts) pause -- TODO use LOADPAUSED?
+    traverse_ forkIO
+        [ mpgLoop
+        , mpgInput
+        , refreshLoop
+        , uptimeLoop
+        ]
+
+    -- Poll for a second for process to start, then play.
+    let go :: Int -> IO ()
+        go 0 = silentlyModifyHS \st -> st { spawns = 1 }
+        go n = do
+            ready <- isJust <$> readIORef mpgRef
+            if ready
+                then do
+                    playCur
+                    when (optPaused opts) pause -- TODO use LOADPAUSED?
+                else do
+                    threadDelay 20_000
+                    go (n-1)
+    go 50
+
 
 ------------------------------------------------------------------------
 
