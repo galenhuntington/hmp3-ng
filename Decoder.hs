@@ -10,7 +10,7 @@ module Decoder (
 ) where
 
 import Base
-import Text (trim, readIntM, guessEncoding)
+import Text (trim, readIntM, showInt, guessEncoding)
 
 import Data.ByteString.Char8 qualified as P
 
@@ -25,7 +25,7 @@ data Cmd = Load ByteString | Jump Int | Pause | Quit
 
 cmdToBS :: Cmd -> ByteString
 cmdToBS (Load f) = "L " <> f
-cmdToBS (Jump i) = "J " <> P.pack (show i) -- can be relative with +/-; not used here
+cmdToBS (Jump i) = "J " <> showInt i -- can be relative with +/-; not used here
 cmdToBS Pause    = "P"  -- (un)pauses
 cmdToBS Quit     = "Q"
 
@@ -101,8 +101,7 @@ doS s = do
     guard $ length fs >= 11
     hz <- readIntM $ fs !! 2
     pure $ S $ mconcat [
-        "mpeg ", fs !! 0, " ", fs !! 10, "kb/s ",
-            P.pack $ show $ hz `div` 1000, "kHz"]
+        "mpeg ", fs !! 0, " ", fs !! 10, "kb/s ", showInt $ hz `div` 1000, "kHz"]
 
 -- Track info if ID fields are in the file, otherwise file name.
 doI :: ByteString -> Maybe Msg

@@ -5,8 +5,10 @@
 module Elements where
 
 import Base
+import Decoder (Frame(..))
 import Keyboard (charToKey, historyKeys)
 import State
+import Style (Style(..), StringA(..), defaultSty)
 import Text
 import Paths_hmp3_ng (version)
 
@@ -51,6 +53,36 @@ showDuration showSecs tm
     (d, h)  = hs `quotRem` 24
     ss      =
         if showSecs then (<> printf (if ms > 0 then "%02ds" else "%ds") s) else id
+
+-- | The time used and time left
+pTimes :: Int -> Maybe Frame -> ByteString
+pTimes w clock
+    | w - 4 < P.length elapsed = ""
+    | True                     =
+        mconcat $ ["  ", elapsed] ++ [gap <> "-" <> left | distance > 0]
+  where
+    elapsed  = showClock (maybe 0 (.currentTime) clock)
+    left     = maybe "?:??.?" (showClock . (.timeLeft)) clock
+    gap      = spaces distance
+    distance = w - 5 - P.length elapsed - P.length left
+
+-- | A progress bar
+progressBar :: Style -> Int -> Maybe Frame -> StringA
+progressBar sty sizeW = \case
+    Nothing         -> FancyS [pad, (spaces width, bgs)]
+    Just Frame {..} -> FancyS
+        [pad, (spaces distance, fgs), (spaces (width - distance), bgs)]
+      where
+        total    = curr + toRational timeLeft - ε
+        distance = ceiling (curr * fromIntegral (width - 1) / total)
+        curr     = toRational currentTime
+        ε        = toRational (toEnum 1 `asTypeOf` currentTime) / 2
+  where
+    pad         = ("  ", defaultSty)
+    width       = sizeW - 4
+    Style fg bg = sty
+    bgs         = Style bg bg
+    fgs         = Style fg fg
 
 
 -- Modals
