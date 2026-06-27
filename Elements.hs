@@ -8,7 +8,6 @@ import Base
 import Decoder (Frame(..))
 import Keyboard (charToKey, historyKeys)
 import State
-import Style (Style(..), StringA(..), defaultSty)
 import Text
 import Paths_hmp3_ng (version)
 
@@ -66,23 +65,13 @@ pTimes w clock
     gap      = spaces distance
     distance = w - 5 - P.length elapsed - P.length left
 
--- | A progress bar
-progressBar :: Style -> Int -> Maybe Frame -> StringA
-progressBar sty sizeW = \case
-    Nothing         -> FancyS [pad, (spaces width, bgs)]
-    Just Frame {..} -> FancyS
-        [pad, (spaces distance, fgs), (spaces (width - distance), bgs)]
-      where
-        total    = curr + toRational timeLeft - ε
-        distance = ceiling (curr * fromIntegral (width - 1) / total)
+-- | Progress out of total
+progress :: Int -> Maybe Frame -> Int
+progress width = maybe 0 \Frame {..} ->
+    let total    = curr + toRational timeLeft - ε
         curr     = toRational currentTime
         ε        = toRational (toEnum 1 `asTypeOf` currentTime) / 2
-  where
-    pad         = ("  ", defaultSty)
-    width       = sizeW - 4
-    Style fg bg = sty
-    bgs         = Style bg bg
-    fgs         = Style fg fg
+    in ceiling (curr * fromIntegral (width - 1) / total)
 
 
 -- Modals

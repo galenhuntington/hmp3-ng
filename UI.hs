@@ -163,11 +163,18 @@ pId3 DD{drawState=st} = maybe (st.music ! st.current).fbase (.str) st.id3
 
 ------------------------------------------------------------------------
 
+-- | Show progress bar.
+progressBar :: DrawData -> StringA
+progressBar (DD w st) = FancyS [
+    ("  ", defaultSty), (spaces x, Style fg fg), (spaces (w'-x), sty)]
+  where
+    w' = w - 4
+    x = El.progress w' st.clock
+    sty@(Style fg _) = st.uiStyle.progress
+
 -- | Two lines showing clock.
 clockLines :: DrawData -> [StringA]
-clockLines (DD w st) = [
-    El.progressBar st.uiStyle.progress w st.clock,
-    Fast (El.pTimes w st.clock) defaultSty ]
+clockLines dd@(DD w st) = [progressBar dd, Fast (El.pTimes w st.clock) defaultSty]
 
 ------------------------------------------------------------------------
 
