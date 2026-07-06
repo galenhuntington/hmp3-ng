@@ -73,6 +73,19 @@ progress width = maybe 0 \Frame {..} ->
         ε        = toRational (toEnum 1 `asTypeOf` currentTime) / 2
     in ceiling (curr * fromIntegral (width - 1) / total)
 
+-- | Given a width and size of left, center, and right elements, determine
+-- whether left and right can fit, padding between, and amount of center to show
+fitLCR :: Int -> (Int, Int, Int) -> (Bool, Int, Int, Int)
+fitLCR w (lsz, csz, rsz) =
+    let sides = w - csz
+        side = sides `div` 2
+        gap  = sides - lsz - rsz
+    in if gap >= 2
+        then let gapl = 1 `max` ((side - lsz) `min` (gap - 1))
+             in (True, gapl, gap - gapl, csz)
+        else (False, side `max` 1, (sides - side) `max` ((w-1) `min` 1),
+                0 `max` (csz `min` (w - 2)))
+
 
 -- Modals
 
