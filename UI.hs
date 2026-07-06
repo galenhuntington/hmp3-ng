@@ -208,15 +208,11 @@ playInfo DD{drawState=st} = mconcat
 -- | The top title bar: cursor position + play indicator + uptime + version.
 playTitle :: DrawData -> StringA
 playTitle dd@DD{drawWidth=w, drawState=st} =
-    flip Fast st.uiStyle.titlebar $ mconcat [
-        " ", if lr then left else "", spaces lpad,
-        u $ take ctake centerS,
-        spaces rpad, if lr then right else "", " " ]
+    Fast (El.layoutLCR w (left, centerS, right)) st.uiStyle.titlebar
   where
-    left    = playInfo dd
+    left    = " " <> playInfo dd
     centerS = pState dd ++ ' ' : pMode dd  -- always 6 chars
     right   = st.uptime <> " " <> El.pVersion <> " "
-    (lr, lpad, rpad, ctake) = El.fitLCR w (P.length left + 1, 6, P.length right)
 
 -- | The scrolling playlist (visible tracks).
 playList :: Int -> DrawData -> [StringA]

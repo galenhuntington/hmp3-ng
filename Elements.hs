@@ -73,18 +73,33 @@ progress width = maybe 0 \Frame {..} ->
         ε        = toRational (toEnum 1 `asTypeOf` currentTime) / 2
     in ceiling (curr * fromIntegral (width - 1) / total)
 
+data Fit = Fit { wide :: !Bool, padL :: !Int, padR :: !Int, ctake :: !Int }
+    deriving stock Show
+
 -- | Given a width and size of left, center, and right elements, determine
 -- whether left and right can fit, padding between, and amount of center to show
-fitLCR :: Int -> (Int, Int, Int) -> (Bool, Int, Int, Int)
-fitLCR w (lsz, csz, rsz) =
-    let sides = w - csz
-        side = sides `div` 2
-        gap  = sides - lsz - rsz
-    in if gap >= 2
-        then let gapl = 1 `max` ((side - lsz) `min` (gap - 1))
-             in (True, gapl, gap - gapl, csz)
-        else (False, side `max` 1, (sides - side) `max` ((w-1) `min` 1),
-                0 `max` (csz `min` (w - 2)))
+fitLCR :: Int -> (Int, Int, Int) -> Fit
+fitLCR w (lsz, csz, rsz) = if
+    | gap >= 2 -> let gapl = 1 `max` ((side - lsz) `min` (gap - 1))
+                  in Fit True gapl (gap - gapl) csz
+    | True     ->
+        Fit False (side `max` 1) ((sides - side) `max` ((w-1) `min` 1))
+            (0 `max` (csz `min` (w - 2)))
+  where
+    sides = w - csz
+    side = sides `div` 2
+    gap  = sides - lsz - rsz
+
+layoutLCR :: Int -> (ByteString, String, ByteString) -> ByteString
+layoutLCR w (left, centerS, right) = mconcat [
+    if fit.wide then left else "",
+    spaces fit.padL,
+    u $ take fit.ctake centerS,
+    spaces fit.padR,
+    if fit.wide then right else ""
+    ]
+  where
+    fit = fitLCR w (P.length left, length centerS, P.length right)
 
 
 -- Modals
