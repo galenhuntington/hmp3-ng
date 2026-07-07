@@ -18,7 +18,7 @@ import Core
 import Elements (package)
 import Keyboard (unkey, charToKey, Key(..), historyKeys)
 import State (getsHS, modifyHS_, KeysHelp, Modal(..), HState(..))
-import Style (defaultSty, StringA(Fast))
+import Style (plainSeg)
 import Text (dropLastUTF8)
 import UI qualified (getKey, resetui)
 
@@ -112,7 +112,7 @@ searchMode stype = step where
     leave = toggleFocus $> mainMode
 
 renderSearch :: Char -> Zipper ByteString -> IO ()
-renderSearch prefix z = putMessage $ Fast (prefix `P.cons` z.cur) defaultSty
+renderSearch prefix z = putMessage [plainSeg $ prefix `P.cons` z.cur]
 
 enter', delete' :: [Char]
 enter'  = ['\n', '\r']

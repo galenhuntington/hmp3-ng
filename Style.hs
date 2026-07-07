@@ -47,11 +47,11 @@ data Hue = Black | Red | Green | Yellow | Blue | Magenta | Cyan | White
 data Style = Style !Color !Color
     deriving stock (Eq,Ord)
 
--- | A list of styled UTF-8 ByteString segments making up one line.
--- 'Fast' is the single-segment fast path; 'FancyS' is a multi-segment line.
-data StringA
-    = Fast   {-# UNPACK #-} !ByteString {-# UNPACK #-} !Style
-    | FancyS ![(ByteString, Style)]
+-- | A styled UTF-8 ByteString segment.
+data Segment = Seg  {-# UNPACK #-} !Style {-# UNPACK #-} !ByteString
+
+-- | A line of segments.
+type Line = [Segment]
 
 ------------------------------------------------------------------------
 --
@@ -221,6 +221,9 @@ defaultSty = Style Default Default
 
 style :: String -> String -> Style
 style a b = let f = fromJust . stringToColor in Style (f a) (f b)
+
+plainSeg :: ByteString -> Segment
+plainSeg = Seg defaultSty
 
 ------------------------------------------------------------------------
 --

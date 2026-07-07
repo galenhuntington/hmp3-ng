@@ -92,7 +92,7 @@ start opts (Playlist folders music) = do
         , histSize     = opts.histSize
         , miniFocused  = False
         , status       = Stopped
-        , minibuffer   = Fast mempty defaultSty
+        , minibuffer   = []
         , uptime       = mempty
         }
 
@@ -450,7 +450,7 @@ genericJumpToMatch re sw k sel = do
             case [ i | i <- l, match $ extract (fs ! i) ] of
                 i:_ -> (st' { cursor = sel i st }, True)
                 _   -> (st', False)
-    unless found $ putMessage $ Fast "No match found." defaultSty
+    unless found $ putMessage [plainSeg "No match found."]
 
 ------------------------------------------------------------------------
 
@@ -536,14 +536,14 @@ loadConfig = do
 ------------------------------------------------------------------------
 -- Set the minibuffer
 
-putMessage :: StringA -> IO ()
+putMessage :: Line -> IO ()
 putMessage s = modifyHS_ \st -> st { minibuffer = s }
 
 clearMessage :: IO ()
-clearMessage = putMessage $ Fast P.empty defaultSty
+clearMessage = putMessage []
 
 warnA :: String -> IO ()
 warnA x = do
     sty <- getsHS (.uiStyle.warnings)
-    putMessage $ Fast (P.pack x) sty
+    putMessage [Seg sty (P.pack x)]
 

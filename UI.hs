@@ -145,8 +145,8 @@ data DrawData = DD { drawWidth :: Int, drawState :: HState }
 ------------------------------------------------------------------------
 
 -- | Info about the current track
-pPlaying :: DrawData -> StringA
-pPlaying dd = flip Fast defaultSty $ "  " <> mconcat line where
+pPlaying :: DrawData -> Line
+pPlaying dd = pure $ plainSeg $ "  " <> mconcat line where
     x = dd.drawWidth
     a = pId3 dd
     b = fromMaybe "" dd.drawState.info  -- mp3 info
@@ -164,17 +164,17 @@ pId3 DD{drawState=st} = maybe (st.music ! st.current).fbase (.str) st.id3
 ------------------------------------------------------------------------
 
 -- | Show progress bar.
-progressBar :: DrawData -> StringA
-progressBar (DD w st) = FancyS [
-    ("  ", defaultSty), (spaces x, Style fg fg), (spaces (w'-x), sty)]
+progressBar :: DrawData -> Line
+progressBar (DD w st) = [
+    plainSeg "  ", Seg (Style fg fg) (spaces x), Seg sty (spaces (w'-x)) ]
   where
     w' = w - 4
     x = El.progress w' st.clock
     sty@(Style fg _) = st.uiStyle.progress
 
 -- | Two lines showing clock.
-clockLines :: DrawData -> [StringA]
-clockLines dd@(DD w st) = [progressBar dd, Fast (El.pTimes w st.clock) defaultSty]
+clockLines :: DrawData -> [Line]
+clockLines dd@(DD w st) = [progressBar dd, [plainSeg (El.pTimes w st.clock)]]
 
 ------------------------------------------------------------------------
 
@@ -206,19 +206,19 @@ playInfo DD{drawState=st} = mconcat
     numd  = showInt $ length $ st.folders
 
 -- | The top title bar: cursor position + play indicator + uptime + version.
-playTitle :: DrawData -> StringA
+playTitle :: DrawData -> Line
 playTitle dd@DD{drawWidth=w, drawState=st} =
-    Fast (El.layoutLCR w (left, centerS, right)) st.uiStyle.titlebar
+    [Seg st.uiStyle.titlebar $ El.layoutLCR w (left, centerS, right)]
   where
     left    = " " <> playInfo dd
     centerS = pState dd ++ ' ' : pMode dd  -- always 6 chars
     right   = st.uptime <> " " <> El.pVersion <> " "
 
 -- | The scrolling playlist (visible tracks).
-playList :: Int -> DrawData -> [StringA]
+playList :: Int -> DrawData -> [Line]
 playList buflen _ | buflen <= 0 = []  -- extra defense besides laziness
 playList buflen DD{ drawWidth=w, drawState=st } =
-    list ++ replicate (buflen - length list) (Fast "" defaultSty)
+    list ++ replicate (buflen - length list) []
 
   where
     -- number of screens down, and then offset
@@ -253,13 +253,12 @@ playList buflen DD{ drawWidth=w, drawState=st } =
       where
         f sty = (sty, [s, spaces (w - indent - 1 - displayWidth s)])
 
-    drawIt :: (Maybe Int, (Style, [ByteString])) -> StringA
+    drawIt :: (Maybe Int, (Style, [ByteString])) -> Line
     drawIt (Nothing, (sty, v)) =
-        FancyS $ map (, sty) $ spaces (1 + indent) : v
-    drawIt (Just i, (sty, v)) = FancyS
-        $ (d, sty')
-        : (spaces (indent + 1 - displayWidth d), sty')
-        : map (, sty) v
+        map (Seg sty) $ spaces (1 + indent) : v
+    drawIt (Just i, (sty, v)) = Seg sty' d
+        : Seg sty' (spaces (indent + 1 - displayWidth d))
+        : map (Seg sty) v
       where
         sty' = if sty == sty2 || sty == sty3 then sty2 else sty1
         d = toMaxWidth (indent - 1) $ takeFileName (st.folders ! i).dname
@@ -282,7 +281,7 @@ renderModal st (h, w) mkr = do
         voffset = ((h - vislines) `div` 2) `max` 4
     Curses.wMove Curses.stdScr voffset hoffset
     for_ (take vislines modal') \t -> do
-        drawLine $ Fast (toWidth mw t) st.uiStyle.modals
+        drawSegment $ Seg st.uiStyle.modals (toWidth mw t)
         (y', _) <- Curses.getYX Curses.stdScr
         Curses.wMove Curses.stdScr (y'+1) hoffset
 
@@ -309,11 +308,11 @@ redraw = Draw $ discardErrors do
     Curses.wMove Curses.stdScr (h-1) 0
     drawLine st.minibuffer
     when st.miniFocused do -- a fake cursor
-        drawLine $ Fast " " st.uiStyle.blockcursor
+        drawSegment $ Seg st.uiStyle.blockcursor " "
     fillLine
 
 -- | Render whole lines without going below limit.
-drawFullLines :: Int -> Int -> [StringA] -> IO ()
+drawFullLines :: Int -> Int -> [Line] -> IO ()
 drawFullLines limit y ls =
     for_ (zip [y .. limit-1] ls) \ (y', t) -> do
         Curses.wMove Curses.stdScr y' 0
@@ -321,13 +320,12 @@ drawFullLines limit y ls =
 
 ------------------------------------------------------------------------
 -- | Draw a coloured (or not) string to the screen
-drawLine :: StringA -> IO ()
-drawLine (Fast ps sty) = drawSegment ps sty
-drawLine (FancyS ls)   = traverse_ (uncurry drawSegment) ls
+drawLine :: Line -> IO ()
+drawLine = traverse_ drawSegment
 
 -- | Write a single styled UTF-8 segment.  Safe because C only reads the bytes.
-drawSegment :: ByteString -> Style -> IO ()
-drawSegment bs sty = withStyle sty $ void $
+drawSegment :: Segment -> IO ()
+drawSegment (Seg sty bs) = withStyle sty $ void $
     P.unsafeUseAsCStringLen bs \(cstr, len) ->
         waddnstr Curses.stdScr cstr (fromIntegral len)
 
