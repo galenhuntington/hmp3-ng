@@ -11,7 +11,7 @@ import Base
 
 import Decoder                  (Status, Frame, Id3, Cmd, cmdToBS, mp3Tool)
 import Playlist                 (FileArray, DirArray)
-import Style                    (StringA(Fast), UIStyle(warnings))
+import Style                    (Line, Segment(Seg), UIStyle(warnings))
 
 import Data.ByteString          (hPut)
 import GHC.Records
@@ -38,7 +38,7 @@ data HState = HState
     , id3             :: !(Maybe Id3)          -- maybe mp3 id3 info
     , info            :: !(Maybe ByteString)   -- mp3 info
     , status          :: !Status
-    , minibuffer      :: !StringA              -- contents of minibuffer
+    , minibuffer      :: !Line                 -- contents of minibuffer
     , modal           :: !(Maybe Modal)        -- modal visible
     , miniFocused     :: !Bool                 -- is the mini buffer focused?
     , mode            :: !Mode
@@ -115,9 +115,8 @@ sendMpg' c = do
 sendMpg :: Cmd -> IO ()
 sendMpg c = do
     ok <- sendMpg' c
-    when (not ok) do
-        modifyHS_ \st -> st { minibuffer =
-            Fast (mp3Tool <> " process not running") st.uiStyle.warnings }
+    when (not ok) $ modifyHS_ \st -> st { minibuffer =
+        [Seg st.uiStyle.warnings (mp3Tool <> " process not running")] }
 
 ------------------------------------------------------------------------
 -- State accessor functions.
