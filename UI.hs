@@ -163,11 +163,18 @@ pId3 DD{drawState=st} = maybe (st.music ! st.current).fbase (.str) st.id3
 
 ------------------------------------------------------------------------
 
+-- | Show progress bar.
+progressBar :: DrawData -> StringA
+progressBar (DD w st) = FancyS [
+    ("  ", defaultSty), (spaces x, Style fg fg), (spaces (w'-x), sty)]
+  where
+    w' = w - 4
+    x = El.progress w' st.clock
+    sty@(Style fg _) = st.uiStyle.progress
+
 -- | Two lines showing clock.
 clockLines :: DrawData -> [StringA]
-clockLines (DD w st) = [
-    El.progressBar st.uiStyle.progress w st.clock,
-    Fast (El.pTimes w st.clock) defaultSty ]
+clockLines dd@(DD w st) = [progressBar dd, Fast (El.pTimes w st.clock) defaultSty]
 
 ------------------------------------------------------------------------
 
@@ -201,19 +208,11 @@ playInfo DD{drawState=st} = mconcat
 -- | The top title bar: cursor position + play indicator + uptime + version.
 playTitle :: DrawData -> StringA
 playTitle dd@DD{drawWidth=w, drawState=st} =
-    flip Fast st.uiStyle.titlebar $ mconcat if gap >= 2
-        then [left, spaces gapl, u centerS, spaces (gap - gapl), right]
-        else if sides >= 2
-            then [spaces side, u centerS, spaces $ sides - side]
-            else [" ", u $ take (w-2) centerS, " "]
+    Fast (El.layoutLCR w (left, centerS, right)) st.uiStyle.titlebar
   where
     left    = " " <> playInfo dd
     centerS = pState dd ++ ' ' : pMode dd  -- always 6 chars
     right   = st.uptime <> " " <> El.pVersion <> " "
-    sides   = w - 6
-    side    = sides `div` 2
-    gap     = sides - P.length left - P.length right
-    gapl    = 1 `max` ((side - P.length left) `min` (gap - 1))
 
 -- | The scrolling playlist (visible tracks).
 playList :: Int -> DrawData -> [StringA]

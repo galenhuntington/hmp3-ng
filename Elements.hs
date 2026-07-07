@@ -8,7 +8,6 @@ import Base
 import Decoder (Frame(..))
 import Keyboard (charToKey, historyKeys)
 import State
-import Style (Style(..), StringA(..), defaultSty)
 import Text
 import Paths_hmp3_ng (version)
 
@@ -66,23 +65,41 @@ pTimes w clock
     gap      = spaces distance
     distance = w - 5 - P.length elapsed - P.length left
 
--- | A progress bar
-progressBar :: Style -> Int -> Maybe Frame -> StringA
-progressBar sty sizeW = \case
-    Nothing         -> FancyS [pad, (spaces width, bgs)]
-    Just Frame {..} -> FancyS
-        [pad, (spaces distance, fgs), (spaces (width - distance), bgs)]
-      where
-        total    = curr + toRational timeLeft - ε
-        distance = ceiling (curr * fromIntegral (width - 1) / total)
+-- | Progress out of total
+progress :: Int -> Maybe Frame -> Int
+progress width = maybe 0 \Frame {..} ->
+    let total    = curr + toRational timeLeft - ε
         curr     = toRational currentTime
         ε        = toRational (toEnum 1 `asTypeOf` currentTime) / 2
+    in ceiling (curr * fromIntegral (width - 1) / total)
+
+data Fit = Fit { wide :: !Bool, padL :: !Int, padR :: !Int, ctake :: !Int }
+    deriving stock Show
+
+-- | Given a width and size of left, center, and right elements, determine
+-- whether left and right can fit, padding between, and amount of center to show
+fitLCR :: Int -> (Int, Int, Int) -> Fit
+fitLCR w (lsz, csz, rsz) = if
+    | gap >= 2   -> let gapl = 1 `max` ((side - lsz) `min` (gap - 1))
+                    in Fit True gapl (gap - gapl) csz
+    | w-2 >= csz -> Fit False side (sides - side) csz
+    | w > 1      -> Fit False 1 1 (w-2)
+    | True       -> Fit False w 0 0
   where
-    pad         = ("  ", defaultSty)
-    width       = sizeW - 4
-    Style fg bg = sty
-    bgs         = Style bg bg
-    fgs         = Style fg fg
+    sides = w - csz
+    side = sides `div` 2
+    gap  = sides - lsz - rsz
+
+layoutLCR :: Int -> (ByteString, String, ByteString) -> ByteString
+layoutLCR w (left, centerS, right) = mconcat [
+    if fit.wide then left else "",
+    spaces fit.padL,
+    u $ take fit.ctake centerS,
+    spaces fit.padR,
+    if fit.wide then right else ""
+    ]
+  where
+    fit = fitLCR w (P.length left, length centerS, P.length right)
 
 
 -- Modals
