@@ -12,7 +12,7 @@ module Core (
     forcePause, putMessage, clearMessage, playCursor, playCur,
     jumpToPlaying, jump, jumpRel, jumpRandom,
     upPage, downPage,
-    seek, seekStart,
+    seek, seekStart, adjFolderCol,
     blacklist,
     setsModal, closeModal, showHist,
     jumpToMatchDir, jumpToMatchFile,
@@ -89,6 +89,7 @@ start opts (Playlist folders music) = do
         , playHist     = mempty
         , searchHist   = []
         , searchFw     = True
+        , folderCol    = 0.334
         , histSize     = opts.histSize
         , miniFocused  = False
         , status       = Stopped
@@ -227,7 +228,7 @@ handleMsg (P t)   = do
     modifyHS_ \st -> st
         { status = t
         , clock = case st.clock of -- push stopped clock towards end
-            Just fr | t == Stopped -> Just $ adjustFrame 0.1 fr
+            Just fr | t == Stopped -> Just $ adjFrame 0.1 fr
             c -> c
         }
     when (t == Stopped) playNext
@@ -238,8 +239,8 @@ handleMsg (F f) = do
 ------------------------------------------------------------------------
 -- Basic operations
 
-adjustFrame :: Fixed E2 -> Frame -> Frame
-adjustFrame s fr = Frame { elapsed = fr.elapsed + s', left = fr.left - s' }
+adjFrame :: Fixed E2 -> Frame -> Frame
+adjFrame s fr = Frame { elapsed = fr.elapsed + s', left = fr.left - s' }
     where s' = (s `min` fr.left) `max` (- fr.elapsed)
 
 seekStart :: IO ()
@@ -249,10 +250,17 @@ seekStart = seek $ fromIntegral $ minBound @Int
 seek :: Fixed E2 -> IO ()
 seek s = do
     mss <- modifyHS \st -> case st.clock of
-        Just fr -> let fr' = adjustFrame s fr
+        Just fr -> let fr' = adjFrame s fr
                    in (st { clock = Just fr' }, Just fr'.elapsed)
         Nothing -> (st, Nothing)
     whenJust mss $ sendMpg . Jump
+
+adjFolderCol :: Int -> IO ()
+adjFolderCol adj = do
+    (_, sz) <- UI.screenSize
+    modifyHS_ \st -> st { folderCol =
+        let fc' = st.folderCol + fromIntegral adj / fromIntegral sz
+        in (fc' `max` 0) `min` 1 }
 
 ------------------------------------------------------------------------
 
