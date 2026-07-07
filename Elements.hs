@@ -80,11 +80,11 @@ data Fit = Fit { wide :: !Bool, padL :: !Int, padR :: !Int, ctake :: !Int }
 -- whether left and right can fit, padding between, and amount of center to show
 fitLCR :: Int -> (Int, Int, Int) -> Fit
 fitLCR w (lsz, csz, rsz) = if
-    | gap >= 2 -> let gapl = 1 `max` ((side - lsz) `min` (gap - 1))
-                  in Fit True gapl (gap - gapl) csz
-    | True     ->
-        Fit False (side `max` 1) ((sides - side) `max` ((w-1) `min` 1))
-            (0 `max` (csz `min` (w - 2)))
+    | gap >= 2   -> let gapl = 1 `max` ((side - lsz) `min` (gap - 1))
+                    in Fit True gapl (gap - gapl) csz
+    | w-2 >= csz -> Fit False side (sides - side) csz
+    | w > 1      -> Fit False 1 1 (w-2)
+    | True       -> Fit False w 0 0
   where
     sides = w - csz
     side = sides `div` 2

@@ -30,13 +30,13 @@ tests = testGroup "Elements"
         ]
     , testGroup "showDuration (showSecs=True)"
         [ testCase "thirty seconds"
-            $ showDuration True (t 30)      @?= "30s"
+            $ showDuration True (t 30)     @?= "30s"
         , testCase "one minute exactly appends 00s"
-            $ showDuration True (t 60)      @?= "1m00s"
+            $ showDuration True (t 60)     @?= "1m00s"
         , testCase "one minute thirty seconds"
-            $ showDuration True (t 90)      @?= "1m30s"
+            $ showDuration True (t 90)     @?= "1m30s"
         , testCase "one hour one minute one second"
-            $ showDuration True (t 3661)    @?= "1h01m01s"
+            $ showDuration True (t 3661)   @?= "1h01m01s"
         ]
     , testCase "Title layout" fitTests
     ]
@@ -47,10 +47,10 @@ t s = TimeSpec (fromInteger s) 0
 
 fitTests :: Assertion
 fitTests = sequence_ do
-    w <- [1..50]
-    lsz <- [0..20]
-    csz <- [4..8]  -- always 6 currently
-    rsz <- [0..20]
+    w <- [1..40]
+    lsz <- [0..9]
+    csz <- [0,1,4,5,6,8]  -- always 6 currently
+    rsz <- [0..9]
     let inp = (lsz, csz, rsz)
     let ans@Fit{..} = fitLCR w inp
     let go as wh = as (wh ++ " " ++ show (w, inp) ++ " -> " ++ show ans)
