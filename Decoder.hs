@@ -21,11 +21,11 @@ mp3Tool = "mpg123"
 ------------------------------------------------------------------------
 -- Send commands to mpg123
 
-data Cmd = Load ByteString | Jump Int | Pause | Quit
+data Cmd = Load ByteString | Jump (Fixed E2) | Pause | Quit
 
 cmdToBS :: Cmd -> ByteString
 cmdToBS (Load f) = "L " <> f
-cmdToBS (Jump i) = "J " <> showInt i -- can be relative with +/-; not used here
+cmdToBS (Jump s) = "J " <> (P.pack . show) s <> "s"
 cmdToBS Pause    = "P"  -- (un)pauses
 cmdToBS Quit     = "Q"
 
@@ -49,14 +49,9 @@ data Id3 = Id3
     } deriving stock (Eq, Show)
 
 -- Frame decoding status updates (once per frame).
--- Current-frame and frames-remaining are integers; current-time and
--- time-remaining floating point numbers with two decimal places.
-data Frame = Frame {
-    currentFrame   :: !Int,
-    framesLeft     :: !Int,
-    currentTime    :: !(Fixed E2),
-    timeLeft       :: !(Fixed E2)
-    } deriving stock (Eq, Show)
+-- Current-time and time-remaining are numbers with two decimal places.
+data Frame = Frame { elapsed :: !(Fixed E2), left :: !(Fixed E2) }
+    deriving stock (Eq, Show)
 
 -- Stop/pause status.
 data Status = Stopped | Paused | Playing
@@ -74,12 +69,10 @@ doP s = do
 -- Frame decoding status updates (once per frame).
 doF :: ByteString -> Maybe Msg
 doF s = do
-    f0 : f1 : f2 : f3 : _ <- pure $ P.split ' ' s
-    currentFrame <- readIntM f0
-    framesLeft   <- readIntM f1
-    currentTime  <- readMaybe $ P.unpack f2
-    timeLeft     <- max 0 <$> readMaybe (P.unpack f3)
-    pure $ F Frame { currentFrame, framesLeft, currentTime, timeLeft }
+    _ : _ : f2 : f3 : _ <- pure $ P.split ' ' s
+    elapsed <- readMaybe $ P.unpack f2
+    left    <- max 0 <$> readMaybe (P.unpack f3)
+    pure $ F Frame { elapsed, left }
 
 -- Info about mp3 file after loading.
 -- Breakdown from mpg123 README.remote (as numbers):

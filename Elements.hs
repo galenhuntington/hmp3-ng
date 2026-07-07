@@ -60,17 +60,17 @@ pTimes w clock
     | True                     =
         mconcat $ ["  ", elapsed] ++ [gap <> "-" <> left | distance > 0]
   where
-    elapsed  = showClock (maybe 0 (.currentTime) clock)
-    left     = maybe "?:??.?" (showClock . (.timeLeft)) clock
+    elapsed  = showClock (maybe 0 (.elapsed) clock)
+    left     = maybe "?:??.?" (showClock . (.left)) clock
     gap      = spaces distance
     distance = w - 5 - P.length elapsed - P.length left
 
 -- | Progress out of total
 progress :: Int -> Maybe Frame -> Int
-progress width = maybe 0 \Frame {..} ->
-    let total    = curr + toRational timeLeft - ε
-        curr     = toRational currentTime
-        ε        = toRational (toEnum 1 `asTypeOf` currentTime) / 2
+progress width = maybe 0 \fr ->
+    let total    = curr + toRational fr.left - ε
+        curr     = toRational fr.elapsed
+        ε        = 1 / 200
     in ceiling (curr * fromIntegral (width - 1) / total)
 
 data Fit = Fit { wide :: !Bool, padL :: !Int, padR :: !Int, ctake :: !Int }

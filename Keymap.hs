@@ -65,6 +65,8 @@ mainMode = KeyMap \c -> getsHS (.modal) >>= \case
             forcePause *> setsModal (const $ Just ExitModal) $> mainMode
         | c `elem` ['H', ';'] ->
             showHist $> mainMode
+        | c == unkey KeySLeft -> seek (-60) $> mainMode
+        | c == unkey KeySRight -> seek 60 $> mainMode
         | c >= '1' && c <= '9' ->
             jumpRel (fromIntegral (fromEnum c - 48) / 10) $> mainMode
         | True -> sequence_ (M.lookup c keyMap) $> mainMode
@@ -131,8 +133,10 @@ keyTable =
     , ("Jump to start of list",                   [unkey KeyHome,'0'],  jump 0)
     , ("Jump to end of list",                     [unkey KeyEnd,'G'],   jump maxBound)
     , ("Jump to 10%, 20%, 30%, etc., point",      ['1','2','3'],        placeholder)
-    , ("Seek left within song",                   [unkey KeyLeft],      seekLeft)
-    , ("Seek right within song",                  [unkey KeyRight],     seekRight)
+    , ("Seek left 10 seconds; shift for one minute",
+                                                  [unkey KeyLeft],      seek (-10))
+    , ("Seek right 10 seconds; shift for one minute",
+                                                  [unkey KeyRight],     seek 10)
     , ("Toggle pause",                            [' '],                pause)
     , ("Play under cursor",                       ['p'],                playCur)
     , ("Play from cursor",                        ['\n'],               playCursor)

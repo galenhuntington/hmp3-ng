@@ -20,8 +20,8 @@ tests = testGroup "Lexer.mpgParser"
         , tc "@P "   $ Left Nothing   -- no payload
         ]
     , testGroup "frame (@F)"
-        [ tc "@F 123 456 12.34 56.78" $ Right (F (Frame 123 456 12.34 56.78))
-        , tc "@F 0 0 0.00 -1.00"      $ Right (F (Frame 0 0 0.00 0))  -- timeLeft clamped
+        [ tc "@F 123 456 12.34 56.78" $ Right (F (Frame 12.34 56.78))
+        , tc "@F 0 0 0.00 -1.00"      $ Right (F (Frame 0.00 0))  -- .left clamped
         , tc "@F 1 2 3.00"            $ Left Nothing   -- too few fields
         , tc "@F a b c d"             $ Left Nothing   -- non-numeric
         ]
