@@ -8,11 +8,11 @@
 module Core (
     Options(..),
     start, shutdown,
-    seekLeft, seekRight, upOne, downOne, pause, nextMode, playNext, playPrev,
+    upOne, downOne, pause, nextMode, playNext, playPrev,
     forcePause, putMessage, clearMessage, playCursor, playCur,
     jumpToPlaying, jump, jumpRel, jumpRandom,
     upPage, downPage,
-    seekStart,
+    seek, seekStart,
     blacklist,
     setsModal, closeModal, showHist,
     jumpToMatchDir, jumpToMatchFile,
@@ -221,15 +221,14 @@ shutdown ms = do
 -- Process incoming messages from the decoder.
 
 handleMsg :: Msg -> IO ()
-handleMsg (S i)   = modifyHS_ $ \st -> st { info = Just i }
-handleMsg (I id3) = modifyHS_ $ \st -> st { id3 = Just id3 }
+handleMsg (S i)   = modifyHS_ \st -> st { info = Just i }
+handleMsg (I id3) = modifyHS_ \st -> st { id3 = Just id3 }
 handleMsg (P t)   = do
     modifyHS_ \st -> st
         { status = t
-        , clock = case st.clock of
-            Just f@Frame{ timeLeft } | t == Stopped && timeLeft < 0.1
-                -> Just f { timeLeft = 0 } -- force clock to end if near
-            c   -> c
+        , clock = case st.clock of -- push stopped clock towards end
+            Just fr | t == Stopped -> Just $ adjustFrame 0.1 fr
+            c -> c
         }
     when (t == Stopped) playNext
 handleMsg (F f) = do
@@ -239,22 +238,21 @@ handleMsg (F f) = do
 ------------------------------------------------------------------------
 -- Basic operations
 
--- | Seek backward in song
-seekLeft :: IO ()
-seekLeft = seek \g -> max 0 (g.currentFrame - 400)
-
--- | Seek forward in song
-seekRight :: IO ()
-seekRight = seek \g -> g.currentFrame + min 400 g.framesLeft
+adjustFrame :: Fixed E2 -> Frame -> Frame
+adjustFrame s fr = Frame { elapsed = fr.elapsed + s', left = fr.left - s' }
+    where s' = (s `min` fr.left) `max` (- fr.elapsed)
 
 seekStart :: IO ()
-seekStart = seek $ const 0
+seekStart = seek $ fromIntegral $ minBound @Int
 
--- | Generic seek
-seek :: (Frame -> Int) -> IO ()
-seek fn = do
-    mfr <- getsHS (.clock)
-    whenJust mfr \fr -> sendMpg $ Jump $ fn fr
+-- | Seek in relative seconds
+seek :: Fixed E2 -> IO ()
+seek s = do
+    mss <- modifyHS \st -> case st.clock of
+        Just fr -> let fr' = adjustFrame s fr
+                   in (st { clock = Just fr' }, Just fr'.elapsed)
+        Nothing -> (st, Nothing)
+    whenJust mss $ sendMpg . Jump
 
 ------------------------------------------------------------------------
 
