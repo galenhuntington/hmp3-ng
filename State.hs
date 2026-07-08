@@ -28,7 +28,7 @@ data HState = HState
     , folders         :: !DirArray
     , bootTime        :: !TimeSpec
     , configPath      :: !(Maybe FilePath)     -- style.conf override (CLI)
-    , histSize        :: Int
+    , histSize        :: !Int
     -- These can
     , current         :: !Int                  -- currently playing mp3
     , cursor          :: !Int                  -- mp3 under the cursor
@@ -41,7 +41,7 @@ data HState = HState
     , minibuffer      :: !Line                 -- contents of minibuffer
     , modal           :: !(Maybe Modal)        -- modal visible
     , miniFocused     :: !Bool                 -- is the mini buffer focused?
-    , folderCol       :: Float                 -- portion of width for folders
+    , folderCol       :: !Float                -- portion of width for folders
     , mode            :: !Mode
     , uptime          :: !ByteString
     , searchFw        :: !Bool                 -- active search direction

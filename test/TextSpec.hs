@@ -3,7 +3,6 @@ module TextSpec (tests) where
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import Base ((<&>))
 import Text
 
 -- These tests depend on wcwidth's behavior under a UTF-8 locale and on a
@@ -91,5 +90,5 @@ tests = testGroup "Text"
 
 
 m :: Maybe Bool -> String -> String -> String -> TestTree
-m b tag pat str = testCase tag $ (matches (u pat) <&> ($ u str)) @?= b
+m b tag pat str = testCase tag $ ($ u str) <$> matches (u pat) @?= b
 
