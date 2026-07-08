@@ -3,6 +3,7 @@ module TextSpec (tests) where
 import Test.Tasty
 import Test.Tasty.HUnit
 
+import Base ((<&>))
 import Text
 
 -- These tests depend on wcwidth's behavior under a UTF-8 locale and on a
@@ -16,16 +17,17 @@ import Text
 tests :: TestTree
 tests = testGroup "Text"
     [ testGroup "match"
-        [ m True "exact"         "foo"       "fooBar"
-        , m True "caseless"      "FOO"       "fooBar"
-        , m False "invalid"      "["         "any[thing"
-        , m True "alt"           "(foo|az)Q" "bazQux"
-        , m True "dot"           "o.a"       "foobar"
-        , m True "Unicode"       "jör"       "Björk"
-        , m True "dot Unicode"   "j.r"       "Björk"
-        , m True "Nordic case"   "bør"       "BØrnE"
-        , m True "Greek case"    "Λω"        "ΦλΩα"
-        , m True "dot CJK"       "中.人"     "中國人"
+        [ m (Just True)  "exact"         "foo"       "fooBar"
+        , m (Just True)  "caseless"      "FOO"       "fooBar"
+        , m Nothing      "invalid"       "["         "any[thing"
+        , m (Just True)  "alt"           "(foo|az)Q" "bazQux"
+        , m (Just True)  "dot"           "o.a"       "foobar"
+        , m (Just True)  "Unicode"       "jör"       "Björk"
+        , m (Just True)  "dot Unicode"   "j.r"       "Björk"
+        , m (Just True)  "Nordic case"   "bør"       "BØrnE"
+        , m (Just True)  "Greek case"    "Λω"        "ΦλΩα"
+        , m (Just True)  "dot CJK"       "中.人"     "中國人"
+        , m (Just False) "byte dots"     "c..te"     "côte"
         ]
     , testGroup "dropLastUTF8"
         [ testCase "ASCII"    $ dropLastUTF8 "abc"          @?= "ab"
@@ -88,6 +90,6 @@ tests = testGroup "Text"
     ]
 
 
-m :: Bool -> String -> String -> String -> TestTree
-m b tag pat str = testCase tag $ matches (u pat) (u str) @?= b
+m :: Maybe Bool -> String -> String -> String -> TestTree
+m b tag pat str = testCase tag $ (matches (u pat) <&> ($ u str)) @?= b
 
