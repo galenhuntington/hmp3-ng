@@ -277,7 +277,7 @@ downOne = jumpFn (+ 1)
 page :: Int -> IO ()
 page dir = do
     (sz, _) <- UI.screenSize
-    jumpFn (+ dir*(sz-5))
+    jumpFn (+ dir*(1`max`(sz-5)))
 
 upPage, downPage :: IO ()
 upPage   = page (-1)
