@@ -238,7 +238,7 @@ playList buflen DD{ drawWidth=w, drawState=st } =
 
     list   = [ drawIt . color $ n | n <- zip visible' [0..] ]
 
-    indent = round $ (0.334 :: Float) * fromIntegral w :: Int
+    indent = round $ st.folderCol * fromIntegral (w - 1) :: Int
 
     (sty1, sty2, sty3) = (cs.selected, cs.cursors, cs.combined)
         where cs = st.uiStyle

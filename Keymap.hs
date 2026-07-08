@@ -65,8 +65,6 @@ mainMode = KeyMap \c -> getsHS (.modal) >>= \case
             forcePause *> setsModal (const $ Just ExitModal) $> mainMode
         | c `elem` ['H', ';'] ->
             showHist $> mainMode
-        | c == unkey KeySLeft -> seek (-60) $> mainMode
-        | c == unkey KeySRight -> seek 60 $> mainMode
         | c >= '1' && c <= '9' ->
             jumpRel (fromIntegral (fromEnum c - 48) / 10) $> mainMode
         | True -> sequence_ (M.lookup c keyMap) $> mainMode
@@ -133,10 +131,7 @@ keyTable =
     , ("Jump to start of list",                   [unkey KeyHome,'0'],  jump 0)
     , ("Jump to end of list",                     [unkey KeyEnd,'G'],   jump maxBound)
     , ("Jump to 10%, 20%, 30%, etc., point",      ['1','2','3'],        placeholder)
-    , ("Seek left 10 seconds; shift for one minute",
-                                                  [unkey KeyLeft],      seek (-10))
-    , ("Seek right 10 seconds; shift for one minute",
-                                                  [unkey KeyRight],     seek 10)
+    , ("Seek 10 seconds; shift for one minute",   [unkey KeyLeft, unkey KeyRight], placeholder)
     , ("Toggle pause",                            [' '],                pause)
     , ("Play under cursor",                       ['p'],                playCur)
     , ("Play from cursor",                        ['\n'],               playCursor)
@@ -159,14 +154,26 @@ keyTable =
     , ("Search backwards for file",               ['?'],                placeholder)
     , ("Search for directory matching regex",     ['\\'],               placeholder)
     , ("Search backwards for directory",          ['|'],                placeholder)
+    , ("Change size of folder and file columns",  ['[', ']'],           placeholder)
     , ("Load config file",                        ['l'],                loadConfig)
     , ("Quit " <> UTF8.fromString package,        ['q'],                placeholder)
     ]
   where placeholder = pure () -- handled separately
 
+-- | Not shown in help menu (or grouped there).
+quietKeys :: [(Char, IO ())]
+quietKeys =
+    [ (unkey KeyLeft,    seek (-10))
+    , (unkey KeyRight,   seek 10)
+    , (unkey KeySLeft,   seek (-60))
+    , (unkey KeySRight,  seek 60)
+    , ('[',              adjFolderCol (-1))
+    , (']',              adjFolderCol 1)
+    ]
+
 -- Compiled dispatch table for normal-mode single-key commands.
 keyMap :: M.Map Char (IO ())
-keyMap = M.fromList [ (c, a) | (_, cs, a) <- keyTable, c <- cs ]
+keyMap = M.fromList $ [ (c, a) | (_, cs, a) <- keyTable, c <- cs ] ++ quietKeys
 
 keysHelp :: [KeysHelp]
 keysHelp = [ (keys, desc) | (desc, keys, _) <- keyTable ]

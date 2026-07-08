@@ -41,6 +41,7 @@ data HState = HState
     , minibuffer      :: !Line                 -- contents of minibuffer
     , modal           :: !(Maybe Modal)        -- modal visible
     , miniFocused     :: !Bool                 -- is the mini buffer focused?
+    , folderCol       :: Float                 -- portion of width for folders
     , mode            :: !Mode
     , uptime          :: !ByteString
     , searchFw        :: !Bool                 -- active search direction
