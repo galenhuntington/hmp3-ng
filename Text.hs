@@ -32,10 +32,8 @@ spaces :: Int -> ByteString
 spaces = flip P.replicate ' '
 
 -- | Swappable API for searching
--- TODO report invalid regex
-matches :: ByteString -> ByteString -> Bool
-matches s = maybe (const False) match $
-    makeRegexOptsM (compIgnoreCase + compExtended) 0 s
+matches :: ByteString -> Maybe (ByteString -> Bool)
+matches s = match <$> makeRegexOptsM (compIgnoreCase + compExtended) 0 s
 
 readIntM :: ByteString -> Maybe Int
 readIntM = fmap fst . P.readInt

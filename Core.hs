@@ -444,19 +444,22 @@ genericJumpToMatch :: Lookup a
                    -> (Int -> HState -> Int)
                    -> IO ()
 genericJumpToMatch re sw k sel = do
-    found <- modifyHS \st -> let
+    mmsg <- modifyHS \st -> let
         info = case re of
             Just s -> Just (st { searchFw = sw }, s, sw)
             _      -> listToMaybe [ (st, s, st.searchFw == sw) | s <- st.searchHist ]
-        in flip (maybe (st, False)) info \(st', p, forwards) -> do
+        in flip (maybe (st, Just "No previous search.")) info
+                \ (st', p, forwards) -> do
             let (fs, cur, m) = k st
                 l = if forwards then [cur+1 .. m-1] ++ [0 .. cur]
                                 else [cur-1, cur-2 .. 0] ++ [m-1, m-2 .. cur]
-                match = matches p
-            case [ i | i <- l, match $ extract (fs ! i) ] of
-                i:_ -> (st' { cursor = sel i st }, True)
-                _   -> (st', False)
-    unless found $ putMessage [plainSeg "No match found."]
+            case matches p of
+                Just match ->
+                    case [ i | i <- l, match $ extract (fs ! i) ] of
+                        i:_ -> (st' { cursor = sel i st }, Nothing)
+                        _   -> (st', Just "No match found.")
+                _ -> (st', Just "Invalid ERE search pattern.")
+    whenJust mmsg \msg -> putMessage [plainSeg msg]
 
 ------------------------------------------------------------------------
 
