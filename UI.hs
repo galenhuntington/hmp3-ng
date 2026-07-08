@@ -140,7 +140,7 @@ refreshClock = runDraw $ redrawJustClock <> Draw Curses.refresh
 
 ------------------------------------------------------------------------
 
-data DrawData = DD { drawWidth :: Int, drawState :: HState }
+data DrawData = DD { drawWidth :: !Int, drawState :: !HState }
 
 ------------------------------------------------------------------------
 
@@ -339,7 +339,6 @@ slice :: Int -> Int -> Array Int e -> [e]
 slice i j arr = 
     let (a, b) = bounds arr
     in [unsafeAt arr n | n <- [max a i .. min b j]]
-{-# INLINE slice #-}
 
 ------------------------------------------------------------------------
 

@@ -2,9 +2,7 @@
 -- Copyright (c) 2019-2022, 2026 Galen Huntington
 -- SPDX-License-Identifier: GPL-2.0-or-later
 
---
 -- | Color manipulation
---
 
 module Style where
 
@@ -48,17 +46,15 @@ data Style = Style !Color !Color
     deriving stock (Eq,Ord)
 
 -- | A styled UTF-8 ByteString segment.
-data Segment = Seg  {-# UNPACK #-} !Style {-# UNPACK #-} !ByteString
+data Segment = Seg !Style {-# UNPACK #-} !ByteString
 
 -- | A line of segments.
 type Line = [Segment]
 
 ------------------------------------------------------------------------
---
 -- | Named colors for the config file and the built-in styles.  The
 -- \"dark\" name of each pair is the normal-intensity hue; the plain name
 -- is its bright variant (so @red@ is bright, @darkred@ is normal).
---
 stringToColor :: String -> Maybe Color
 stringToColor s = case map toLower s of
     "black"         -> Just $ Color Normal Black
@@ -82,31 +78,21 @@ stringToColor s = case map toLower s of
     _               -> Nothing
 
 ------------------------------------------------------------------------
---
 -- | Set some colours, perform an action, and then reset the colours
---
 withStyle :: Style -> IO () -> IO ()
 withStyle sty fn = uiAttr sty >>= setAttribute >> fn >> reset
 {-# INLINE withStyle #-}
 
---
 -- | manipulate the current attributes of the standard screen
 -- Only set attr if it's different to the current one?
---
 setAttribute :: (Curses.Attr, Curses.Pair) -> IO ()
 setAttribute = uncurry Curses.attrSet
-{-# INLINE setAttribute #-}
 
---
 -- | Reset the screen to normal values
---
 reset :: IO ()
 reset = setAttribute (Curses.attr0, Curses.Pair 0)
-{-# INLINE reset #-}
 
---
 -- | And turn on the colours
---
 initcolours :: UIStyle -> IO ()
 initcolours sty = do
     let ls  = [sty.modals, sty.warnings, sty.window,
@@ -119,7 +105,6 @@ initcolours sty = do
     uiAttr sty.window >>= \(_,p) -> Curses.bkgrndSet nullA p
 
 ------------------------------------------------------------------------
---
 -- | Set up the ui attributes, given a ui style record
 --
 -- Returns an association list of pairs for foreground and bg colors,
@@ -138,24 +123,20 @@ initUiColors stys = do
         pure (sty, (a `Curses.attrPlus` b, Curses.Pair p))
 
 ------------------------------------------------------------------------
---
 -- | Getting from nice abstract colours to ncurses-settable values
 
 -- 20% of allocss occur here! But there's only 3 or 4 colours :/
 -- Every call to uiAttr
---
 uiAttr :: Style -> IO (Curses.Attr, Curses.Pair)
 uiAttr sty = do
     m <- readIORef pairMap
     pure $ lookupPair m sty
-{-# INLINE uiAttr #-}
 
 -- | Given a curses color pair, find the Curses.Pair (i.e. the pair
 -- curses thinks these colors map to) from the state
 lookupPair :: PairMap -> Style -> (Curses.Attr, Curses.Pair)
 lookupPair m s =
     fromMaybe (Curses.attr0, Curses.Pair 0) (M.lookup s m)
-{-# INLINE lookupPair #-}
 
 -- | Keep a map of nice style defs to underlying curses pairs, created at init time
 type PairMap = M.Map Style (Curses.Attr, Curses.Pair)
@@ -166,22 +147,17 @@ pairMap = unsafePerformIO $ newIORef M.empty
 {-# NOINLINE pairMap #-}
 
 ------------------------------------------------------------------------
---
 -- Basic (ncurses) colours.
---
+
 defaultColor :: Curses.Color
 defaultColor = fromJust $ Curses.color "default"
 
---
 -- Combine attribute with another attribute
---
 setBoldA, setReverseA ::  Curses.Attr -> Curses.Attr
 setBoldA     = flip Curses.setBold    True
 setReverseA  = flip Curses.setReverse True
 
---
 -- | Some attribute constants
---
 boldA, nullA, reverseA :: Curses.Attr
 nullA       = Curses.attr0
 boldA       = setBoldA      nullA
@@ -194,7 +170,6 @@ newtype CColor = CColor (Curses.Attr, Curses.Color)
 -- | Map an abstract 'Style' to its ncurses foreground/background pair.
 style2curses :: Style -> (CColor, CColor)
 style2curses (Style fg bg) = (fgCursCol fg, bgCursCol bg)
-{-# INLINE style2curses #-}
 
 -- | The ncurses color for each ANSI hue.
 hueColor :: Hue -> Curses.Color
@@ -226,7 +201,6 @@ plainSeg :: ByteString -> Segment
 plainSeg = Seg defaultSty
 
 ------------------------------------------------------------------------
---
 -- Support for runtime configuration
 -- We choose a simple strategy, read/showable record types, with strings
 -- to represent colors
@@ -260,7 +234,6 @@ buildStyle bs = UIStyle {
        , blockcursor = f bs.hmp3_blockcursor
        , progress    = f bs.hmp3_progress
     }
-
     where 
         f (x,y) = Style (g x) (g y)
         g x     = fromMaybe Default $ stringToColor x

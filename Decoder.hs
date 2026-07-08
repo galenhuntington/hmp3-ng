@@ -21,7 +21,7 @@ mp3Tool = "mpg123"
 ------------------------------------------------------------------------
 -- Send commands to mpg123
 
-data Cmd = Load ByteString | Jump (Fixed E2) | Pause | Quit
+data Cmd = Load !ByteString | Jump !(Fixed E2) | Pause | Quit
 
 cmdToBS :: Cmd -> ByteString
 cmdToBS (Load f) = "L " <> f
@@ -32,10 +32,7 @@ cmdToBS Quit     = "Q"
 ------------------------------------------------------------------------
 -- Receive messages from mpg123
 
-data Msg = I                !Id3
-         | S {-# UNPACK #-} !ByteString
-         | F {-# UNPACK #-} !Frame
-         | P                !Status
+data Msg = I !Id3 | S !ByteString | F !Frame | P !Status
     deriving stock (Eq, Show)
 
 -- ID3 info
