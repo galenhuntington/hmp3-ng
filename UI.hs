@@ -279,11 +279,9 @@ renderModal st (h, w) mkr = do
         hoffset = max 0 $ (w - mw) `div` 2
         vislines = (h - 5) `min` length modal'
         voffset = ((h - vislines) `div` 2) `max` 4
-    Curses.wMove Curses.stdScr voffset hoffset
-    for_ (take vislines modal') \t -> do
+    for_ (zip [voffset..] $ take vislines modal') \ (y, t) -> do
+        Curses.wMove Curses.stdScr y hoffset
         drawSegment $ Seg st.uiStyle.modals (toWidth mw t)
-        (y', _) <- Curses.getYX Curses.stdScr
-        Curses.wMove Curses.stdScr (y'+1) hoffset
 
 -- | Choose modal to render based on state.
 renderModals :: HState -> (Int, Int) -> IO ()
