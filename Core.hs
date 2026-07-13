@@ -15,7 +15,7 @@ module Core (
     seek, seekStart, adjFolderCol,
     blacklist,
     setsModal, closeModal, showHist,
-    jumpToMatchDir, jumpToMatchFile,
+    search, repeatSearch,
     toggleFocus, jumpToNextDir, jumpToPrevDir,
     loadConfig,
     discardErrors,
@@ -88,7 +88,7 @@ start opts (Playlist folders music) = do
         , modal        = Nothing
         , playHist     = mempty
         , searchHist   = []
-        , searchFw     = True
+        , searchType   = SearchType True True
         , folderCol    = 0.334
         , histSize     = opts.histSize
         , miniFocused  = False
@@ -423,41 +423,42 @@ jumpToDir fn = modifyHS_ \st ->
 
 -- a bit of bounded parametric polymorphism so we can abstract over record selectors
 -- in the regex search stuff below
-class Lookup a       where extract :: a -> RawFilePath
+class Lookup a       where extract :: a -> ByteString
 instance Lookup Dir  where extract = takeFileName . (.dname)
 instance Lookup File where extract = (.fbase)
 
-jumpToMatchFile :: Maybe ByteString -> Bool -> IO ()
-jumpToMatchFile re sw = genericJumpToMatch re sw k sel
-    where k st = (st.music, st.cursor, st.size)
-          sel i _ = i
+setSearchErr :: HState -> ByteString -> HState
+setSearchErr st err = st { minibuffer = [plainSeg err] }
 
-jumpToMatchDir :: Maybe ByteString -> Bool -> IO ()
-jumpToMatchDir re sw = genericJumpToMatch re sw k sel
-    where k st = (st.folders, (st.music ! st.cursor).fdir, length st.folders)
-          sel i st = (st.folders ! i).dlo
+search :: SearchType -> ByteString -> IO ()
+search typ pat = modifyHS_ \st ->
+    dispatchSearch (st { searchType = typ }) pat typ
 
-genericJumpToMatch :: Lookup a
-                   => Maybe ByteString
-                   -> Bool
-                   -> (HState -> (Array Int a, Int, Int))
-                   -> (Int -> HState -> Int)
-                   -> IO ()
-genericJumpToMatch re sw k sel = do
-    mmsg <- modifyHS \st -> either ((st,) . Just) (,Nothing) do
-        (st', pat, forwards) <- case re of
-            Just pat -> Right (st { searchFw = sw }, pat, sw)
-            _        -> case st.searchHist of
-                pat:_ -> Right (st, pat, st.searchFw == sw)
-                _     -> Left "No previous search."
-        let (fs, cur, m) = k st
-            l = if forwards then [cur+1 .. m-1] ++ [0 .. cur]
-                            else [cur-1, cur-2 .. 0] ++ [m-1, m-2 .. cur]
-        match <- maybe (Left "Invalid ERE search pattern.") Right $ matches pat
-        case [ i | i <- l, match $ extract (fs ! i) ] of
-            i:_ -> Right st' { cursor = sel i st }
-            _   -> Left "No match found."
-    whenJust mmsg \msg -> putMessage [plainSeg msg]
+repeatSearch :: Bool -> IO ()
+repeatSearch same = modifyHS_ \st -> case st.searchHist of
+    pat : _ -> dispatchSearch st pat
+        st.searchType { isForwards = st.searchType.isForwards == same }
+    _       -> setSearchErr st "No previous search."
+
+dispatchSearch :: HState -> ByteString -> SearchType -> HState
+dispatchSearch st pat typ =
+    either (setSearchErr st) (\i -> st { cursor = i }) case typ of
+        SearchType True fw ->
+            genericMatch pat fw st.music st.cursor st.size
+        SearchType False fw -> do
+            j <- genericMatch pat fw st.folders (st.music ! st.cursor).fdir
+                $ length st.folders
+            pure (st.folders ! j).dlo
+
+genericMatch :: Lookup a => ByteString -> Bool -> Array Int a -> Int -> Int
+    -> Either ByteString Int
+genericMatch pat fw fs cur sz = do
+    let l = if fw then [cur+1 .. sz-1] ++ [0 .. cur]
+                  else [cur-1, cur-2 .. 0] ++ [sz-1, sz-2 .. cur]
+    match <- maybe (Left "Invalid ERE search pattern.") Right $ matches pat
+    case [ i | i <- l, match $ extract (fs ! i) ] of
+        i : _ -> Right i
+        _     -> Left "No match found."
 
 ------------------------------------------------------------------------
 

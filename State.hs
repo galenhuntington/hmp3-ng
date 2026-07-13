@@ -44,7 +44,7 @@ data HState = HState
     , folderCol       :: !Float                -- portion of width for folders
     , mode            :: !Mode
     , uptime          :: !ByteString
-    , searchFw        :: !Bool                 -- active search direction
+    , searchType      :: !SearchType
     , searchHist      :: ![ByteString]
     , playHist        :: !(Seq (TimeSpec, Int))
     , uiStyle         :: !UIStyle
@@ -54,6 +54,8 @@ instance HasField "size" HState Int where getField hs = length hs.music
 
 data Mode = Once | Loop | Random | Single
     deriving stock (Eq, Bounded, Enum, Show, Read)
+
+data SearchType = SearchType { isFiles :: !Bool, isForwards :: !Bool }
 
 -- Each is (timestamp-string, (song-index, song-name)).
 type HistDisplay = [(ByteString, (Int, ByteString))]

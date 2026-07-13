@@ -17,7 +17,7 @@ import Base
 import Core
 import Elements (package)
 import Keyboard (unkey, charToKey, Key(..), historyKeys)
-import State (getsHS, modifyHS_, KeysHelp, Modal(..), HState(..))
+import State (getsHS, modifyHS_, KeysHelp, Modal(..), HState(..), SearchType(..))
 import Style (plainSeg)
 import Text (dropLastUTF8)
 import UI qualified (getKey, resetui)
@@ -96,9 +96,7 @@ searchMode stype = step where
 
     commit (Zipper ""  _ _) = clearMessage *> leave
     commit (Zipper pat _ _) = do
-        let jumpy = if stype `elem` ['/', '?']
-                    then jumpToMatchFile else jumpToMatchDir
-        jumpy (Just pat) (stype `elem` ['/', '\\'])
+        search (SearchType (stype `elem` ['/', '?']) (stype `elem` ['/', '\\'])) pat
         modifyHS_ \st -> st { searchHist = pat : filter (/= pat) st.searchHist }
         leave
 
@@ -145,8 +143,8 @@ keyTable =
     , ("Cycle through normal, random, loop, and single modes",
                                                   ['m'],                nextMode)
     , ("Refresh the display",                     ['\^L'],              UI.resetui)
-    , ("Repeat last regex search",                ['n'],                jumpToMatchFile Nothing True)
-    , ("Repeat last regex search backwards",      ['N'],                jumpToMatchFile Nothing False)
+    , ("Repeat last regex search",                ['n'],                repeatSearch True)
+    , ("Repeat last regex search backwards",      ['N'],                repeatSearch False)
     , ("Mark for deletion in .hmp3-delete",       ['D'],                blacklist)
     , ("Restart song",                            [unkey KeyBackspace], seekStart)
     , ("Toggle the song history",                 ['H', ';'],           placeholder)
