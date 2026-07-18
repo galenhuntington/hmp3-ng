@@ -17,14 +17,17 @@ import Base
 import Core
 import Elements (package)
 import Keyboard (unkey, charToKey, Key(..), historyKeys)
-import State (getsHS, modifyHS_, KeysHelp, Modal(..), HState(..), SearchType(..))
+import State (getsHS, modifyHS_, KeysHelp, Modal(..), HState(..), SearchType(..), mpgRef, Mpg(..))
 import Style (plainSeg)
 import Text (dropLastUTF8)
 import UI qualified (getKey, resetui)
 
+import Control.Monad.Trans.Maybe
 import Data.ByteString.Char8 qualified as P
 import Data.ByteString.UTF8 qualified as UTF8
 import Data.Map.Strict qualified as M
+import System.Process (getPid)
+import System.Posix.Signals (signalProcess, sigINT)
 
 
 ------------------------------------------------------------------------
@@ -61,18 +64,25 @@ mainMode = KeyMap \c -> getsHS (.modal) >>= \case
             toggleFocus
             hist <- getsHS (.searchHist)
             searchMode c $ Zipper "" hist []
-        | c `elem` ['q', '\^C'] ->
-            forcePause *> setsModal (const $ Just ExitModal) $> mainMode
-        | c `elem` ['H', ';'] ->
-            showHist $> mainMode
         | c >= '1' && c <= '9' ->
             jumpRel (fromIntegral (fromEnum c - 48) / 10) $> mainMode
         | True -> sequence_ (M.lookup c keyMap) $> mainMode
 
 
+-- Helpers
+
 historyKeyMap :: M.Map Char Int
 historyKeyMap = M.fromList $ zip (toList historyKeys) [0..]
 
+askExit :: IO ()
+askExit = setsModal $ const $ Just ExitModal
+
+controlC :: IO ()
+controlC = do
+    mpid <- runMaybeT do
+        mpg <- MaybeT $ readIORef mpgRef
+        MaybeT $ getPid mpg.mpgPH
+    maybe askExit (signalProcess sigINT) mpid
 
 ------------------------------------------------------------------------
 -- Search mode
@@ -147,14 +157,14 @@ keyTable =
     , ("Repeat last regex search backwards",      ['N'],                repeatSearch False)
     , ("Mark for deletion in .hmp3-delete",       ['D'],                blacklist)
     , ("Restart song",                            [unkey KeyBackspace], seekStart)
-    , ("Toggle the song history",                 ['H', ';'],           placeholder)
+    , ("Toggle the song history",                 ['H', ';'],           showHist)
     , ("Search for file matching regex",          ['/'],                placeholder)
     , ("Search backwards for file",               ['?'],                placeholder)
     , ("Search for directory matching regex",     ['\\'],               placeholder)
     , ("Search backwards for directory",          ['|'],                placeholder)
     , ("Change size of folder and file columns",  ['[', ']'],           placeholder)
     , ("Load config file",                        ['l'],                loadConfig)
-    , ("Quit " <> UTF8.fromString package,        ['q'],                placeholder)
+    , ("Quit " <> UTF8.fromString package,        ['q'],                forcePause *> askExit)
     ]
   where placeholder = pure () -- handled separately
 
@@ -167,6 +177,7 @@ quietKeys =
     , (unkey KeySRight,  seek 60)
     , ('[',              adjFolderCol (-1))
     , (']',              adjFolderCol 1)
+    , ('\^C',            controlC)
     ]
 
 -- Compiled dispatch table for normal-mode single-key commands.
