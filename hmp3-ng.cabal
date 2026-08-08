@@ -79,6 +79,7 @@ library
     process,
     random,
     regex-posix,
+    transformers,
     unix >=2.8,
     utf8-string,
 
