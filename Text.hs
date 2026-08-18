@@ -8,16 +8,18 @@ module Text (
     u, matches,
     trim, spaces, guessEncoding, dropLastUTF8,
     readIntM, showInt,
-    displayWidth, toMaxWidth, toWidth
+    displayWidth, toMaxWidth, toWidth,
+    encodeFS,
 ) where
 
 import Base
 
 import Data.ByteString.Char8 qualified as P
 import Data.ByteString.UTF8 qualified as UTF8
-import Text.Regex.Posix (match, makeRegexOptsM, compIgnoreCase, compExtended)
-
 import Foreign.C.Types (CWchar(..), CInt(..))
+import GHC.Foreign qualified as GHC
+import GHC.IO.Encoding (getFileSystemEncoding)
+import Text.Regex.Posix (match, makeRegexOptsM, compIgnoreCase, compExtended)
 
 
 -- | Write u-strings like it's Python 2.
@@ -52,6 +54,12 @@ guessEncoding bs =
 dropLastUTF8 :: ByteString -> ByteString
 dropLastUTF8 = P.dropEnd 1 . P.dropWhileEnd isCB
     where isCB b = b >= '\128' && b < '\192'
+
+-- | Filesystem encoding for CLI (PEP 383).
+encodeFS :: String -> IO ByteString
+encodeFS str = do
+    encoding <- getFileSystemEncoding
+    GHC.withCStringLen encoding str P.packCStringLen
 
 
 -- Width-aware operations on UTF-8 'ByteString's, using libc 'wcwidth'.
