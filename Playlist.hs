@@ -5,11 +5,12 @@
 module Playlist (module Playlist, RawFilePath) where
 
 import Base
-
-import Data.ByteString.Char8 qualified as P
-import Data.Map.Strict qualified as M
+import Text (toText)
 
 import Data.Array
+import Data.ByteString.Char8 qualified as P
+import Data.Map.Strict qualified as M
+import GHC.Records (HasField)
 import System.Posix.FilePath
 import System.Posix.Files.ByteString (getFileStatus, isDirectory, fileAccess)
 import System.Posix.Directory.Traversals (getDirectoryContents)
@@ -21,18 +22,19 @@ type DirArray = Array Int Dir
 -- | The complete list of .mp3 files
 type FileArray = Array Int File
 
--- | A directory entry is the directory name, and a list of bound
--- indicies into the Files array.
-data Dir  =
-    Dir { dname :: !RawFilePath        -- ^ directory name
-        , dsize :: !Int              -- ^ number of file entries
-        , dlo   :: !Int              -- ^ index of first entry
-        , dhi   :: !Int }            -- ^ index of last entry
+type HasText a = HasField "text" a ByteString
 
--- Most data is allocated in this structure
-data File =
-    File { fbase :: !RawFilePath      -- ^ basename of file
-         , fdir  :: !Int }          -- ^ index of Dir entry 
+data Dir = Dir
+    { path  :: !RawFilePath     -- ^ directory name
+    , start :: !Int             -- ^ index of first entry in FileArray
+    , text  :: !ByteString      -- ^ displayed text
+    }
+
+data File = File
+    { base :: !RawFilePath      -- ^ basename of file
+    , dir  :: !Int              -- ^ index of Dir entry
+    , text :: !ByteString       -- ^ displayed text
+    }
 
 data Playlist = Playlist !DirArray !FileArray
 
@@ -81,7 +83,7 @@ make (i,n,acc1,acc2) (d,fs) =
         fs'= map makeFile fs
     in (i+1, n', dir:acc1, reverse fs' ++ acc2)
   where
-    makeFile f = File (takeFileName f) i
+    makeFile f = let fn = takeFileName f in File fn i (toText $ dropExtension fn)
 
 ------------------------------------------------------------------------
 
@@ -107,12 +109,8 @@ expandDir !f = do
 -- into the array
 listToDir :: Int -> RawFilePath -> [RawFilePath] -> (Dir, Int)
 listToDir n d fs = (dir, n') where
-    dir = Dir
-        { dname = dropTrailingPathSeparator d
-        , dsize = len
-        , dlo   = n
-        , dhi   = n + len - 1
-        }
+    path = dropTrailingPathSeparator d
+    dir = Dir { path, start = n, text = toText (takeFileName path) }
     len = length fs
     n'  = n + len
 

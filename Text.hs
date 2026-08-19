@@ -9,6 +9,7 @@ module Text (
     trim, spaces, guessEncoding, dropLastUTF8,
     readIntM, showInt,
     displayWidth, toMaxWidth, toWidth,
+    toText, isLineSafe,
     encodeFS,
 ) where
 
@@ -61,6 +62,18 @@ encodeFS str = do
     encoding <- getFileSystemEncoding
     GHC.withCStringLen encoding str P.packCStringLen
 
+-- | Can file be sent to decoder?
+isLineSafe :: ByteString -> Bool
+isLineSafe = P.all (`notElem` ['\0', '\r', '\n'])
+
+-- | Blot out control characters.
+uncontrol :: Char -> Char
+uncontrol c | isControl c = UTF8.replacement_char
+            | True        = c
+
+-- | ByteString to displayable text.
+toText :: ByteString -> ByteString
+toText = UTF8.fromString . map uncontrol . UTF8.toString
 
 -- Width-aware operations on UTF-8 'ByteString's, using libc 'wcwidth'.
 -- A UTF-8 runtime locale is presumed; counts may differ otherwise.
