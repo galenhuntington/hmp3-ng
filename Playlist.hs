@@ -5,7 +5,7 @@
 module Playlist (module Playlist, RawFilePath) where
 
 import Base
-import Text (toText)
+import Text (toText, isLineSafe)
 
 import Data.Array
 import Data.ByteString.Char8 qualified as P
@@ -44,7 +44,7 @@ data Playlist = Playlist !DirArray !FileArray
 buildPlaylist :: [RawFilePath] -> IO Playlist
 buildPlaylist fs = do
     -- note we will lose the ordering of files given on cmd line.
-    (os, dirs) <- catch @SomeException (sift fs)
+    (os, dirs) <- catch @SomeException (sift $ filter isLineSafe fs)
         \e -> print e *> exitWith (ExitFailure 1)
 
     let loop []     = pure []
@@ -94,7 +94,7 @@ make (i,n,acc1,acc2) (d,fs) =
 --
 expandDir :: RawFilePath -> IO (Maybe (RawFilePath, [RawFilePath]),  [RawFilePath])
 expandDir !f = do
-    ls <- map (f </>) . sort . filter notHidden . map snd
+    ls <- map (f </>) . sort . filter isLineSafe . filter notHidden . map snd
         <$> getDirectoryContents f
     (fs', ds) <- sift ls
     let fs = filter isMp3 fs'
@@ -119,7 +119,7 @@ listToDir n d fs = (dir, n') where
 sift :: [RawFilePath] -> IO ([RawFilePath], [RawFilePath])
 sift []     = pure ([], [])
 sift (p:ps) = do
-    it@(fs,ds) <- sift ps
+    it@(fs, ds) <- sift ps
     isDir <- isDirectory <$> getFileStatus p
     perm <- fileAccess p True False isDir
     pure if
