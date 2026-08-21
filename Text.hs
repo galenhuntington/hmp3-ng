@@ -9,7 +9,7 @@ module Text (
     trim, spaces, guessEncoding, dropLastUTF8,
     readIntM, showInt,
     displayWidth, toMaxWidth, toWidth,
-    toText, isLineSafe,
+    toText, isLineSafe, uncontrol,
     encodeFS,
 ) where
 
@@ -44,9 +44,10 @@ readIntM = fmap fst . P.readInt
 showInt :: Int -> ByteString
 showInt = P.pack . show
 
--- | If seeming ISO-8859-1, convert to UTF-8.
+-- | If seeming ISO-8859-1, convert to UTF-8, and blank control chars.
 guessEncoding :: ByteString -> ByteString
 guessEncoding bs =
+    P.map (uncontrol ' ') $
     if UTF8.replacement_char `elem` UTF8.toString bs
         then UTF8.fromString $ P.unpack bs
         else bs
@@ -56,24 +57,25 @@ dropLastUTF8 :: ByteString -> ByteString
 dropLastUTF8 = P.dropEnd 1 . P.dropWhileEnd isCB
     where isCB b = b >= '\128' && b < '\192'
 
+-- XXX when we drop GHC 9.4 we can use its filepath's function
 -- | Filesystem encoding for CLI (PEP 383).
 encodeFS :: String -> IO ByteString
 encodeFS str = do
-    encoding <- getFileSystemEncoding
-    GHC.withCStringLen encoding str P.packCStringLen
+    enc <- getFileSystemEncoding
+    GHC.withCStringLen enc str P.packCStringLen
 
 -- | Can file be sent to decoder?
 isLineSafe :: ByteString -> Bool
 isLineSafe = P.all (`notElem` ['\0', '\r', '\n'])
 
 -- | Blot out control characters.
-uncontrol :: Char -> Char
-uncontrol c | isControl c = UTF8.replacement_char
-            | True        = c
+uncontrol :: Char -> Char -> Char
+uncontrol sub c | isControl c = sub
+                | True        = c
 
 -- | ByteString to displayable text.
 toText :: ByteString -> ByteString
-toText = UTF8.fromString . map uncontrol . UTF8.toString
+toText = UTF8.fromString . map (uncontrol UTF8.replacement_char) . UTF8.toString
 
 -- Width-aware operations on UTF-8 'ByteString's, using libc 'wcwidth'.
 -- A UTF-8 runtime locale is presumed; counts may differ otherwise.

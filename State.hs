@@ -14,7 +14,7 @@ import Playlist                 (FileArray, DirArray)
 import Style                    (Line, Segment(Seg), UIStyle(warnings))
 
 import Data.ByteString          (hPut)
-import GHC.Records
+import GHC.Records              (HasField(..))
 import System.Clock             (TimeSpec(..))
 import System.IO                (hFlush)
 import System.Process           (ProcessHandle, waitForProcess)
