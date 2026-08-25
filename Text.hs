@@ -44,13 +44,15 @@ readIntM = fmap fst . P.readInt
 showInt :: Int -> ByteString
 showInt = P.pack . show
 
--- | If seeming ISO-8859-1, convert to UTF-8, and blank control chars.
+-- This might save memory in the most common case.
+dedup :: (ByteString -> ByteString) -> ByteString -> ByteString
+dedup f a = let b = f a in if a == b then a else b
+
+-- | If seeming ISO-8859-1, convert to UTF-8.
 guessEncoding :: ByteString -> ByteString
-guessEncoding bs =
-    P.map (uncontrol ' ') $
-    if UTF8.replacement_char `elem` UTF8.toString bs
-        then UTF8.fromString $ P.unpack bs
-        else bs
+guessEncoding = dedup \bs -> UTF8.fromString $ map uncontrol $
+    let s = UTF8.toString bs
+    in if UTF8.replacement_char `elem` s then P.unpack bs else s
 
 -- | Drop last UTF-8 codepoint.
 dropLastUTF8 :: ByteString -> ByteString
@@ -69,13 +71,13 @@ isLineSafe :: ByteString -> Bool
 isLineSafe = P.all (`notElem` ['\0', '\r', '\n'])
 
 -- | Blot out control characters.
-uncontrol :: Char -> Char -> Char
-uncontrol sub c | isControl c = sub
-                | True        = c
+uncontrol :: Char -> Char
+uncontrol c | isControl c = UTF8.replacement_char
+            | True        = c
 
 -- | ByteString to displayable text.
 toText :: ByteString -> ByteString
-toText = UTF8.fromString . map (uncontrol UTF8.replacement_char) . UTF8.toString
+toText = dedup $ UTF8.fromString . map uncontrol . UTF8.toString
 
 -- Width-aware operations on UTF-8 'ByteString's, using libc 'wcwidth'.
 -- A UTF-8 runtime locale is presumed; counts may differ otherwise.

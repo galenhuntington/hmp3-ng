@@ -22,8 +22,6 @@ type DirArray = Array Int Dir
 -- | The complete list of .mp3 files
 type FileArray = Array Int File
 
-type HasText a = HasField "text" a ByteString
-
 data Dir = Dir
     { path  :: !RawFilePath     -- ^ directory name
     , start :: !Int             -- ^ index of first entry in FileArray
@@ -36,11 +34,13 @@ data File = File
     , text :: !ByteString       -- ^ displayed text
     }
 
+class HasField "text" a ByteString => HasText a
+instance HasText Dir
+instance HasText File
+
 data Playlist = Playlist !DirArray !FileArray
 
---
 -- | Given the start directories, populate the dirs and files arrays
---
 buildPlaylist :: [RawFilePath] -> IO Playlist
 buildPlaylist fs = do
     -- note we will lose the ordering of files given on cmd line.

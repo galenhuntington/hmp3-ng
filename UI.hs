@@ -29,7 +29,6 @@ import Keyboard                 (unkey)
 
 import Data.Array               ((!), bounds, Array)
 import Data.Array.Base          (unsafeAt)
-import System.Posix.FilePath    (takeFileName)
 import System.IO                (stderr, hFlush)
 import System.Posix.Signals     (installHandler, Handler(..))
 
@@ -261,7 +260,7 @@ playList buflen DD{ drawWidth=w, drawState=st } =
         : map (Seg sty) v
       where
         sty' = if sty == sty2 || sty == sty3 then sty2 else sty1
-        d = toMaxWidth (indent - 1) $ takeFileName (st.folders ! i).text
+        d = toMaxWidth (indent - 1) (st.folders ! i).text
 
 ------------------------------------------------------------------------
 -- | Write out only the clock lines.
