@@ -9,7 +9,7 @@ module Text (
     trim, spaces, guessEncoding, dropLastUTF8,
     readIntM, showInt,
     displayWidth, toMaxWidth, toWidth,
-    toText, isLineSafe, uncontrol,
+    toText, isLineSafe,
     encodeFS,
 ) where
 
@@ -50,7 +50,7 @@ dedup f a = let b = f a in if a == b then a else b
 
 -- | If seeming ISO-8859-1, convert to UTF-8.
 guessEncoding :: ByteString -> ByteString
-guessEncoding = dedup \bs -> UTF8.fromString $ map uncontrol $
+guessEncoding = dedup \bs -> UTF8.fromString $ map toPrintable $
     let s = UTF8.toString bs
     in if UTF8.replacement_char `elem` s then P.unpack bs else s
 
@@ -70,14 +70,15 @@ encodeFS str = do
 isLineSafe :: ByteString -> Bool
 isLineSafe = P.all (`notElem` ['\0', '\r', '\n'])
 
--- | Blot out control characters.
-uncontrol :: Char -> Char
-uncontrol c | isControl c = UTF8.replacement_char
-            | True        = c
+-- | Blot out control and other unprintable characters.
+toPrintable :: Char -> Char
+toPrintable c
+    | c == '\0' || charWidth c < 0 = UTF8.replacement_char
+    | True                         = c
 
 -- | ByteString to displayable text.
 toText :: ByteString -> ByteString
-toText = dedup $ UTF8.fromString . map uncontrol . UTF8.toString
+toText = dedup $ UTF8.fromString . map toPrintable . UTF8.toString
 
 -- Width-aware operations on UTF-8 'ByteString's, using libc 'wcwidth'.
 -- A UTF-8 runtime locale is presumed; counts may differ otherwise.
