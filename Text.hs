@@ -8,7 +8,7 @@ module Text (
     trim, spaces, guessEncoding, dropLastUTF8,
     readIntM, showInt,
     displayWidth, toMaxWidth, toWidth, byteLength,
-    toText, isLineSafe,
+    fromBS, isLineSafe,
     encodeFS,
     drawText, setXtermTitle
 ) where
@@ -37,11 +37,6 @@ newtype SText = SText ByteString
 -- | Convenient internal combinator.
 unSText :: SText -> ByteString
 unSText (SText bs) = bs
-
-{- workaround: byteLength . == 0
-null :: SText -> Bool
-null = P.null . unSText
--}
 
 -- | Can be used in lieu of 'displayWidth' for known 1-width-character text.
 byteLength :: SText -> Int
@@ -82,8 +77,8 @@ toPrintable c
     | True                         = c
 
 -- | ByteString to displayable text.
-toText :: ByteString -> SText
-toText = dedup $ UTF8.fromString . map toPrintable . UTF8.toString
+fromBS :: ByteString -> SText
+fromBS = dedup $ UTF8.fromString . map toPrintable . UTF8.toString
 
 
 -- ByteString utilities.

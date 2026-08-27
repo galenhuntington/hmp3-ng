@@ -88,9 +88,9 @@ tests = testGroup "Text"
         , testCase "pads after a wide-char content too"
             $ toWidth 5 ("中a")        @?= "中a  "
         ]
-    , testGroup "toText"
-        [ testCase "Unicode"   $ toText (UTF8.fromString "encöde") @?= "encöde"
-        , testCase "bad bytes" $ toText ("no\130b\8y")             @?= "no�b�y"
+    , testGroup "fromBS"
+        [ testCase "Unicode"   $ fromBS (UTF8.fromString "encöde") @?= "encöde"
+        , testCase "bad bytes" $ fromBS ("no\130b\8y")             @?= "no�b�y"
         ]
     ]
 

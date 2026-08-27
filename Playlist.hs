@@ -5,7 +5,7 @@
 module Playlist (module Playlist, RawFilePath) where
 
 import Base
-import Text (toText, isLineSafe, SText)
+import Text (fromBS, isLineSafe, SText)
 
 import Data.Array
 import Data.ByteString.Char8 qualified as P
@@ -83,7 +83,7 @@ make (i,n,acc1,acc2) (d,fs) =
   where
     makeFile f =
         let fn = P.copy (takeFileName f)
-        in File fn i (toText $ dropExtension fn)
+        in File fn i (fromBS $ dropExtension fn)
 
 ------------------------------------------------------------------------
 
@@ -110,7 +110,7 @@ expandDir !f = do
 listToDir :: Int -> RawFilePath -> [RawFilePath] -> (Dir, Int)
 listToDir n d fs = (dir, n') where
     path = dropTrailingPathSeparator d
-    dir = Dir { path, start = n, text = toText (takeFileName path) }
+    dir = Dir { path, start = n, text = fromBS (takeFileName path) }
     len = length fs
     n'  = n + len
 

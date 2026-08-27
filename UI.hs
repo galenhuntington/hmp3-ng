@@ -336,7 +336,7 @@ setXterm :: HState -> IO ()
 setXterm st = setXtermTitle case st.status of
     Playing -> case st.id3 of
         Just id3 -> id3.artist :
-                       if byteLength id3.title == 0 then [] else [": ", id3.title]
+                       if id3.title == "" then [] else [": ", id3.title]
         _        -> [(st.music ! st.current).text]
     Paused  -> ["paused"]
     Stopped -> ["stopped"]

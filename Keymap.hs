@@ -19,7 +19,7 @@ import Elements (package)
 import Keyboard (unkey, charToKey, Key(..), historyKeys)
 import State (getsHS, modifyHS_, KeysHelp, Modal(..), HState(..), SearchType(..), mpgRef, Mpg(..))
 import Style (plainSeg)
-import Text (SText, dropLastUTF8, toText)
+import Text (SText, dropLastUTF8, fromBS)
 import UI qualified (getKey, resetui)
 
 import Control.Monad.Trans.Maybe
@@ -119,7 +119,7 @@ searchMode stype = step where
     leave = toggleFocus $> mainMode
 
 renderSearch :: Char -> Zipper ByteString -> IO ()
-renderSearch prefix z = putMessage [plainSeg $ toText $ prefix `P.cons` z.cur]
+renderSearch prefix z = putMessage [plainSeg $ fromBS $ prefix `P.cons` z.cur]
 
 enter', delete' :: [Char]
 enter'  = ['\n', '\r']
