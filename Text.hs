@@ -1,16 +1,16 @@
 -- Copyright (c) 2019-2026 Galen Huntington
 -- SPDX-License-Identifier: GPL-2.0-or-later
 
--- For various reasons, ByteString is the lingua franca for this app.
 -- This module provides basic text string functions.
 
 module Text (
-    u, matches,
+    SText, matches,
     trim, spaces, guessEncoding, dropLastUTF8,
     readIntM, showInt,
-    displayWidth, toMaxWidth, toWidth,
+    displayWidth, toMaxWidth, toWidth, byteLength,
     toText, isLineSafe,
     encodeFS,
+    unSText, -- uses: setXTermTitle and drawSegment
 ) where
 
 import Base
@@ -20,55 +20,56 @@ import Data.ByteString.UTF8 qualified as UTF8
 import Foreign.C.Types (CWchar(..), CInt(..))
 import GHC.Foreign qualified as GHC
 import GHC.IO.Encoding (getFileSystemEncoding)
-import Text.Regex.Posix (match, makeRegexOptsM, compIgnoreCase, compExtended)
+import Text.Regex.Posix (match, makeRegexOptsM, compIgnoreCase, compExtended, compNoSub)
 
+-- SText type and functions.
 
--- | Write u-strings like it's Python 2.
-u :: String -> ByteString
-u = UTF8.fromString
+-- | Screen/Sanitized/Safe text:
+-- A string of valid UTF-8 with only printable characters.
+newtype SText = SText ByteString
+    deriving stock (Show, Eq, Ord)
+    deriving newtype (Semigroup, Monoid)
 
--- | Strip leading and trailing whitespace.
-trim :: ByteString -> ByteString
-trim = P.dropWhileEnd isSpace . P.dropSpace
+unSText :: SText -> ByteString
+unSText (SText bs) = bs
 
-spaces :: Int -> ByteString
-spaces = flip P.replicate ' '
+{- workaround: byteLength . == 0
+null :: SText -> Bool
+null = P.null . unSText
+-}
+
+-- | Can be used in lieu of 'displayWidth' for known 1-width-character text.
+byteLength :: SText -> Int
+byteLength = P.length . unSText
+
+-- internally this is ByteString.
+instance IsString SText where
+    fromString = SText . UTF8.fromString . map toPrintable
+
+spaces :: Int -> SText
+spaces = SText . flip P.replicate ' '
 
 -- | Swappable API for searching
-matches :: ByteString -> Maybe (ByteString -> Bool)
-matches s = match <$> makeRegexOptsM (compIgnoreCase + compExtended) 0 s
+matches :: ByteString -> Maybe (SText -> Bool)
+matches s = match' <$> makeRegexOptsM (compIgnoreCase + compExtended + compNoSub) 0 s
+    where match' re (SText bs) = match re bs  -- TODO a combinator for this?
 
-readIntM :: ByteString -> Maybe Int
-readIntM = fmap fst . P.readInt
+-- | Possible number.
+readIntM :: SText -> Maybe Int
+readIntM = fmap fst . P.readInt . unSText
 
-showInt :: Int -> ByteString
-showInt = P.pack . show
+showInt :: Int -> SText
+showInt = SText . P.pack . show
 
 -- This might save memory in the most common case.
-dedup :: (ByteString -> ByteString) -> ByteString -> ByteString
-dedup f a = let b = f a in if a == b then a else b
+dedup :: (ByteString -> ByteString) -> ByteString -> SText
+dedup f a = let b = f a in SText $ if a == b then a else b
 
 -- | If seeming ISO-8859-1, convert to UTF-8.
-guessEncoding :: ByteString -> ByteString
+guessEncoding :: ByteString -> SText
 guessEncoding = dedup \bs -> UTF8.fromString $ map toPrintable $
     let s = UTF8.toString bs
     in if UTF8.replacement_char `elem` s then P.unpack bs else s
-
--- | Drop last UTF-8 codepoint.
-dropLastUTF8 :: ByteString -> ByteString
-dropLastUTF8 = P.dropEnd 1 . P.dropWhileEnd isCB
-    where isCB b = b >= '\128' && b < '\192'
-
--- XXX when we drop GHC 9.4 we can use its filepath's function
--- | Filesystem encoding for CLI (PEP 383).
-encodeFS :: String -> IO ByteString
-encodeFS str = do
-    enc <- getFileSystemEncoding
-    GHC.withCStringLen enc str P.packCStringLen
-
--- | Can file be sent to decoder?
-isLineSafe :: ByteString -> Bool
-isLineSafe = P.all (`notElem` ['\0', '\r', '\n'])
 
 -- | Blot out control and other unprintable characters.
 toPrintable :: Char -> Char
@@ -77,31 +78,56 @@ toPrintable c
     | True                         = c
 
 -- | ByteString to displayable text.
-toText :: ByteString -> ByteString
+toText :: ByteString -> SText
 toText = dedup $ UTF8.fromString . map toPrintable . UTF8.toString
 
--- Width-aware operations on UTF-8 'ByteString's, using libc 'wcwidth'.
+
+-- ByteString utilities.
+
+-- | Strip leading and trailing whitespace.
+trim :: ByteString -> ByteString
+trim = P.dropWhileEnd isSpace . P.dropSpace
+
+-- | Drop last UTF-8 codepoint.
+dropLastUTF8 :: ByteString -> ByteString
+dropLastUTF8 = P.dropEnd 1 . P.dropWhileEnd isCB
+    where isCB b = b >= '\128' && b < '\192'
+
+-- | Can file be sent to decoder?
+isLineSafe :: ByteString -> Bool
+isLineSafe = P.all (`notElem` ['\0', '\r', '\n'])
+
+-- XXX when we drop GHC 9.4 we can use its filepath's function
+-- | Filesystem encoding for CLI (PEP 383).
+encodeFS :: String -> IO ByteString
+encodeFS str = do
+    enc <- getFileSystemEncoding
+    GHC.withCStringLen enc str P.packCStringLen
+
+
+-- Width operations on 'SText', using libc 'wcwidth'.
 -- A UTF-8 runtime locale is presumed; counts may differ otherwise.
 
--- | Sum of the column widths of every codepoint in a UTF-8 'ByteString'.
-displayWidth :: ByteString -> Int
-displayWidth = UTF8.foldl (\acc c -> acc + charWidth c) 0
+-- | Sum of the column widths of every codepoint.
+displayWidth :: SText -> Int
+displayWidth = UTF8.foldl (\acc c -> acc + charWidth c) 0 . unSText
 
 -- | These functions truncate with ellipses if needed to get width ≤'w'.
 -- 'toWidth' adds padding as needed so the width is exactly 'w'.
-toMaxWidth, toWidth :: Int -> ByteString -> ByteString
+toMaxWidth, toWidth :: Int -> SText -> SText
 toMaxWidth = sizer False
 toWidth = sizer True
 
-sizer :: Bool -> Int -> ByteString -> ByteString
-sizer pad w bs
-    | dw <= w = if pad then bs <> P.replicate (w-dw) ' ' else bs
-    | True    = walk 0 bs
+sizer :: Bool -> Int -> SText -> SText
+sizer pad w s
+    | dw <= w = if pad then s <> spaces (w-dw) else s
+    | True    = walk 0 (unSText s)
   where
-    dw = displayWidth bs
+    dw = displayWidth s
+    byteTake i = SText . P.take i . unSText
     walk !l rest
-        | l' >= w = P.take (P.length bs - P.length rest) bs
-                        <> mconcat (replicate (w-l) $ UTF8.fromString "…")
+        | l' >= w = byteTake (byteLength s - P.length rest) s
+                        <> mconcat (replicate (w-l) "…")
         | True    = walk l' rest'
       where
         (c, rest') = fromJust $ UTF8.uncons rest -- can't be at end since dw>w

@@ -10,7 +10,7 @@ module Decoder (
 ) where
 
 import Base
-import Text (trim, readIntM, showInt, guessEncoding)
+import Text (SText, trim, readIntM, showInt, guessEncoding, byteLength, toText)
 
 import Data.ByteString.Char8 qualified as P
 
@@ -32,15 +32,15 @@ cmdToBS Quit     = "Q"
 ------------------------------------------------------------------------
 -- Receive messages from mpg123
 
-data Msg = I !Id3 | S !ByteString | F !Frame | P !Status
+data Msg = I !Id3 | S !SText | F !Frame | P !Status
     deriving stock (Eq, Show)
 
 -- ID3 info
 data Id3 = Id3
-    { title  :: !ByteString
-    , artist :: !ByteString
-    , album  :: !ByteString
-    , str    :: !ByteString
+    { title  :: !SText
+    , artist :: !SText
+    , album  :: !SText
+    , str    :: !SText
     --  , year   :: Maybe ByteString
     --  , genre  :: Maybe ByteString }
     } deriving stock (Eq, Show)
@@ -87,7 +87,7 @@ doF s = do
 --  11 = extension (int)
 doS :: ByteString -> Maybe Msg
 doS s = do
-    let fs = P.split ' ' s
+    let fs = map toText $ P.split ' ' s
     guard $ length fs >= 11
     hz <- readIntM $ fs !! 2
     pure $ S $ mconcat [
@@ -98,7 +98,7 @@ doI :: ByteString -> Maybe Msg
 doI s = I <$> do
     ("ID3:", info) <- pure $ P.splitAt 4 s
     let id3 = parseId3 info
-    guard $ not $ P.null $ id3.title -- title sometimes empty
+    guard $ byteLength id3.title /= 0 -- title sometimes empty
     pure id3
 
 -- Format: title (30), author (30), album (30), year (4), comment (30), genre
@@ -109,7 +109,7 @@ parseId3 = toId . cut where
           | True     = let (a, xs) = P.splitAt 30 f
                        in guessEncoding (trim a) : cut xs
     toId ls = Id3 (arg 0) (arg 1) (arg 2) $ mconcat $ intersperse " : "
-        $ filter (not . P.null) [arg 1, arg 2, arg 0]
+        $ filter (\s -> byteLength s /= 0) [arg 1, arg 2, arg 0]
       where arg = fromMaybe "" . (ls !?)
 
 -- Parse line; on failure, return Just only if error to report.

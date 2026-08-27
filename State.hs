@@ -12,6 +12,7 @@ import Base
 import Decoder                  (Status, Frame, Id3, Cmd, cmdToBS, mp3Tool)
 import Playlist                 (FileArray, DirArray)
 import Style                    (Line, Segment(Seg), UIStyle(warnings))
+import Text                     (SText)
 
 import Data.ByteString          (hPut)
 import GHC.Records              (HasField(..))
@@ -36,14 +37,14 @@ data HState = HState
     , randomGen       :: !StdGen               -- random seed
     , spawns          :: !Integer              -- count of decoder spawns
     , id3             :: !(Maybe Id3)          -- maybe mp3 id3 info
-    , info            :: !(Maybe ByteString)   -- mp3 info
+    , info            :: !(Maybe SText)        -- mp3 info
     , status          :: !Status
     , minibuffer      :: !Line                 -- contents of minibuffer
     , modal           :: !(Maybe Modal)        -- modal visible
     , miniFocused     :: !Bool                 -- is the mini buffer focused?
     , folderCol       :: !Float                -- portion of width for folders
     , mode            :: !Mode
-    , uptime          :: !ByteString
+    , uptime          :: !SText     
     , searchType      :: !SearchType
     , searchHist      :: ![ByteString]
     , playHist        :: !(Seq (TimeSpec, Int))
@@ -58,10 +59,10 @@ data Mode = Once | Loop | Random | Single
 data SearchType = SearchType { isFiles :: !Bool, isForwards :: !Bool }
 
 -- Each is (timestamp-string, (song-index, song-name)).
-type HistDisplay = [(ByteString, (Int, ByteString))]
+type HistDisplay = [(SText, (Int, SText))]
 
 -- (list-of-keys, description)
-type KeysHelp = ([Char], ByteString)
+type KeysHelp = ([Char], SText)
 
 data Modal = HelpModal ![KeysHelp] | ExitModal | HistModal !HistDisplay
 

@@ -27,7 +27,7 @@ import Decoder
 import State
 import Style
 import Playlist
-import Text (matches)
+import Text (matches, SText)
 import UI qualified
 import Elements qualified as El
 
@@ -421,7 +421,7 @@ jumpToDir fn = modifyHS_ \st ->
 
 ------------------------------------------------------------------------
 
-setSearchErr :: HState -> ByteString -> HState
+setSearchErr :: HState -> SText -> HState
 setSearchErr st err = st { minibuffer = [plainSeg err] }
 
 search :: SearchType -> ByteString -> IO ()
@@ -446,7 +446,7 @@ dispatchSearch st pat typ =
 
 genericMatch :: HasText a
     => ByteString -> Bool -> Array Int a -> Int -> Int
-    -> Either ByteString Int
+    -> Either SText Int
 genericMatch pat fw fs cur sz = do
     let l = if fw then [cur+1 .. sz-1] ++ [0 .. cur]
                   else [cur-1, cur-2 .. 0] ++ [sz-1, sz-2 .. cur]
@@ -548,5 +548,5 @@ clearMessage = putMessage []
 warnA :: String -> IO ()
 warnA x = do
     sty <- getsHS (.uiStyle.warnings)
-    putMessage [Seg sty (P.pack x)]
+    putMessage [Seg sty (fromString x)]
 

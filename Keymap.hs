@@ -19,12 +19,11 @@ import Elements (package)
 import Keyboard (unkey, charToKey, Key(..), historyKeys)
 import State (getsHS, modifyHS_, KeysHelp, Modal(..), HState(..), SearchType(..), mpgRef, Mpg(..))
 import Style (plainSeg)
-import Text (dropLastUTF8)
+import Text (SText, dropLastUTF8, toText)
 import UI qualified (getKey, resetui)
 
 import Control.Monad.Trans.Maybe
 import Data.ByteString.Char8 qualified as P
-import Data.ByteString.UTF8 qualified as UTF8
 import Data.Map.Strict qualified as M
 import System.Process (getPid)
 import System.Posix.Signals (signalProcess, sigINT)
@@ -120,7 +119,7 @@ searchMode stype = step where
     leave = toggleFocus $> mainMode
 
 renderSearch :: Char -> Zipper ByteString -> IO ()
-renderSearch prefix z = putMessage [plainSeg $ prefix `P.cons` z.cur]
+renderSearch prefix z = putMessage [plainSeg $ toText $ prefix `P.cons` z.cur]
 
 enter', delete' :: [Char]
 enter'  = ['\n', '\r']
@@ -130,7 +129,7 @@ delete' = ['\BS', '\DEL', unkey KeyBackspace]
 ------------------------------------------------------------------------
 -- The keymap with help descriptions and actions.
 
-keyTable :: [(ByteString, [Char], IO ())]
+keyTable :: [(SText, [Char], IO ())]
 keyTable =
     [ ("Move up",                                 ['k',unkey KeyUp],    upOne)
     , ("Move down",                               ['j',unkey KeyDown],  downOne)
@@ -164,7 +163,7 @@ keyTable =
     , ("Search backwards for directory",          ['|'],                placeholder)
     , ("Change size of folder and file columns",  ['[', ']'],           placeholder)
     , ("Load config file",                        ['l'],                loadConfig)
-    , ("Quit " <> UTF8.fromString package,        ['q'],                forcePause *> askExit)
+    , ("Quit " <> fromString package,             ['q'],                forcePause *> askExit)
     ]
   where placeholder = pure () -- handled separately
 

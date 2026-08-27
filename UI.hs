@@ -14,18 +14,17 @@ module UI (
     -- * Input
     getKey,
     -- * Tool
-    u,
   ) where
 
 import Base
 import Elements as El
 import Style
-import Playlist                 (File(dir, text), Dir(text))
+import Playlist (File(dir, text), Dir(text))
 import State
 import Decoder
-import Text                     (u, displayWidth, toMaxWidth, toWidth, spaces, showInt)
+import Text (SText, displayWidth, toMaxWidth, byteLength, toWidth, spaces, showInt, unSText)
 import UI.HSCurses.Curses qualified as Curses
-import Keyboard                 (unkey)
+import Keyboard (unkey)
 
 import Data.Array               ((!), bounds, Array)
 import Data.Array.Base          (unsafeAt)
@@ -151,13 +150,13 @@ pPlaying dd = pure $ plainSeg $ "  " <> mconcat line where
     b = fromMaybe "" dd.drawState.info  -- mp3 info
     line | gap >= 0 = a : spaces gap : right
          | True     = toMaxWidth lim a : right
-        where lim = x - 5 - (if showId3 then P.length b else -1)
+        where lim = x - 5 - (if showId3 then displayWidth b else -1)
               gap = lim - displayWidth a
               showId3 = x > 59
               right = if showId3 then [" ", b] else []
 
 -- | Id3 info
-pId3 :: DrawData -> ByteString
+pId3 :: DrawData -> SText
 pId3 DD{drawState=st} = maybe (st.music ! st.current).text (.str) st.id3
 
 ------------------------------------------------------------------------
@@ -191,11 +190,11 @@ pMode dd = take 4 $ map toLower $ show dd.drawState.mode
 ------------------------------------------------------------------------
 
 -- | "x/n dirs y/m files" cursor position read-out.
-playInfo :: DrawData -> ByteString
+playInfo :: DrawData -> SText
 playInfo DD{drawState=st} = mconcat
-    [ spaces (P.length numd - P.length curd)
+    [ spaces (byteLength numd - byteLength curd)
     , curd, "/", numd, " dirs"
-    , spaces (1 + P.length numf - P.length curf)
+    , spaces (1 + byteLength numf - byteLength curf)
     , curf, "/", numf, " files"
     ]
   where
@@ -228,7 +227,7 @@ playList buflen DD{ drawWidth=w, drawState=st } =
     visible = slice off (off + buflen - 1) st.music
         where off = screens * buflen
 
-    visible' :: [(Maybe Int, ByteString)]
+    visible' :: [(Maybe Int, SText)]
     visible' = loop (-1) visible where
         loop _ []     = []
         loop n (v:vs) =
@@ -242,8 +241,7 @@ playList buflen DD{ drawWidth=w, drawState=st } =
     (sty1, sty2, sty3) = (cs.selected, cs.cursors, cs.combined)
         where cs = st.uiStyle
 
-    color :: ((Maybe Int, ByteString), Int)
-                -> (Maybe Int, (Style, [ByteString]))
+    color :: ((Maybe Int, SText), Int) -> (Maybe Int, (Style, [SText]))
     color ((m, s), i) = (m,) case (i == select, i == playing) of
         (True, True) -> f sty3
         (True, _)    -> f sty2
@@ -252,7 +250,7 @@ playList buflen DD{ drawWidth=w, drawState=st } =
       where
         f sty = (sty, [s, spaces (w - indent - 1 - displayWidth s)])
 
-    drawIt :: (Maybe Int, (Style, [ByteString])) -> Line
+    drawIt :: (Maybe Int, (Style, [SText])) -> Line
     drawIt (Nothing, (sty, v)) =
         map (Seg sty) $ spaces (1 + indent) : v
     drawIt (Just i, (sty, v)) = Seg sty' d
@@ -322,8 +320,8 @@ drawLine = traverse_ drawSegment
 
 -- | Write a single styled UTF-8 segment.  Safe because C only reads the bytes.
 drawSegment :: Segment -> IO ()
-drawSegment (Seg sty bs) = withStyle sty $ void $
-    P.unsafeUseAsCStringLen bs \(cstr, len) ->
+drawSegment (Seg sty s) = withStyle sty $ void $
+    P.unsafeUseAsCStringLen (unSText s) \(cstr, len) ->
         waddnstr Curses.stdScr cstr (fromIntegral len)
 
 ------------------------------------------------------------------------
@@ -342,9 +340,9 @@ slice i j arr =
 ------------------------------------------------------------------------
 
 -- | magics for setting xterm titles using ansi escape sequences
-setXtermTitle :: [ByteString] -> IO ()
+setXtermTitle :: [SText] -> IO ()
 setXtermTitle strs = do
-    traverse_ (P.hPut stderr) (before : strs ++ [after])
+    traverse_ (P.hPut stderr) (before : map unSText strs ++ [after])
     hFlush stderr 
   where
     before = "\ESC]0;"
@@ -357,7 +355,7 @@ setXterm :: HState -> IO ()
 setXterm st = setXtermTitle case st.status of
     Playing -> case st.id3 of
         Just id3 -> id3.artist :
-                       if P.null id3.title then [] else [": ", id3.title]
+                       if byteLength id3.title == 0 then [] else [": ", id3.title]
         _        -> [(st.music ! st.current).text]
     Paused  -> ["paused"]
     Stopped -> ["stopped"]

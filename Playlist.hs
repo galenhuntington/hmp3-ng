@@ -5,7 +5,7 @@
 module Playlist (module Playlist, RawFilePath) where
 
 import Base
-import Text (toText, isLineSafe)
+import Text (toText, isLineSafe, SText)
 
 import Data.Array
 import Data.ByteString.Char8 qualified as P
@@ -22,18 +22,18 @@ type DirArray = Array Int Dir
 -- | The complete list of .mp3 files
 type FileArray = Array Int File
 
-type HasText a = HasField "text" a ByteString
+type HasText a = HasField "text" a SText
 
 data Dir = Dir
     { path  :: !RawFilePath     -- ^ directory name
     , start :: !Int             -- ^ index of first entry in FileArray
-    , text  :: !ByteString      -- ^ displayed text
+    , text  :: !SText           -- ^ displayed text
     }
 
 data File = File
     { base :: !RawFilePath      -- ^ basename of file
     , dir  :: !Int              -- ^ index of Dir entry
-    , text :: !ByteString       -- ^ displayed text
+    , text :: !SText            -- ^ displayed text
     }
 
 data Playlist = Playlist !DirArray !FileArray
