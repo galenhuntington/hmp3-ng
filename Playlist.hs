@@ -22,6 +22,8 @@ type DirArray = Array Int Dir
 -- | The complete list of .mp3 files
 type FileArray = Array Int File
 
+type HasText a = HasField "text" a ByteString
+
 data Dir = Dir
     { path  :: !RawFilePath     -- ^ directory name
     , start :: !Int             -- ^ index of first entry in FileArray
@@ -33,10 +35,6 @@ data File = File
     , dir  :: !Int              -- ^ index of Dir entry
     , text :: !ByteString       -- ^ displayed text
     }
-
-class HasField "text" a ByteString => HasText a
-instance HasText Dir
-instance HasText File
 
 data Playlist = Playlist !DirArray !FileArray
 
