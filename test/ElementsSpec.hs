@@ -7,7 +7,7 @@ import Data.ByteString.Char8 qualified as P
 import System.Clock (TimeSpec(..))
 
 import Base
-import Text (displayWidth)
+import Text (displayWidth, toText)
 import Elements (showDuration, fitLCR, layoutLCR, Fit(..))
 
 tests :: TestTree
@@ -68,7 +68,7 @@ fitTests = sequence_ do
                 let a = padL + (if wide then lsz else 0)
                     b = padR + (if wide then rsz else 0)
                 in a == b || a + 1 == b
-        let s = layoutLCR w (P.replicate lsz 'x', replicate csz 'x', P.replicate rsz 'x')
+        let s = layoutLCR w (toText $ P.replicate lsz 'x', replicate csz 'x', toText $ P.replicate rsz 'x')
         assertEqual ("String width: " ++ show inp ++ " -> " ++ show s) w
             $ displayWidth s
 
