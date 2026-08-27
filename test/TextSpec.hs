@@ -91,6 +91,8 @@ tests = testGroup "Text"
     , testGroup "fromBS"
         [ testCase "Unicode"   $ fromBS (UTF8.fromString "encöde") @?= "encöde"
         , testCase "bad bytes" $ fromBS ("no\130b\8y")             @?= "no�b�y"
+        , testCase "bad bytes" $ fromBS ("no\130bsy")              @?= "no�bsy"
+        , testCase "control"   $ fromBS ("nob\8dy")                @?= "nob�dy"
         ]
     ]
 

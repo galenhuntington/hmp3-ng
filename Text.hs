@@ -43,7 +43,7 @@ byteLength :: SText -> Int
 byteLength = P.length . unSText
 
 instance IsString SText where
-    fromString = SText . UTF8.fromString . map toPrintable
+    fromString = SText . UTF8.fromString . toPrintable
 
 spaces :: Int -> SText
 spaces = SText . flip P.replicate ' '
@@ -60,25 +60,27 @@ readIntM = fmap fst . P.readInt . unSText
 showInt :: Int -> SText
 showInt = SText . P.pack . show
 
--- This might save memory in the most common case.
-dedup :: (ByteString -> ByteString) -> ByteString -> SText
-dedup f a = let b = f a in SText $ if a == b then a else b
-
 -- | If seeming ISO-8859-1, convert to UTF-8.
 guessEncoding :: ByteString -> SText
-guessEncoding = dedup \bs -> UTF8.fromString $ map toPrintable $
-    let s = UTF8.toString bs
-    in if UTF8.replacement_char `elem` s then P.unpack bs else s
+guessEncoding bs =
+    if UTF8.replacement_char `elem` UTF8.toString bs
+        then fromString $ P.unpack bs else fromBS bs
+
+-- | Test if printable according to wcwidth.
+isPrintable :: Char -> Bool
+isPrintable c = c /= '\0' && charWidth c >= 0
 
 -- | Blot out control and other unprintable characters.
-toPrintable :: Char -> Char
-toPrintable c
-    | c == '\0' || charWidth c < 0 = UTF8.replacement_char
-    | True                         = c
+toPrintable :: String -> String
+toPrintable = map \c -> if isPrintable c then c else UTF8.replacement_char
 
 -- | ByteString to displayable text.
+-- Pre-checks for common case of already printable.
 fromBS :: ByteString -> SText
-fromBS = dedup $ UTF8.fromString . map toPrintable . UTF8.toString
+fromBS bs = SText $
+    if P.null bad then bs else UTF8.fromString $ toPrintable $ UTF8.toString bs
+  where
+    (_, bad) = UTF8.span (\c -> c /= UTF8.replacement_char && isPrintable c) bs
 
 
 -- ByteString utilities.
