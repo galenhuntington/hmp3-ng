@@ -20,7 +20,7 @@ module UI (
 import Base
 import Elements as El
 import Style
-import Playlist                 (File(fdir, fbase), Dir(dname))
+import Playlist                 (File(dir, text), Dir(text))
 import State
 import Decoder
 import Text                     (u, displayWidth, toMaxWidth, toWidth, spaces, showInt)
@@ -29,7 +29,6 @@ import Keyboard                 (unkey)
 
 import Data.Array               ((!), bounds, Array)
 import Data.Array.Base          (unsafeAt)
-import System.Posix.FilePath    (takeFileName)
 import System.IO                (stderr, hFlush)
 import System.Posix.Signals     (installHandler, Handler(..))
 
@@ -159,7 +158,7 @@ pPlaying dd = pure $ plainSeg $ "  " <> mconcat line where
 
 -- | Id3 info
 pId3 :: DrawData -> ByteString
-pId3 DD{drawState=st} = maybe (st.music ! st.current).fbase (.str) st.id3
+pId3 DD{drawState=st} = maybe (st.music ! st.current).text (.str) st.id3
 
 ------------------------------------------------------------------------
 
@@ -202,7 +201,7 @@ playInfo DD{drawState=st} = mconcat
   where
     curf  = showInt $ st.cursor + 1
     numf  = showInt $ st.size
-    curd  = showInt $ (st.music ! st.cursor).fdir + 1
+    curd  = showInt $ (st.music ! st.cursor).dir + 1
     numd  = showInt $ length $ st.folders
 
 -- | The top title bar: cursor position + play indicator + uptime + version.
@@ -233,8 +232,8 @@ playList buflen DD{ drawWidth=w, drawState=st } =
     visible' = loop (-1) visible where
         loop _ []     = []
         loop n (v:vs) =
-            let r = if v.fdir > n then Just v.fdir else Nothing
-            in (r, toMaxWidth (w - indent - 1) v.fbase) : loop v.fdir vs
+            let r = if v.dir > n then Just v.dir else Nothing
+            in (r, toMaxWidth (w - indent - 1) v.text) : loop v.dir vs
 
     list   = [ drawIt . color $ n | n <- zip visible' [0..] ]
 
@@ -261,7 +260,7 @@ playList buflen DD{ drawWidth=w, drawState=st } =
         : map (Seg sty) v
       where
         sty' = if sty == sty2 || sty == sty3 then sty2 else sty1
-        d = toMaxWidth (indent - 1) $ takeFileName (st.folders ! i).dname
+        d = toMaxWidth (indent - 1) (st.folders ! i).text
 
 ------------------------------------------------------------------------
 -- | Write out only the clock lines.
@@ -359,7 +358,7 @@ setXterm st = setXtermTitle case st.status of
     Playing -> case st.id3 of
         Just id3 -> id3.artist :
                        if P.null id3.title then [] else [": ", id3.title]
-        _        -> [(st.music ! st.current).fbase]
+        _        -> [(st.music ! st.current).text]
     Paused  -> ["paused"]
     Stopped -> ["stopped"]
 

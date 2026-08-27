@@ -8,16 +8,19 @@ module Text (
     u, matches,
     trim, spaces, guessEncoding, dropLastUTF8,
     readIntM, showInt,
-    displayWidth, toMaxWidth, toWidth
+    displayWidth, toMaxWidth, toWidth,
+    toText, isLineSafe,
+    encodeFS,
 ) where
 
 import Base
 
 import Data.ByteString.Char8 qualified as P
 import Data.ByteString.UTF8 qualified as UTF8
-import Text.Regex.Posix (match, makeRegexOptsM, compIgnoreCase, compExtended)
-
 import Foreign.C.Types (CWchar(..), CInt(..))
+import GHC.Foreign qualified as GHC
+import GHC.IO.Encoding (getFileSystemEncoding)
+import Text.Regex.Posix (match, makeRegexOptsM, compIgnoreCase, compExtended)
 
 
 -- | Write u-strings like it's Python 2.
@@ -41,18 +44,41 @@ readIntM = fmap fst . P.readInt
 showInt :: Int -> ByteString
 showInt = P.pack . show
 
+-- This might save memory in the most common case.
+dedup :: (ByteString -> ByteString) -> ByteString -> ByteString
+dedup f a = let b = f a in if a == b then a else b
+
 -- | If seeming ISO-8859-1, convert to UTF-8.
 guessEncoding :: ByteString -> ByteString
-guessEncoding bs =
-    if UTF8.replacement_char `elem` UTF8.toString bs
-        then UTF8.fromString $ P.unpack bs
-        else bs
+guessEncoding = dedup \bs -> UTF8.fromString $ map toPrintable $
+    let s = UTF8.toString bs
+    in if UTF8.replacement_char `elem` s then P.unpack bs else s
 
 -- | Drop last UTF-8 codepoint.
 dropLastUTF8 :: ByteString -> ByteString
 dropLastUTF8 = P.dropEnd 1 . P.dropWhileEnd isCB
     where isCB b = b >= '\128' && b < '\192'
 
+-- XXX when we drop GHC 9.4 we can use its filepath's function
+-- | Filesystem encoding for CLI (PEP 383).
+encodeFS :: String -> IO ByteString
+encodeFS str = do
+    enc <- getFileSystemEncoding
+    GHC.withCStringLen enc str P.packCStringLen
+
+-- | Can file be sent to decoder?
+isLineSafe :: ByteString -> Bool
+isLineSafe = P.all (`notElem` ['\0', '\r', '\n'])
+
+-- | Blot out control and other unprintable characters.
+toPrintable :: Char -> Char
+toPrintable c
+    | c == '\0' || charWidth c < 0 = UTF8.replacement_char
+    | True                         = c
+
+-- | ByteString to displayable text.
+toText :: ByteString -> ByteString
+toText = dedup $ UTF8.fromString . map toPrintable . UTF8.toString
 
 -- Width-aware operations on UTF-8 'ByteString's, using libc 'wcwidth'.
 -- A UTF-8 runtime locale is presumed; counts may differ otherwise.
@@ -84,6 +110,6 @@ sizer pad w bs
 charWidth :: Char -> Int
 charWidth = fromIntegral . wcwidth . toEnum . fromEnum
 
-foreign import ccall safe
+foreign import ccall unsafe
     wcwidth :: CWchar -> CInt
 

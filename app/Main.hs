@@ -11,11 +11,10 @@ import Core     (start, shutdown, Options(..))
 import Elements (fullVersion)
 import Keymap   (keyLoop)
 import Playlist (buildPlaylist, isEmpty)
+import Text     (encodeFS)
 
 import System.Posix.Signals (installHandler, Handler(Ignore, Default, Catch),
                              sigTERM, sigPIPE, sigINT, sigHUP , sigALRM, sigABRT)
-
-import Data.ByteString.UTF8 qualified as UTF8
 
 import Options.Applicative
 
@@ -45,7 +44,7 @@ releaseSignals =
 -- | Command-line parsing.
 
 -- | The options together with the file/directory arguments.
-invocation :: Parser (Options, [ByteString])
+invocation :: Parser (Options, [String])
 invocation = (,) <$> opts <*> files
   where
     opts = Options
@@ -61,9 +60,9 @@ invocation = (,) <$> opts <*> files
             long "history" <> short 'h' <> metavar "NUM" <> value 61
                 <> help "Size of play history, up to 61 selectable" <> showDefault)
         <*> switch (long "random" <> help "Start on a random song")
-    files = some $ argument (UTF8.fromString <$> str) (metavar "FILE|DIR...")
+    files = some $ argument str (metavar "FILE|DIR...")
 
-parserInfo :: ParserInfo (Options, [ByteString])
+parserInfo :: ParserInfo (Options, [String])
 parserInfo = info (invocation <**> versionOpt <**> helper) $
        fullDesc
     <> header fullVersion
@@ -85,7 +84,7 @@ prefixMatch s =
 main :: IO ()
 main = do
     (opts, args) <- customExecParser (prefs showHelpOnEmpty) parserInfo
-    list <- buildPlaylist args
+    list <- buildPlaylist =<< traverse encodeFS args
     when (isEmpty list) $
         errorWithoutStackTrace "Error: No music files found."
     initSignals

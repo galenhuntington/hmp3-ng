@@ -3,7 +3,7 @@
 -- SPDX-License-Identifier: GPL-2.0-or-later
 
 --
--- | Main module. 
+-- | Main module.
 --
 module Core (
     Options(..),
@@ -45,7 +45,7 @@ import System.IO                (hPutStrLn, stderr)
 import System.Process           (runInteractiveProcess, waitForProcess)
 import System.Random            (randomR, newStdGen)
 import System.FilePath qualified as FP ((</>))
-import System.Posix.FilePath    (takeFileName, (</>))
+import System.Posix.FilePath    ((</>))
 import System.Posix.Process     (exitImmediately)
 
 
@@ -299,7 +299,7 @@ blacklist = do
     st <- getsHS id
     appendFile ".hmp3-delete" . (++"\n") . P.unpack $
         let fe = st.music ! st.cursor
-        in (st.folders ! fe.fdir).dname </> fe.fbase
+        in (st.folders ! fe.dir).path </> fe.base
 
 ------------------------------------------------------------------------
 
@@ -377,7 +377,7 @@ runPlayOp op = do
         forM mnew \new -> do
             HState { .. } <- get
             let fe = music ! new
-                f  = (folders ! fe.fdir).dname </> fe.fbase
+                f  = (folders ! fe.dir).path </> fe.base
             modify' \st -> st
                 { current  = new
                 , status   = Playing
@@ -415,17 +415,11 @@ jumpToPrevDir = jumpToDir (\i _   -> max (i-1) 0)
 -- | Generic jump to dir
 jumpToDir :: (Int -> Int -> Int) -> IO ()
 jumpToDir fn = modifyHS_ \st ->
-    let i   = (st.music ! st.cursor).fdir
+    let i   = (st.music ! st.cursor).dir
         d   = fn i (length st.folders)
-    in st { cursor = (st.folders ! d).dlo }
+    in st { cursor = (st.folders ! d).start }
 
 ------------------------------------------------------------------------
-
--- a bit of bounded parametric polymorphism so we can abstract over record selectors
--- in the regex search stuff below
-class Lookup a       where extract :: a -> ByteString
-instance Lookup Dir  where extract = takeFileName . (.dname)
-instance Lookup File where extract = (.fbase)
 
 setSearchErr :: HState -> ByteString -> HState
 setSearchErr st err = st { minibuffer = [plainSeg err] }
@@ -446,17 +440,18 @@ dispatchSearch st pat typ =
         SearchType True fw ->
             genericMatch pat fw st.music st.cursor st.size
         SearchType False fw -> do
-            j <- genericMatch pat fw st.folders (st.music ! st.cursor).fdir
+            j <- genericMatch pat fw st.folders (st.music ! st.cursor).dir
                 $ length st.folders
-            pure (st.folders ! j).dlo
+            pure (st.folders ! j).start
 
-genericMatch :: Lookup a => ByteString -> Bool -> Array Int a -> Int -> Int
+genericMatch :: HasText a
+    => ByteString -> Bool -> Array Int a -> Int -> Int
     -> Either ByteString Int
 genericMatch pat fw fs cur sz = do
     let l = if fw then [cur+1 .. sz-1] ++ [0 .. cur]
                   else [cur-1, cur-2 .. 0] ++ [sz-1, sz-2 .. cur]
     match <- maybe (Left "Invalid ERE search pattern.") Right $ matches pat
-    case [ i | i <- l, match $ extract (fs ! i) ] of
+    case [ i | i <- l, match (fs ! i).text ] of
         i : _ -> Right i
         _     -> Left "No match found."
 
@@ -475,7 +470,7 @@ showHist :: IO ()
 showHist = do
     now <- getMonoTime
     setsModal \st -> Just $ HistModal [
-        (El.showDuration True (now - tm), (ix, (st.music ! ix).fbase))
+        (El.showDuration True (now - tm), (ix, (st.music ! ix).text))
             | (tm, ix) <- toList st.playHist ]
 
 -- | Focus the minibuffer

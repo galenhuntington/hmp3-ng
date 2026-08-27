@@ -44,6 +44,7 @@ tests = testGroup "Text"
         [ testCase "ASCII"    $ guessEncoding "abc"         @?= "abc"
         , testCase "ISO-8859" $ guessEncoding "encöde"      @?= u"encöde"
         , testCase "UTF-8"    $ guessEncoding (u"encöde")   @?= u"encöde"
+        , testCase "control"  $ guessEncoding (u"en\3öde")  @?= u"en�öde"
         ]
     , testGroup "displayWidth"
         [ testCase "empty"             $ displayWidth ""              @?= 0
@@ -85,6 +86,10 @@ tests = testGroup "Text"
             $ toWidth 4 "hello"        @?= u"hel…"
         , testCase "pads after a wide-char content too"
             $ toWidth 5 (u"中a")       @?= u"中a  "
+        ]
+    , testGroup "toText"
+        [ testCase "Unicode"   $ toText (u"encöde")     @?= u"encöde"
+        , testCase "bad bytes" $ toText ("no\130b\8y")  @?= u"no�b�y"
         ]
     ]
 

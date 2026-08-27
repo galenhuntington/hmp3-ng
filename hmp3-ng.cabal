@@ -26,6 +26,7 @@ common opts
   default-language: GHC2021
   default-extensions:
     BlockArguments
+    DuplicateRecordFields
     MultiWayIf
     NoFieldSelectors
     OverloadedRecordDot
