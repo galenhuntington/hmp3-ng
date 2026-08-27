@@ -44,7 +44,7 @@ data HState = HState
     , miniFocused     :: !Bool                 -- is the mini buffer focused?
     , folderCol       :: !Float                -- portion of width for folders
     , mode            :: !Mode
-    , uptime          :: !SText     
+    , uptime          :: !SText
     , searchType      :: !SearchType
     , searchHist      :: ![ByteString]
     , playHist        :: !(Seq (TimeSpec, Int))

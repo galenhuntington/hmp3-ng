@@ -22,21 +22,15 @@ import Style
 import Playlist (File(dir, text), Dir(text))
 import State
 import Decoder
-import Text (SText, displayWidth, toMaxWidth, byteLength, toWidth, spaces, showInt, unSText)
+import Text
 import UI.HSCurses.Curses qualified as Curses
 import Keyboard (unkey)
 
 import Data.Array               ((!), bounds, Array)
 import Data.Array.Base          (unsafeAt)
-import System.IO                (stderr, hFlush)
 import System.Posix.Signals     (installHandler, Handler(..))
 
-import Foreign.C.String
-import Foreign.C.Types
 import Foreign.C.Error (Errno(..), getErrno)
-
-import Data.ByteString.Char8 qualified as P
-import Data.ByteString.Unsafe qualified as P
 
 
 newtype Draw = Draw (IO ())
@@ -314,15 +308,13 @@ drawFullLines limit y ls =
         drawLine t *> fillLine
 
 ------------------------------------------------------------------------
--- | Draw a coloured (or not) string to the screen
+-- | Draw a styled line to the screen
 drawLine :: Line -> IO ()
 drawLine = traverse_ drawSegment
 
--- | Write a single styled UTF-8 segment.  Safe because C only reads the bytes.
+-- | Write a single styled text segment.
 drawSegment :: Segment -> IO ()
-drawSegment (Seg sty s) = withStyle sty $ void $
-    P.unsafeUseAsCStringLen (unSText s) \(cstr, len) ->
-        waddnstr Curses.stdScr cstr (fromIntegral len)
+drawSegment (Seg sty s) = withStyle sty $ drawText s
 
 ------------------------------------------------------------------------
 
@@ -339,17 +331,6 @@ slice i j arr =
 
 ------------------------------------------------------------------------
 
--- | magics for setting xterm titles using ansi escape sequences
-setXtermTitle :: [SText] -> IO ()
-setXtermTitle strs = do
-    traverse_ (P.hPut stderr) (before : map unSText strs ++ [after])
-    hFlush stderr 
-  where
-    before = "\ESC]0;"
-    after  = "\007"
-
-------------------------------------------------------------------------
-
 -- set xterm title.  Don't need to do this on each refresh...
 setXterm :: HState -> IO ()
 setXterm st = setXtermTitle case st.status of
@@ -359,8 +340,4 @@ setXterm st = setXtermTitle case st.status of
         _        -> [(st.music ! st.current).text]
     Paused  -> ["paused"]
     Stopped -> ["stopped"]
-
-
-foreign import ccall safe
-    waddnstr :: Curses.Window -> CString -> CInt -> IO CInt
 

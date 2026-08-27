@@ -10,26 +10,31 @@ module Text (
     displayWidth, toMaxWidth, toWidth, byteLength,
     toText, isLineSafe,
     encodeFS,
-    unSText, -- uses: setXTermTitle and drawSegment
+    drawText, setXtermTitle
 ) where
 
 import Base
 
 import Data.ByteString.Char8 qualified as P
+import Data.ByteString.Unsafe qualified as P
 import Data.ByteString.UTF8 qualified as UTF8
 import Foreign.C.Types (CWchar(..), CInt(..))
+import Foreign.C.String
 import GHC.Foreign qualified as GHC
 import GHC.IO.Encoding (getFileSystemEncoding)
+import System.IO (stderr, hFlush)
 import Text.Regex.Posix (match, makeRegexOptsM, compIgnoreCase, compExtended, compNoSub)
+import UI.HSCurses.Curses qualified as Curses
 
 -- SText type and functions.
 
 -- | Screen/Sanitized/Safe text:
 -- A string of valid UTF-8 with only printable characters.
 newtype SText = SText ByteString
-    deriving stock (Show, Eq, Ord)
+    deriving stock (Eq, Ord, Show)
     deriving newtype (Semigroup, Monoid)
 
+-- | Convenient internal combinator.
 unSText :: SText -> ByteString
 unSText (SText bs) = bs
 
@@ -42,7 +47,6 @@ null = P.null . unSText
 byteLength :: SText -> Int
 byteLength = P.length . unSText
 
--- internally this is ByteString.
 instance IsString SText where
     fromString = SText . UTF8.fromString . map toPrintable
 
@@ -119,9 +123,9 @@ toMaxWidth = sizer False
 toWidth = sizer True
 
 sizer :: Bool -> Int -> SText -> SText
-sizer pad w s
+sizer pad w s@(SText bs)
     | dw <= w = if pad then s <> spaces (w-dw) else s
-    | True    = walk 0 (unSText s)
+    | True    = walk 0 bs
   where
     dw = displayWidth s
     byteTake i = SText . P.take i . unSText
@@ -138,4 +142,25 @@ charWidth = fromIntegral . wcwidth . toEnum . fromEnum
 
 foreign import ccall unsafe
     wcwidth :: CWchar -> CInt
+
+
+-- Curses output
+
+-- | Set xterm title with ANSI escape sequence.
+setXtermTitle :: [SText] -> IO ()
+setXtermTitle strs = do
+    traverse_ (P.hPut stderr) (before : map unSText strs ++ [after])
+    hFlush stderr
+  where
+    before = "\ESC]0;"
+    after  = "\007"
+
+-- | Draw text to Curses.  Safe because C only reads the bytes.
+drawText :: SText -> IO ()
+drawText (SText bs) = void $
+    P.unsafeUseAsCStringLen bs \(cstr, len) ->
+        waddnstr Curses.stdScr cstr (fromIntegral len)
+
+foreign import ccall safe
+    waddnstr :: Curses.Window -> CString -> CInt -> IO CInt
 
