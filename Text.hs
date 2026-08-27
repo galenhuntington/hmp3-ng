@@ -110,6 +110,6 @@ sizer pad w bs
 charWidth :: Char -> Int
 charWidth = fromIntegral . wcwidth . toEnum . fromEnum
 
-foreign import ccall safe
+foreign import ccall unsafe
     wcwidth :: CWchar -> CInt
 

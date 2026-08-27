@@ -83,7 +83,9 @@ make (i,n,acc1,acc2) (d,fs) =
         fs'= map makeFile fs
     in (i+1, n', dir:acc1, reverse fs' ++ acc2)
   where
-    makeFile f = let fn = takeFileName f in File fn i (toText $ dropExtension fn)
+    makeFile f =
+        let fn = P.copy (takeFileName f)
+        in File fn i (toText $ dropExtension fn)
 
 ------------------------------------------------------------------------
 
