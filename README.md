@@ -1,13 +1,44 @@
 [![Hackage](https://img.shields.io/hackage/v/hmp3-ng.svg)](https://hackage.haskell.org/package/hmp3-ng)
 ![Build status](https://github.com/galenhuntington/hmp3-ng/actions/workflows/haskell.yml/badge.svg)
 
-##  hmp3-ng
+`hmp3-ng` (installed as `hmp3`) is an mp3 music player that runs in
+a text terminal with a curses interface.
 
-The original `hmp3` music player, written in Haskell, dates to 2005,
-and has a curses interface for use in a text terminal.  However,
-it has become abandonware: the last update was in June 2008, and
-it no longer builds with today’s Haskell and standard libraries.
-This repository is an effort to resurrect this software.
+##  Installation
+
+Either `cabal install` or `stack install` will build a binary.
+You will need to have `mpg123` installed, which is free software and
+widely available in package managers.
+
+The build depends on the package `hscurses`, which in turn requires
+curses dev files.  In Ubuntu/Debian, for example, these can be obtained
+by installing `libncurses-dev`.
+
+##  Use
+
+The `hmp3` executable is invoked with a list of mp3 files or
+directories of mp3 files.
+
+```
+$ hmp3 ~/Music ~/Downloads/La-La.mp3
+```
+
+Once running, `hmp3` is controlled by fairly intuitive key commands.
+`h` shows a help menu, and `q` quits.  `hmp3 --help` prints a simple
+help message with command line options.
+
+A color scheme can be specified by writing out a `Config { .. }`
+value in `~/.config/hmp3/style.conf` (or wherever your XDG config is).
+See `Style.hs` for the definition.  The `l` command hot-reloads this
+configuration.
+
+## History
+
+The original `hmp3` music player, written in Haskell, dates to 2005.
+However, it has become abandonware: the last update was in June 2008,
+and it no longer builds with today’s Haskell and standard libraries.
+This repository was a fork in 2019 to resurrect this software.
+The code has since been heavily rewritten.
 
 The original Darcs repo has vanished from the Internet.  However, I
 have a copy I checked out in 2008 (to hack on!) with all the patches
@@ -53,37 +84,6 @@ preference.
 *  Work on other features and changes, and documentation, is ongoing.
 
 This is still a work in progress.  Let me know if there are problems.
-
-
-##  Installation
-
-Either `cabal install` or `stack install` will build a binary.
-You will need to have `mpg123` installed, which is free software and
-widely available in package managers.
-
-The build depends on the package `hscurses`, which in turn requires
-curses dev files.  In Ubuntu/Debian, for example, these can be obtained
-by installing `libncurses-dev`.
-
-
-##  Use
-
-The `hmp3` executable is invoked with a list of mp3 files or
-directories of mp3 files.
-
-```
-$ hmp3 ~/Music ~/Downloads/La-La.mp3
-```
-
-Once running, `hmp3` is controlled by fairly intuitive key commands.
-`h` shows a help menu, and `q` quits.  `hmp3 -h` prints a simple help
-message with command line options.
-
-A color scheme can be specified by writing out a `Config { .. }`
-value in `~/.config/hmp3/style.conf` (or wherever your XDG config is).
-See `Style.hs` for the definition.  The `l` command hot-reloads this
-configuration.
-
 
 ##  Original authorship
 
