@@ -10,7 +10,8 @@ module Text (
     displayWidth, toMaxWidth, toWidth, byteLength,
     fromBS, isLineSafe,
     encodeFS,
-    drawText, setXtermTitle
+    drawText, setXtermTitle,
+    toBS, -- only used in test suite
 ) where
 
 import Base
@@ -35,12 +36,12 @@ newtype SText = SText ByteString
     deriving newtype (Semigroup, Monoid)
 
 -- | Convenient internal combinator.
-unSText :: SText -> ByteString
-unSText (SText bs) = bs
+toBS :: SText -> ByteString
+toBS (SText bs) = bs
 
 -- | Can be used in lieu of 'displayWidth' for known 1-width-character text.
 byteLength :: SText -> Int
-byteLength = P.length . unSText
+byteLength = P.length . toBS
 
 instance IsString SText where
     fromString = SText . UTF8.fromString . toPrintable
@@ -55,7 +56,7 @@ matches s = match' <$> makeRegexOptsM (compIgnoreCase + compExtended + compNoSub
 
 -- | Possible number.
 readIntM :: SText -> Maybe Int
-readIntM = fmap fst . P.readInt . unSText
+readIntM = fmap fst . P.readInt . toBS
 
 showInt :: Int -> SText
 showInt = SText . P.pack . show
@@ -111,7 +112,7 @@ encodeFS str = do
 
 -- | Sum of the column widths of every codepoint.
 displayWidth :: SText -> Int
-displayWidth = UTF8.foldl (\acc c -> acc + charWidth c) 0 . unSText
+displayWidth = UTF8.foldl (\acc c -> acc + charWidth c) 0 . toBS
 
 -- | These functions truncate with ellipses if needed to get width ≤'w'.
 -- 'toWidth' adds padding as needed so the width is exactly 'w'.
@@ -125,7 +126,7 @@ sizer pad w s@(SText bs)
     | True    = walk 0 bs
   where
     dw = displayWidth s
-    byteTake i = SText . P.take i . unSText
+    byteTake i = SText . P.take i . toBS
     walk !l rest
         | l' >= w = byteTake (byteLength s - P.length rest) s
                         <> mconcat (replicate (w-l) "…")
@@ -146,7 +147,7 @@ foreign import ccall unsafe
 -- | Set xterm title with ANSI escape sequence.
 setXtermTitle :: [SText] -> IO ()
 setXtermTitle strs = do
-    traverse_ (P.hPut stderr) (before : map unSText strs ++ [after])
+    traverse_ (P.hPut stderr) (before : map toBS strs ++ [after])
     hFlush stderr
   where
     before = "\ESC]0;"

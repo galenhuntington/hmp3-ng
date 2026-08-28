@@ -5,6 +5,7 @@ import Test.Tasty.HUnit
 
 import Text
 import Data.ByteString.UTF8 as UTF8
+import Data.ByteString.Unsafe qualified as P
 
 -- These tests depend on wcwidth's behavior under a UTF-8 locale and on a
 -- handful of codepoints whose canonical widths are well-known:
@@ -90,13 +91,20 @@ tests = testGroup "Text"
         ]
     , testGroup "fromBS"
         [ testCase "Unicode"   $ fromBS (UTF8.fromString "encöde") @?= "encöde"
-        , testCase "bad bytes" $ fromBS ("no\130b\8y")             @?= "no�b�y"
-        , testCase "bad bytes" $ fromBS ("no\130bsy")              @?= "no�bsy"
-        , testCase "control"   $ fromBS ("nob\8dy")                @?= "nob�dy"
+        , testCase "bad bytes" $ fromBS "no\130b\8y"               @?= "no�b�y"
+        , testCase "bad bytes" $ fromBS "no\130bsy"                @?= "no�bsy"
+        , testCase "control"   $ fromBS "nob\8dy"                  @?= "nob�dy"
+        , testCase "no dupe"   $
+            let bs = UTF8.fromString "schőn" in eqRef bs (toBS $ fromBS bs)
         ]
     ]
 
 
 m :: Maybe Bool -> String -> String -> SText -> TestTree
 m b tag pat str = testCase tag $ ($ str) <$> matches (UTF8.fromString pat) @?= b
+
+-- Test memory reuse.
+eqRef :: ByteString -> ByteString -> Assertion
+eqRef a b =
+    P.unsafeUseAsCStringLen a \a' -> P.unsafeUseAsCStringLen b \b' -> a' @?= b'
 
