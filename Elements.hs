@@ -137,7 +137,7 @@ histModal hist swd = do
         mtlen = maximum $ map (displayWidth . fst) hist
         tlen = min (mtlen + 1) $ wd `div` 3
     (wd, [
-        let tstr = toMaxWidth tlen $ spaces (tlen - displayWidth time) <> time
+        let tstr = toMaxWidth tlen $ spaces (tlen - byteLength time) <> time
         in mconcat [" ", fromString [c], " ", tstr, " ", song]
         | (c, (time, (_, song))) <- zip (toList historyKeys ++ repeat ' ') hist ])
 

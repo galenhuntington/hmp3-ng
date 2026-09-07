@@ -35,11 +35,10 @@ newtype SText = SText ByteString
     deriving stock (Eq, Ord, Show)
     deriving newtype (Semigroup, Monoid)
 
--- | Convenient internal combinator.
 toBS :: SText -> ByteString
 toBS (SText bs) = bs
 
--- | Can be used in lieu of 'displayWidth' for known 1-width-character text.
+-- | Can be used in lieu of 'displayWidth' for printable ASCII text.
 byteLength :: SText -> Int
 byteLength = P.length . toBS
 
