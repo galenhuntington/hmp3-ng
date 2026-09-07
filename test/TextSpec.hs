@@ -43,17 +43,17 @@ tests = testGroup "Text"
         , testCase "whitespace" $ trim "  \tfoo bar \n"     @?= "foo bar"
         ]
     , testGroup "guessEncoding"
-        [ testCase "ASCII"    $ guessEncoding "abc"        @?= "abc"
-        , testCase "ISO-8859" $ guessEncoding "encöde"     @?= "encöde"
-        , testCase "UTF-8"    $ guessEncoding ("encöde")   @?= "encöde"
-        , testCase "control"  $ guessEncoding ("en\3öde")  @?= "en�öde"
+        [ testCase "ASCII"    $ guessEncoding "abc"      @?= "abc"
+        , testCase "ISO-8859" $ guessEncoding "encöde"   @?= "encöde"
+        , testCase "UTF-8"    $ guessEncoding "encöde"   @?= "encöde"
+        , testCase "control"  $ guessEncoding "en\3öde"  @?= "en�öde"
         ]
     , testGroup "displayWidth"
-        [ testCase "empty"             $ displayWidth ""             @?= 0
-        , testCase "ascii"             $ displayWidth "hello"        @?= 5
-        , testCase "latin-extended"    $ displayWidth ("café")       @?= 4
-        , testCase "cjk doubles each"  $ displayWidth ("中文")       @?= 4
-        , testCase "mixed"             $ displayWidth ("中a文b")     @?= 6
+        [ testCase "empty"             $ displayWidth ""           @?= 0
+        , testCase "ascii"             $ displayWidth "hello"      @?= 5
+        , testCase "latin-extended"    $ displayWidth "café"       @?= 4
+        , testCase "cjk doubles each"  $ displayWidth "中文"       @?= 4
+        , testCase "mixed"             $ displayWidth "中a文b"     @?= 6
         ]
     , testGroup "toMaxWidth"
         [ testCase "wider than input passes through"
@@ -71,11 +71,11 @@ tests = testGroup "Text"
         , testCase "wide char truncation respects boundaries"
             -- "中文hi" is 6 columns (2+2+1+1); toMaxWidth 4 keeps the first
             -- wide char plus two ellipses to fill the remaining columns.
-            $ toMaxWidth 4 ("中文hi") @?= "中……"
+            $ toMaxWidth 4 "中文hi"    @?= "中……"
         , testCase "wide char gives way to single ellipsis at the boundary"
             -- "中文" is 4 columns; toMaxWidth 3 keeps the first wide char
             -- (2 columns) plus one ellipsis (1 column).
-            $ toMaxWidth 3 ("中文")   @?= "中…"
+            $ toMaxWidth 3 "中文"      @?= "中…"
         ]
     , testGroup "toWidth"
         [ testCase "pads short ascii"
@@ -87,7 +87,7 @@ tests = testGroup "Text"
         , testCase "truncate matches toMaxWidth when over-width"
             $ toWidth 4 "hello"        @?= "hel…"
         , testCase "pads after a wide-char content too"
-            $ toWidth 5 ("中a")        @?= "中a  "
+            $ toWidth 5 "中a"          @?= "中a  "
         ]
     , testGroup "fromBS"
         [ testCase "Unicode"   $ fromBS (UTF8.fromString "encöde") @?= "encöde"
