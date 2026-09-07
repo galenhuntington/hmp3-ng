@@ -100,8 +100,8 @@ tests = testGroup "Text"
     ]
 
 
-m :: Maybe Bool -> String -> String -> SText -> TestTree
-m b tag pat str = testCase tag $ ($ str) <$> matches (UTF8.fromString pat) @?= b
+m :: Maybe Bool -> String -> SText -> SText -> TestTree
+m b tag pat str = testCase tag $ ($ str) <$> matches pat @?= b
 
 -- Test memory reuse.
 eqRef :: ByteString -> ByteString -> Assertion

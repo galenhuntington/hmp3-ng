@@ -50,9 +50,10 @@ spaces :: Int -> SText
 spaces = SText . flip P.replicate ' '
 
 -- | Swappable API for searching
-matches :: ByteString -> Maybe (SText -> Bool)
-matches s = match' <$> makeRegexOptsM (compIgnoreCase + compExtended + compNoSub) 0 s
-    where match' re (SText bs) = match re bs  -- TODO a combinator for this?
+matches :: SText -> Maybe (SText -> Bool)
+matches (SText s) =
+    match' <$> makeRegexOptsM (compIgnoreCase + compExtended + compNoSub) 0 s
+  where match' re (SText bs) = match re bs  -- TODO a combinator for this?
 
 -- | Possible number.
 readIntM :: SText -> Maybe Int

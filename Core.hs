@@ -424,7 +424,7 @@ jumpToDir fn = modifyHS_ \st ->
 setSearchErr :: HState -> SText -> HState
 setSearchErr st err = st { minibuffer = [plainSeg err] }
 
-search :: SearchType -> ByteString -> IO ()
+search :: SearchType -> SText -> IO ()
 search typ pat = modifyHS_ \st ->
     dispatchSearch (st { searchType = typ }) pat typ
 
@@ -434,7 +434,7 @@ repeatSearch same = modifyHS_ \st -> case st.searchHist of
         st.searchType { isForwards = st.searchType.isForwards == same }
     _       -> setSearchErr st "No previous search."
 
-dispatchSearch :: HState -> ByteString -> SearchType -> HState
+dispatchSearch :: HState -> SText -> SearchType -> HState
 dispatchSearch st pat typ =
     either (setSearchErr st) (\i -> st { cursor = i }) case typ of
         SearchType True fw ->
@@ -445,7 +445,7 @@ dispatchSearch st pat typ =
             pure (st.folders ! j).start
 
 genericMatch :: HasText a
-    => ByteString -> Bool -> Array Int a -> Int -> Int
+    => SText -> Bool -> Array Int a -> Int -> Int
     -> Either SText Int
 genericMatch pat fw fs cur sz = do
     let l = if fw then [cur+1 .. sz-1] ++ [0 .. cur]

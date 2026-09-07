@@ -46,7 +46,7 @@ data HState = HState
     , mode            :: !Mode
     , uptime          :: !SText
     , searchType      :: !SearchType
-    , searchHist      :: ![ByteString]
+    , searchHist      :: ![SText]
     , playHist        :: !(Seq (TimeSpec, Int))
     , uiStyle         :: !UIStyle
     }

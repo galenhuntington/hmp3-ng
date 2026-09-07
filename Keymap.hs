@@ -2,14 +2,13 @@
 -- Copyright (c) 2008, 2019-2026 Galen Huntington
 -- SPDX-License-Identifier: GPL-2.0-or-later
 
---
 -- | Keymap manipulation.
 --
 -- Each "mode" of the keymap is a 'KeyMap': a closure that consumes one
 -- keystroke and returns the 'KeyMap' to use for the next one.  Modal
 -- transitions (entering search, popping up the song-history modal,
 -- confirming a quit) are just "return a different 'KeyMap'."
---
+
 module Keymap (keyLoop, keyTable, unkey, charToKey, dropLastUTF8) where
 
 import Base
@@ -19,7 +18,7 @@ import Elements (package)
 import Keyboard (unkey, charToKey, Key(..), historyKeys)
 import State (getsHS, modifyHS_, KeysHelp, Modal(..), HState(..), SearchType(..), mpgRef, Mpg(..))
 import Style (plainSeg)
-import Text (SText, dropLastUTF8, fromBS)
+import Text (SText, dropLastUTF8, fromBS, toBS)
 import UI qualified (getKey, resetui)
 
 import Control.Monad.Trans.Maybe
@@ -61,7 +60,8 @@ mainMode = KeyMap \c -> getsHS (.modal) >>= \case
     _ -> if
         | c `elem` ['/', '?', '\\', '|'] -> do
             toggleFocus
-            hist <- getsHS (.searchHist)
+            -- Search text can be transitorily invalid so we drop to ByteString
+            hist <- map toBS <$> getsHS (.searchHist)
             searchMode c $ Zipper "" hist []
         | c >= '1' && c <= '9' ->
             jumpRel (fromIntegral (fromEnum c - 48) / 10) $> mainMode
@@ -104,7 +104,8 @@ searchMode stype = step where
       where k = charToKey c
 
     commit (Zipper ""  _ _) = clearMessage *> leave
-    commit (Zipper pat _ _) = do
+    commit (Zipper raw _ _) = do
+        let pat = fromBS raw
         search (SearchType (stype `elem` ['/', '?']) (stype `elem` ['/', '\\'])) pat
         modifyHS_ \st -> st { searchHist = pat : filter (/= pat) st.searchHist }
         leave
@@ -113,7 +114,7 @@ searchMode stype = step where
         let z' = case z of
                 Zipper _ b (pv:rest) -> Zipper pv b rest
                 Zipper _ b _         -> Zipper "" b []
-        modifyHS_ \st -> st { searchHist = filter (/= z.cur) st.searchHist }
+        modifyHS_ \st -> st { searchHist = filter (/= fromBS z.cur) st.searchHist }
         step z'
 
     leave = toggleFocus $> mainMode
