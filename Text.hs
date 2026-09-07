@@ -8,7 +8,7 @@ module Text (
     trim, spaces, guessEncoding, dropLastUTF8,
     readIntM, showInt,
     displayWidth, toMaxWidth, toWidth, byteLength,
-    fromBS, isLineSafe,
+    fromBS, isLineSafe, fromChar,
     encodeFS,
     drawText, setXtermTitle,
     toBS, -- only used in test suite
@@ -82,6 +82,10 @@ fromBS bs = SText $
     if P.null bad then bs else UTF8.fromString $ toPrintable $ UTF8.toString bs
   where
     (_, bad) = UTF8.span (\c -> c /= UTF8.replacement_char && isPrintable c) bs
+
+fromChar :: Char -> SText
+fromChar c = SText $ UTF8.fromChar $
+    if isPrintable c then c else UTF8.replacement_char
 
 
 -- ByteString utilities.
