@@ -9,11 +9,8 @@
 
 module UI (
     runDraw,
-    -- * Construction, destruction
     start, end, screenSize, refresh, refreshClock, resetui,
-    -- * Input
     getKey,
-    -- * Tool
   ) where
 
 import Base

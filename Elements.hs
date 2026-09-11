@@ -128,7 +128,7 @@ helpModal help swd = (wd, map showLine help) where
                 Curses.KeyEnd       -> "End"
                 Curses.KeyHome      -> "Home"
                 Curses.KeyBackspace -> "Backspace"
-                _                   -> fromChar c
+                _                   -> Text.singleton c
 
 histModal :: HistDisplay -> ModalMaker
 histModal []   _   = let s = "  No history  " in (byteLength s, [s])
@@ -138,7 +138,7 @@ histModal hist swd = do
         tlen = min (mtlen + 1) $ wd `div` 3
     (wd, [
         let tstr = toMaxWidth tlen $ spaces (tlen - byteLength time) <> time
-        in mconcat [" ", fromChar c, " ", tstr, " ", song]
+        in mconcat [" ", Text.singleton c, " ", tstr, " ", song]
         | (c, (time, (_, song))) <- zip (toList historyKeys ++ repeat ' ') hist ])
 
 exitModal :: ModalMaker

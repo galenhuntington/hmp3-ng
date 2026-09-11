@@ -3,8 +3,9 @@ module TextSpec (tests) where
 import Test.Tasty
 import Test.Tasty.HUnit
 
+import Base
 import Text
-import Data.ByteString.UTF8 as UTF8
+import Data.ByteString.UTF8 qualified as UTF8
 import Data.ByteString.Unsafe qualified as P
 
 -- These tests depend on wcwidth's behavior under a UTF-8 locale and on a

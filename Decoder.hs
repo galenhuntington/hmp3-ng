@@ -10,7 +10,7 @@ module Decoder (
 ) where
 
 import Base
-import Text (SText, trim, readIntM, showInt, guessEncoding, fromBS)
+import Text
 
 import Data.ByteString.Char8 qualified as P
 
@@ -98,7 +98,7 @@ doI :: ByteString -> Maybe Msg
 doI s = I <$> do
     ("ID3:", info) <- pure $ P.splitAt 4 s
     let id3 = parseId3 info
-    guard $ id3.title /= "" -- title sometimes empty
+    guard $ notNull id3.title -- title sometimes empty
     pure id3
 
 -- Format: title (30), author (30), album (30), year (4), comment (30), genre
@@ -109,7 +109,7 @@ parseId3 = toId . cut where
           | True     = let (a, xs) = P.splitAt 30 f
                        in guessEncoding (trim a) : cut xs
     toId ls = Id3 (arg 0) (arg 1) (arg 2) $ mconcat $ intersperse " : "
-        $ filter (/="") [arg 1, arg 2, arg 0]
+        $ filter notNull [arg 1, arg 2, arg 0]
       where arg = fromMaybe "" . (ls !?)
 
 -- Parse line; on failure, return Just only if error to report.

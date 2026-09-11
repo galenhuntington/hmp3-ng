@@ -8,8 +8,8 @@ module Text (
     trim, spaces, guessEncoding, dropLastUTF8,
     readIntM, showInt,
     displayWidth, toMaxWidth, toWidth, byteLength,
-    fromBS, isLineSafe, fromChar, toBS,
-    encodeFS,
+    fromBS, Text.singleton, toBS,
+    notNull, encodeFS,isLineSafe,
 ) where
 
 import Base
@@ -42,6 +42,10 @@ instance IsString SText where
 
 spaces :: Int -> SText
 spaces = SText . flip P.replicate ' '
+
+-- More convenient than null, I find.
+notNull :: SText -> Bool
+notNull (SText bs) = not $ P.null bs
 
 -- | Swappable API for searching
 matches :: SText -> Maybe (SText -> Bool)
@@ -78,8 +82,8 @@ fromBS bs = SText $
   where
     (_, bad) = UTF8.span (\c -> c /= UTF8.replacement_char && isPrintable c) bs
 
-fromChar :: Char -> SText
-fromChar c = SText $ UTF8.fromChar $
+singleton :: Char -> SText
+singleton c = SText $ UTF8.fromChar $
     if isPrintable c then c else UTF8.replacement_char
 
 
