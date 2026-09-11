@@ -28,9 +28,14 @@ import Keyboard (unkey)
 
 import Data.Array               ((!), bounds, Array)
 import Data.Array.Base          (unsafeAt)
+import Data.ByteString.Char8 qualified as P
+import Data.ByteString.Unsafe qualified as P
+import System.IO (stderr, hFlush)
 import System.Posix.Signals     (installHandler, Handler(..))
 
 import Foreign.C.Error (Errno(..), getErrno)
+import Foreign.C.String
+import Foreign.C.Types (CInt(..))
 
 
 newtype Draw = Draw (IO ())
@@ -316,6 +321,12 @@ drawLine = traverse_ drawSegment
 drawSegment :: Segment -> IO ()
 drawSegment (Seg sty s) = withStyle sty $ drawText s
 
+-- | Draw text to Curses.  Safe because C only reads the bytes.
+drawText :: SText -> IO ()
+drawText s = void $
+    P.unsafeUseAsCStringLen (toBS s) \(cstr, len) ->
+        waddnstr Curses.stdScr cstr (fromIntegral len)
+
 ------------------------------------------------------------------------
 
 -- | Fill to end of line spaces
@@ -331,6 +342,15 @@ slice i j arr =
 
 ------------------------------------------------------------------------
 
+-- | Set xterm title with ANSI escape sequence.
+setXtermTitle :: [SText] -> IO ()
+setXtermTitle strs = do
+    traverse_ (P.hPut stderr) (before : map toBS strs ++ [after])
+    hFlush stderr
+  where
+    before = "\ESC]0;"
+    after  = "\007"
+
 -- set xterm title.  Don't need to do this on each refresh...
 setXterm :: HState -> IO ()
 setXterm st = setXtermTitle case st.status of
@@ -340,4 +360,7 @@ setXterm st = setXtermTitle case st.status of
         _        -> [(st.music ! st.current).text]
     Paused  -> ["paused"]
     Stopped -> ["stopped"]
+
+foreign import ccall safe
+    waddnstr :: Curses.Window -> CString -> CInt -> IO CInt
 
