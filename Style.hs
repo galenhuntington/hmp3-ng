@@ -7,6 +7,7 @@
 module Style where
 
 import Base
+import Text (SText)
 import UI.HSCurses.Curses qualified as Curses
 import Data.Map qualified as M
 
@@ -45,8 +46,8 @@ data Hue = Black | Red | Green | Yellow | Blue | Magenta | Cyan | White
 data Style = Style !Color !Color
     deriving stock (Eq,Ord)
 
--- | A styled UTF-8 ByteString segment.
-data Segment = Seg !Style {-# UNPACK #-} !ByteString
+-- | A styled text segment.
+data Segment = Seg !Style {-# UNPACK #-} !SText
 
 -- | A line of segments.
 type Line = [Segment]
@@ -197,7 +198,7 @@ defaultSty = Style Default Default
 style :: String -> String -> Style
 style a b = let f = fromJust . stringToColor in Style (f a) (f b)
 
-plainSeg :: ByteString -> Segment
+plainSeg :: SText -> Segment
 plainSeg = Seg defaultSty
 
 ------------------------------------------------------------------------
