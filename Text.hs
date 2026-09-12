@@ -60,6 +60,10 @@ readIntM = fmap fst . P.readInt . toBS
 showInt :: Int -> SText
 showInt = SText . P.pack . show
 
+replacementChar :: Char
+replacementChar =
+    if charWidth UTF8.replacement_char == 1 then UTF8.replacement_char else '='
+
 -- | If seeming ISO-8859-1, convert to UTF-8.
 guessEncoding :: ByteString -> SText
 guessEncoding bs =
@@ -72,7 +76,7 @@ isPrintable c = c /= '\0' && charWidth c >= 0
 
 -- | Blot out control and other unprintable characters.
 toPrintable :: String -> String
-toPrintable = map \c -> if isPrintable c then c else UTF8.replacement_char
+toPrintable = map \c -> if isPrintable c then c else replacementChar
 
 -- | ByteString to displayable text.
 -- Pre-checks for common case of already printable.
@@ -84,7 +88,7 @@ fromBS bs = SText $
 
 singleton :: Char -> SText
 singleton c = SText $ UTF8.fromChar $
-    if isPrintable c then c else UTF8.replacement_char
+    if isPrintable c then c else replacementChar
 
 
 -- ByteString utilities.
