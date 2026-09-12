@@ -34,23 +34,20 @@ showClock t =
         (m, s) = t `divMod'` 60
         si     = floor s
         sd     = floor (s*10) `mod` 10
-    in fromString $ printf "%d:%02d.%d" m si sd
+    in mconcat [showInt m, ":", show2D si, ".", showInt sd]
 
 -- | Human-friendly duration, with a flag to include seconds.
 showDuration :: Bool -> TimeSpec -> SText
-showDuration showSecs tm
-    | ms == 0 && showSecs
-              = go ""
-    | hs == 0 = go $ printf "%dm" m
-    | d == 0  = go $ printf "%dh%02dm" h m
-    | True    = go $ printf "%dd%02dh%02dm" d h m
+showDuration showSecs tm =
+    case dropWhile ((==0) . fst) parts of
+        (tv, tu) : l ->
+            mconcat $ showInt tv : tu : foldMap (\ (v, u) -> [show2D v, u]) l
+        _ -> "0" <> (if showSecs then "s" else "m")
   where
-    go      = fromString . ss
-    (ms, s) = sec tm `quotRem` 60
+    parts   = [(d, "d"), (h, "h"), (m, "m")] ++ (if showSecs then [(s, "s")]  else [])
+    (ms, s) = fromIntegral (sec tm) `quotRem` 60
     (hs, m) = ms `quotRem` 60
     (d, h)  = hs `quotRem` 24
-    ss      =
-        if showSecs then (<> printf (if ms > 0 then "%02ds" else "%ds") s) else id
 
 -- | The time used and time left
 pTimes :: Int -> Maybe Frame -> SText

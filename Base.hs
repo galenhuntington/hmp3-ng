@@ -29,7 +29,6 @@ import Data.Word as X
 import System.Exit as X
 import System.IO as X (Handle, hClose)
 import System.IO.Unsafe as X
-import Text.Printf as X
 import Text.Read as X (readMaybe)
 
 import System.Clock

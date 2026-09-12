@@ -6,7 +6,7 @@
 module Text (
     SText, matches,
     trim, spaces, guessEncoding, dropLastUTF8,
-    readIntM, showInt,
+    readIntM, showInt, show2D,
     width, toMaxWidth, toWidth,
     fromBS, Text.singleton, toBS,
     notNull, encodeFS,isLineSafe,
@@ -64,6 +64,12 @@ readIntM = fmap fst . P.readInt . toBS
 
 showInt :: Int -> SText
 showInt = fromAsciiBS . P.pack . show
+
+-- | Show Int from 0 to 99 as two digits.
+show2D :: Int -> SText
+show2D n = SText (P.pack [dtc d1, dtc d0]) 2 where
+    (d1, d0) = n `quotRem` 10
+    dtc = toEnum . (48 +)
 
 replacementChar :: Char
 replacementChar =
