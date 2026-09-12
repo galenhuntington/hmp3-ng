@@ -35,9 +35,7 @@ instance Semigroup SText where
     s <> t = SText (s.string <> t.string) (s.width + t.width)
 instance Monoid SText where
     mempty = SText "" 0
-    -- mconcat l = SText (mconcat $ map (.string) l) (sum $ map (.width) l)
-    mconcat l = SText (mconcat sl) (sum wl) where
-        (sl, wl) = unzip [ (s, w) | SText s w <- l ]
+    mconcat l = SText (P.concat $ map (.string) l) (sum $ map (.width) l)
 instance IsString SText where
     fromString s = let bs = UTF8.fromString $ toPrintable s in SText bs (stringWidth bs)
 
