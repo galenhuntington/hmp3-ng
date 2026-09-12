@@ -139,7 +139,7 @@ sizer pad w s@(SText bs dw)
   where
     walk !l rest
         | l' >= w = P.take (P.length bs - P.length rest) bs
-                        <> mconcat (replicate (w-l) "…")
+                        <> mconcat (replicate (w-l) $ toBS "…")
         | True    = walk l' rest'
       where
         (c, rest') = fromJust $ UTF8.uncons rest -- can't be at end since dw>w

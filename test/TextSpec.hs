@@ -49,12 +49,12 @@ tests = testGroup "Text"
         , testCase "UTF-8"    $ guessEncoding "encöde"   @?= "encöde"
         , testCase "control"  $ guessEncoding "en\3öde"  @?= "en�öde"
         ]
-    , testGroup "displayWidth"
-        [ testCase "empty"             $ displayWidth ""           @?= 0
-        , testCase "ascii"             $ displayWidth "hello"      @?= 5
-        , testCase "latin-extended"    $ displayWidth "café"       @?= 4
-        , testCase "cjk doubles each"  $ displayWidth "中文"       @?= 4
-        , testCase "mixed"             $ displayWidth "中a文b"     @?= 6
+    , testGroup "width"
+        [ testCase "empty"             $ width ""           @?= 0
+        , testCase "ascii"             $ width "hello"      @?= 5
+        , testCase "latin-extended"    $ width "café"       @?= 4
+        , testCase "cjk doubles each"  $ width "中文"       @?= 4
+        , testCase "mixed"             $ width "中a文b"     @?= 6
         ]
     , testGroup "toMaxWidth"
         [ testCase "wider than input passes through"
