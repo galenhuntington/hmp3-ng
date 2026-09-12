@@ -11,6 +11,7 @@ import State
 import Text
 import Paths_hmp3_ng (version)
 
+import Data.List.NonEmpty qualified as NE
 import System.Clock
 import UI.HSCurses.Curses qualified as Curses
 
@@ -39,11 +40,10 @@ showClock t =
 -- | Human-friendly duration, with a flag to include seconds.
 showDuration :: Bool -> TimeSpec -> SText
 showDuration showSecs tm =
-    case dropWhile ((==0) . fst) parts of
-        (tv, tu) : l ->
-            mconcat $ showInt tv : tu : foldMap (\ (v, u) -> [show2D v, u]) l
-        _ -> "0" <> (if showSecs then "s" else "m")
+    render $ dropWhile ((==0) . fst) (init parts) `NE.prependList` pure (last parts)
   where
+    render ((tv, tu) :| l) =
+        mconcat $ showInt tv : tu : foldMap (\ (v, u) -> [show2D v, u]) l
     parts   = [(d, "d"), (h, "h"), (m, "m")] ++ (if showSecs then [(s, "s")]  else [])
     (ms, s) = fromIntegral (sec tm) `quotRem` 60
     (hs, m) = ms `quotRem` 60

@@ -20,6 +20,7 @@ import Data.Functor as X hiding (unzip)
 import Data.IORef as X
 import Data.List as X hiding ((!?))
 import Data.Maybe as X
+import Data.List.NonEmpty as X (NonEmpty(..))
 import Data.Sequence as X (Seq, (<|), (|>))
 import Data.String as X
 import Data.Traversable as X
