@@ -7,7 +7,7 @@ module Text (
     SText, matches,
     trim, spaces, guessEncoding, dropLastUTF8,
     readIntM, showInt,
-    displayWidth, toMaxWidth, toWidth, byteLength,
+    width, toMaxWidth, toWidth,
     fromBS, Text.singleton, toBS,
     notNull, encodeFS,isLineSafe,
 ) where
@@ -26,39 +26,46 @@ import Text.Regex.Posix (match, makeRegexOptsM, compIgnoreCase, compExtended, co
 
 -- | Screen/Sanitized/Safe text:
 -- A string of valid UTF-8 with only printable characters.
-newtype SText = SText ByteString
-    deriving stock (Eq, Ord, Show)
-    deriving newtype (Semigroup, Monoid)
+data SText = SText
+    { string :: !ByteString
+    , width  :: !Int
+    } deriving stock (Eq, Show)
+
+instance Semigroup SText where
+    s <> t = SText (s.string <> t.string) (s.width + t.width)
+instance Monoid SText where
+    mempty = SText "" 0
+    -- mconcat l = SText (mconcat $ map (.string) l) (sum $ map (.width) l)
+    mconcat l = SText (mconcat sl) (sum wl) where
+        (sl, wl) = unzip [ (s, w) | SText s w <- l ]
+instance IsString SText where
+    fromString s = let bs = UTF8.fromString $ toPrintable s in SText bs (stringWidth bs)
 
 toBS :: SText -> ByteString
-toBS (SText bs) = bs
+toBS = (.string)
 
--- | Can be used in lieu of 'displayWidth' for printable ASCII text.
-byteLength :: SText -> Int
-byteLength = P.length . toBS
-
-instance IsString SText where
-    fromString = SText . UTF8.fromString . toPrintable
+width :: SText -> Int
+width = (.width)
 
 spaces :: Int -> SText
-spaces = SText . flip P.replicate ' '
+spaces n = SText (P.replicate n ' ') n
 
 -- More convenient than null, I find.
 notNull :: SText -> Bool
-notNull (SText bs) = not $ P.null bs
+notNull = not . P.null . (.string)
 
 -- | Swappable API for searching
 matches :: SText -> Maybe (SText -> Bool)
-matches (SText s) =
+matches (SText s _) =
     match' <$> makeRegexOptsM (compIgnoreCase + compExtended + compNoSub) 0 s
-  where match' re (SText bs) = match re bs  -- TODO a combinator for this?
+  where match' re (SText bs _) = match re bs
 
 -- | Possible number.
 readIntM :: SText -> Maybe Int
 readIntM = fmap fst . P.readInt . toBS
 
 showInt :: Int -> SText
-showInt = SText . P.pack . show
+showInt = fromAsciiBS . P.pack . show
 
 replacementChar :: Char
 replacementChar =
@@ -81,14 +88,16 @@ toPrintable = map \c -> if isPrintable c then c else replacementChar
 -- | ByteString to displayable text.
 -- Pre-checks for common case of already printable.
 fromBS :: ByteString -> SText
-fromBS bs = SText $
-    if P.null bad then bs else UTF8.fromString $ toPrintable $ UTF8.toString bs
-  where
+fromBS bs = SText s (stringWidth s) where
     (_, bad) = UTF8.span (\c -> c /= UTF8.replacement_char && isPrintable c) bs
+    s = if P.null bad then bs else UTF8.fromString $ toPrintable $ UTF8.toString bs
+
+fromAsciiBS :: ByteString -> SText
+fromAsciiBS s = SText s (P.length s)
 
 singleton :: Char -> SText
-singleton c = SText $ UTF8.fromChar $
-    if isPrintable c then c else replacementChar
+singleton c = SText (UTF8.fromChar c') (charWidth c')
+    where c' = if isPrintable c then c else replacementChar
 
 
 -- ByteString utilities.
@@ -117,10 +126,6 @@ encodeFS str = do
 -- Width operations on 'SText', using libc 'wcwidth'.
 -- A UTF-8 runtime locale is presumed; counts may differ otherwise.
 
--- | Sum of the column widths of every codepoint.
-displayWidth :: SText -> Int
-displayWidth = UTF8.foldl (\acc c -> acc + charWidth c) 0 . toBS
-
 -- | These functions truncate with ellipses if needed to get width ≤'w'.
 -- 'toWidth' adds padding as needed so the width is exactly 'w'.
 toMaxWidth, toWidth :: Int -> SText -> SText
@@ -128,19 +133,20 @@ toMaxWidth = sizer False
 toWidth = sizer True
 
 sizer :: Bool -> Int -> SText -> SText
-sizer pad w s@(SText bs)
+sizer pad w s@(SText bs dw)
     | dw <= w = if pad then s <> spaces (w-dw) else s
-    | True    = walk 0 bs
+    | True    = SText (walk 0 bs) w
   where
-    dw = displayWidth s
-    byteTake i = SText . P.take i . toBS
     walk !l rest
-        | l' >= w = byteTake (byteLength s - P.length rest) s
+        | l' >= w = P.take (P.length bs - P.length rest) bs
                         <> mconcat (replicate (w-l) "…")
         | True    = walk l' rest'
       where
         (c, rest') = fromJust $ UTF8.uncons rest -- can't be at end since dw>w
         l'         = l + charWidth c
+
+stringWidth :: ByteString -> Int
+stringWidth = UTF8.foldl (\acc c -> acc + charWidth c) 0
 
 charWidth :: Char -> Int
 charWidth = fromIntegral . wcwidth . toEnum . fromEnum

@@ -55,22 +55,22 @@ showDuration showSecs tm
 -- | The time used and time left
 pTimes :: Int -> Maybe Frame -> SText
 pTimes w clock
-    | w - 4 < byteLength elapsed = ""
-    | True                       =
+    | w - 4 < width elapsed = ""
+    | True                  =
         mconcat $ ["  ", elapsed] ++ [gap <> "-" <> left | distance > 0]
   where
     elapsed  = showClock (maybe 0 (.elapsed) clock)
     left     = maybe "?:??.?" (showClock . (.left)) clock
     gap      = spaces distance
-    distance = w - 5 - byteLength elapsed - byteLength left
+    distance = w - 5 - width elapsed - width left
 
 -- | Progress out of total
 progress :: Int -> Maybe Frame -> Int
-progress width = maybe 0 \fr ->
+progress w = maybe 0 \fr ->
     let total    = curr + toRational fr.left - ε
         curr     = toRational fr.elapsed
         ε        = 1 / 200
-    in ceiling (curr * fromIntegral (width - 1) / total)
+    in ceiling (curr * fromIntegral (w - 1) / total)
 
 data Fit = Fit { wide :: !Bool, padL :: !Int, padR :: !Int, ctake :: !Int }
     deriving stock Show
@@ -98,7 +98,7 @@ layoutLCR w (left, centerS, right) = mconcat [
     if fit.wide then right else ""
     ]
   where
-    fit = fitLCR w (byteLength left, length centerS, byteLength right)
+    fit = fitLCR w (width left, length centerS, width right)
 
 
 -- Modals
@@ -131,13 +131,13 @@ helpModal help swd = (wd, map showLine help) where
                 _                   -> Text.singleton c
 
 histModal :: HistDisplay -> ModalMaker
-histModal []   _   = let s = "  No history  " in (byteLength s, [s])
+histModal []   _   = let s = "  No history  " in (width s, [s])
 histModal hist swd = do
     let wd = commonModalWidth swd
-        mtlen = maximum $ map (displayWidth . fst) hist
+        mtlen = maximum $ map (width . fst) hist
         tlen = min (mtlen + 1) $ wd `div` 3
     (wd, [
-        let tstr = toMaxWidth tlen $ spaces (tlen - byteLength time) <> time
+        let tstr = toMaxWidth tlen $ spaces (tlen - width time) <> time
         in mconcat [" ", Text.singleton c, " ", tstr, " ", song]
         | (c, (time, (_, song))) <- zip (toList historyKeys ++ repeat ' ') hist ])
 
