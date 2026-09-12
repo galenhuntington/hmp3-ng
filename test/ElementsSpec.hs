@@ -8,11 +8,29 @@ import System.Clock (TimeSpec(..))
 
 import Base
 import Text (width, fromBS)
-import Elements (showDuration, fitLCR, layoutLCR, Fit(..))
+import Elements (showClock, showDuration, fitLCR, layoutLCR, Fit(..))
 
 tests :: TestTree
 tests = testGroup "Elements"
-    [ testGroup "showDuration (showSecs=False)"
+    [ testGroup "showClock"
+        [ testCase "zero"
+            $ showClock 0       @?= "0:00.0"
+        , testCase "seconds are zero-padded"
+            $ showClock 9.99    @?= "0:09.9"
+        , testCase "hundredths are truncated"
+            $ showClock 0.09    @?= "0:00.0"
+        , testCase "ten seconds"
+            $ showClock 10      @?= "0:10.0"
+        , testCase "just before one minute"
+            $ showClock 59.99   @?= "0:59.9"
+        , testCase "exactly one minute"
+            $ showClock 60      @?= "1:00.0"
+        , testCase "minutes, seconds, and tenths"
+            $ showClock 61.23   @?= "1:01.2"
+        , testCase "hours are displayed as total minutes"
+            $ showClock 3600    @?= "60:00.0"
+        ]
+    , testGroup "showDuration (showSecs=False)"
         [ testCase "under a minute is 0m"
             $ showDuration False (t 30)    @?= "0m"
         , testCase "exactly one minute"
@@ -73,4 +91,3 @@ fitTests = sequence_ do
                     replicate csz 'x',
                     fromBS $ P.replicate rsz 'x')
         assertEqual ("String width: " ++ show inp ++ " -> " ++ show s) w $ width s
-
