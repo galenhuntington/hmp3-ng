@@ -8,7 +8,7 @@ module Text (
     trim, spaces, guessEncoding, dropLastUTF8,
     readIntM, showInt, show2D,
     width, toMaxWidth, toWidth,
-    fromBS, Text.singleton, toBS,
+    fromBS, toBS, fromChar,
     notNull, encodeFS,isLineSafe,
 ) where
 
@@ -99,8 +99,8 @@ fromBS bs = SText s (stringWidth s) where
 fromAsciiBS :: ByteString -> SText
 fromAsciiBS s = SText s (P.length s)
 
-singleton :: Char -> SText
-singleton c = SText (UTF8.fromChar c') (charWidth c')
+fromChar :: Char -> SText
+fromChar c = SText (UTF8.fromChar c') (charWidth c')
     where c' = if isPrintable c then c else replacementChar
 
 
