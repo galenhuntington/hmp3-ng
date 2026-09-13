@@ -49,12 +49,12 @@ tests = testGroup "Text"
         , testCase "UTF-8"    $ guessEncoding "encöde"   @?= "encöde"
         , testCase "control"  $ guessEncoding "en\3öde"  @?= "en�öde"
         ]
-    , testGroup "displayWidth"
-        [ testCase "empty"             $ displayWidth ""           @?= 0
-        , testCase "ascii"             $ displayWidth "hello"      @?= 5
-        , testCase "latin-extended"    $ displayWidth "café"       @?= 4
-        , testCase "cjk doubles each"  $ displayWidth "中文"       @?= 4
-        , testCase "mixed"             $ displayWidth "中a文b"     @?= 6
+    , testGroup "width"
+        [ testCase "empty"             $ width ""           @?= 0
+        , testCase "ascii"             $ width "hello"      @?= 5
+        , testCase "latin-extended"    $ width "café"       @?= 4
+        , testCase "cjk doubles each"  $ width "中文"       @?= 4
+        , testCase "mixed"             $ width "中a文b"     @?= 6
         ]
     , testGroup "toMaxWidth"
         [ testCase "wider than input passes through"
@@ -91,12 +91,16 @@ tests = testGroup "Text"
             $ toWidth 5 "中a"          @?= "中a  "
         ]
     , testGroup "fromBS"
-        [ testCase "Unicode"   $ fromBS (UTF8.fromString "encöde") @?= "encöde"
-        , testCase "bad bytes" $ fromBS "no\130b\8y"               @?= "no�b�y"
-        , testCase "bad bytes" $ fromBS "no\130bsy"                @?= "no�bsy"
-        , testCase "control"   $ fromBS "nob\8dy"                  @?= "nob�dy"
-        , testCase "no dupe"   $
+        [ testCase "Unicode"     $ fromBS (UTF8.fromString "encöde") @?= "encöde"
+        , testCase "bad bytes"   $ fromBS "no\130b\8y"               @?= "no�b�y"
+        , testCase "worse bytes" $ fromBS "no\130bsy"                @?= "no�bsy"
+        , testCase "control"     $ fromBS "nob\8dy"                  @?= "nob�dy"
+        , testCase "no dupe"     $
             let bs = UTF8.fromString "schőn" in eqRef bs (toBS $ fromBS bs)
+        ]
+    , testGroup "spaces"
+        [ testCase "two"      $ spaces 2    @?= "  "
+        , testCase "negative" $ spaces (-1) @?= ""
         ]
     ]
 

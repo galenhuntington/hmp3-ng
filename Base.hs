@@ -20,6 +20,7 @@ import Data.Functor as X hiding (unzip)
 import Data.IORef as X
 import Data.List as X hiding ((!?))
 import Data.Maybe as X
+import Data.List.NonEmpty as X (NonEmpty(..))
 import Data.Sequence as X (Seq, (<|), (|>))
 import Data.String as X
 import Data.Traversable as X
@@ -29,7 +30,6 @@ import Data.Word as X
 import System.Exit as X
 import System.IO as X (Handle, hClose)
 import System.IO.Unsafe as X
-import Text.Printf as X
 import Text.Read as X (readMaybe)
 
 import System.Clock

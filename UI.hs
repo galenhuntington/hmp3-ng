@@ -146,8 +146,8 @@ pPlaying dd = pure $ plainSeg $ "  " <> mconcat line where
     b = fromMaybe "" dd.drawState.info  -- mp3 info
     line | gap >= 0 = a : spaces gap : right
          | True     = toMaxWidth lim a : right
-        where lim = x - 5 - (if showId3 then displayWidth b else -1)
-              gap = lim - displayWidth a
+        where lim = x - 5 - (if showId3 then width b else -1)
+              gap = lim - width a
               showId3 = x > 59
               right = if showId3 then [" ", b] else []
 
@@ -188,9 +188,9 @@ pMode dd = take 4 $ map toLower $ show dd.drawState.mode
 -- | "x/n dirs y/m files" cursor position read-out.
 playInfo :: DrawData -> SText
 playInfo DD{drawState=st} = mconcat
-    [ spaces (byteLength numd - byteLength curd)
+    [ spaces (width numd - width curd)
     , curd, "/", numd, " dirs"
-    , spaces (1 + byteLength numf - byteLength curf)
+    , spaces (1 + width numf - width curf)
     , curf, "/", numf, " files"
     ]
   where
@@ -244,13 +244,13 @@ playList buflen DD{ drawWidth=w, drawState=st } =
         (_   , True) -> f sty1
         _            -> (defaultSty, [s])
       where
-        f sty = (sty, [s, spaces (w - indent - 1 - displayWidth s)])
+        f sty = (sty, [s, spaces (w - indent - 1 - width s)])
 
     drawIt :: (Maybe Int, (Style, [SText])) -> Line
     drawIt (Nothing, (sty, v)) =
         map (Seg sty) $ spaces (1 + indent) : v
     drawIt (Just i, (sty, v)) = Seg sty' d
-        : Seg sty' (spaces (indent + 1 - displayWidth d))
+        : Seg sty' (spaces (indent + 1 - width d))
         : map (Seg sty) v
       where
         sty' = if sty == sty2 || sty == sty3 then sty2 else sty1
