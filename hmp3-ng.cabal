@@ -43,7 +43,7 @@ common opts
 
 library
   import: opts
-  hs-source-dirs: ./
+  hs-source-dirs: src
   exposed-modules:
     Base
     Core
