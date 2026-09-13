@@ -6,7 +6,7 @@
 module Text (
     SText, matches,
     trim, spaces, guessEncoding, dropLastUTF8,
-    readIntM, showInt, show2D,
+    readIntM, showInt, show02d,
     width, toMaxWidth, toWidth,
     fromBS, toBS, fromChar,
     notNull, encodeFS,isLineSafe,
@@ -46,7 +46,8 @@ width :: SText -> Int
 width = (.width)
 
 spaces :: Int -> SText
-spaces n = SText (P.replicate n ' ') n
+spaces n | n > 0 = SText (P.replicate n ' ') n
+         | True  = ""
 
 -- More convenient than null, I find.
 notNull :: SText -> Bool
@@ -63,12 +64,12 @@ readIntM :: SText -> Maybe Int
 readIntM = fmap fst . P.readInt . toBS
 
 showInt :: Int -> SText
-showInt = fromAsciiBS . P.pack . show
+showInt = unsafeFromAsciiBS . P.pack . show
 
 -- | Show Int from 0 to 99 as two digits.
-show2D :: Int -> SText
-show2D n = SText (P.pack [dtc d1, dtc d0]) 2 where
-    (d1, d0) = n `quotRem` 10
+show02d :: Int -> SText
+show02d n = SText (P.pack [dtc d1, dtc d0]) 2 where
+    (d1, d0) = (n `mod` 100) `quotRem` 10
     dtc = toEnum . (48 +)
 
 replacementChar :: Char
@@ -96,8 +97,8 @@ fromBS bs = SText s (stringWidth s) where
     (_, bad) = UTF8.span (\c -> c /= UTF8.replacement_char && isPrintable c) bs
     s = if P.null bad then bs else UTF8.fromString $ toPrintable $ UTF8.toString bs
 
-fromAsciiBS :: ByteString -> SText
-fromAsciiBS s = SText s (P.length s)
+unsafeFromAsciiBS :: ByteString -> SText
+unsafeFromAsciiBS s = SText s (P.length s)
 
 fromChar :: Char -> SText
 fromChar c = SText (UTF8.fromChar c') (charWidth c')
@@ -136,6 +137,9 @@ toMaxWidth, toWidth :: Int -> SText -> SText
 toMaxWidth = sizer False
 toWidth = sizer True
 
+ellipsis :: ByteString
+ellipsis = if charWidth '…' == 1 then UTF8.fromChar '…' else "-"
+
 sizer :: Bool -> Int -> SText -> SText
 sizer pad w s@(SText bs dw)
     | dw <= w = if pad then s <> spaces (w-dw) else s
@@ -143,7 +147,7 @@ sizer pad w s@(SText bs dw)
   where
     walk !l rest
         | l' >= w = P.take (P.length bs - P.length rest) bs
-                        <> mconcat (replicate (w-l) $ toBS "…")
+                        <> mconcat (replicate (w-l) ellipsis)
         | True    = walk l' rest'
       where
         (c, rest') = fromJust $ UTF8.uncons rest -- can't be at end since dw>w

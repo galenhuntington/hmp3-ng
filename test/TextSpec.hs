@@ -91,12 +91,16 @@ tests = testGroup "Text"
             $ toWidth 5 "中a"          @?= "中a  "
         ]
     , testGroup "fromBS"
-        [ testCase "Unicode"   $ fromBS (UTF8.fromString "encöde") @?= "encöde"
-        , testCase "bad bytes" $ fromBS "no\130b\8y"               @?= "no�b�y"
-        , testCase "bad bytes" $ fromBS "no\130bsy"                @?= "no�bsy"
-        , testCase "control"   $ fromBS "nob\8dy"                  @?= "nob�dy"
-        , testCase "no dupe"   $
+        [ testCase "Unicode"     $ fromBS (UTF8.fromString "encöde") @?= "encöde"
+        , testCase "bad bytes"   $ fromBS "no\130b\8y"               @?= "no�b�y"
+        , testCase "worse bytes" $ fromBS "no\130bsy"                @?= "no�bsy"
+        , testCase "control"     $ fromBS "nob\8dy"                  @?= "nob�dy"
+        , testCase "no dupe"     $
             let bs = UTF8.fromString "schőn" in eqRef bs (toBS $ fromBS bs)
+        ]
+    , testGroup "spaces"
+        [ testCase "two"      $ spaces 2    @?= "  "
+        , testCase "negative" $ spaces (-1) @?= ""
         ]
     ]
 

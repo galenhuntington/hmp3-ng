@@ -35,7 +35,7 @@ showClock t =
         (m, s) = t `divMod'` 60
         si     = floor s
         sd     = floor (s*10) `mod` 10
-    in mconcat [showInt m, ":", show2D si, ".", showInt sd]
+    in mconcat [showInt m, ":", show02d si, ".", showInt sd]
 
 -- | Human-friendly duration, with a flag to include seconds.
 showDuration :: Bool -> TimeSpec -> SText
@@ -43,8 +43,8 @@ showDuration showSecs tm =
     render $ dropWhile ((==0) . fst) (init parts) `NE.prependList` pure (last parts)
   where
     render ((tv, tu) :| l) =
-        mconcat $ showInt tv : tu : foldMap (\ (v, u) -> [show2D v, u]) l
-    parts   = [(d, "d"), (h, "h"), (m, "m")] ++ (if showSecs then [(s, "s")]  else [])
+        mconcat $ showInt tv : tu : foldMap (\ (v, u) -> [show02d v, u]) l
+    parts   = [(d, "d"), (h, "h"), (m, "m")] ++ [ (s, "s") | showSecs ]
     (ms, s) = fromIntegral (sec tm) `quotRem` 60
     (hs, m) = ms `quotRem` 60
     (d, h)  = hs `quotRem` 24
