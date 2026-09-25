@@ -52,6 +52,7 @@ library
     Keyboard
     Keymap
     Playlist
+    Regex
     State
     Style
     Text
@@ -79,7 +80,6 @@ library
     posix-paths,
     process,
     random,
-    regex-posix,
     transformers,
     unix >=2.8,
     utf8-string,

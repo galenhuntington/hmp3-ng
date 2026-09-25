@@ -68,7 +68,7 @@ up-to-date packages from Hackage.  Much old code has now been
 “outsourced” and simplified.
 
 *  All C code is removed, replaced with libraries from Hackage.
-There is still some use of the FFI.
+There is still some use of the FFI and hsc.
 
 *  Unicode is supported in titles and filenames, and Unicode glyphs
 are utilized in the interface.
