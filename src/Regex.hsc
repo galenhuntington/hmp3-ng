@@ -5,13 +5,13 @@ import Base
 import Data.ByteString qualified as P
 import Data.ByteString.Unsafe qualified as P
 import Data.Int -- needed for whatever regoff_t might be
-import Foreign.C.Types
-import Foreign.C.String
+import Foreign.C.Types (CInt(..), CSize(..))
+import Foreign.C.String (CString)
 import Foreign.Concurrent (newForeignPtr)
 import Foreign.ForeignPtr hiding (newForeignPtr)
 import Foreign.Marshal.Alloc
-import Foreign.Ptr
-import Foreign.Storable
+import Foreign.Ptr (Ptr, nullPtr)
+import Foreign.Storable (pokeByteOff)
 
 #include <regex.h>
 
