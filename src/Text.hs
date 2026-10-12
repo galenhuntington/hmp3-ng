@@ -13,13 +13,13 @@ module Text (
 ) where
 
 import Base
+import Regex qualified
 
 import Data.ByteString.Char8 qualified as P
 import Data.ByteString.UTF8 qualified as UTF8
 import Foreign.C.Types (CWchar(..), CInt(..))
 import GHC.Foreign qualified as GHC
 import GHC.IO.Encoding (getFileSystemEncoding)
-import Text.Regex.Posix (match, makeRegexOptsM, compIgnoreCase, compExtended, compNoSub)
 
 
 -- SText type and functions.
@@ -55,9 +55,8 @@ notNull = not . P.null . (.string)
 
 -- | Swappable API for searching
 matches :: SText -> Maybe (SText -> Bool)
-matches (SText s _) =
-    match' <$> makeRegexOptsM (compIgnoreCase + compExtended + compNoSub) 0 s
-  where match' re (SText bs _) = match re bs
+matches (SText s _) = match <$> Regex.compile s
+  where match re (SText bs _) = Regex.exec re bs
 
 -- | Possible number.
 readIntM :: SText -> Maybe Int
