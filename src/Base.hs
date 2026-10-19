@@ -17,6 +17,7 @@ import Data.Either as X
 import Data.Fixed as X
 import Data.Foldable as X
 import Data.Functor as X hiding (unzip)
+import Data.Function as X (fix)
 import Data.IORef as X
 import Data.List as X hiding ((!?))
 import Data.Maybe as X
