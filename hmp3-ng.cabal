@@ -41,6 +41,11 @@ common opts
     -Wall
     -Wprepositive-qualified-module
 
+  -- hiding unzip and (!?)
+  if impl(ghc <9.8)
+    ghc-options:
+      -Wno-dodgy-imports
+
 library
   import: opts
   hs-source-dirs: src
