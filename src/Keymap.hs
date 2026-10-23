@@ -19,7 +19,7 @@ import Keyboard (unkey, charToKey, Key(..), historyKeys)
 import State (getsHS, modifyHS_, KeysHelp, Modal(..), HState(..), SearchType(..), mpgRef, Mpg(..))
 import Style (plainSeg)
 import Text (SText, dropLastUTF8, fromBS, toBS)
-import UI qualified (getKey, resetui)
+import UI qualified (getKey, resetui, suspend)
 
 import Control.Monad.Trans.Maybe
 import Data.ByteString.Char8 qualified as P
@@ -178,6 +178,7 @@ quietKeys =
     , ('[',              adjFolderCol (-1))
     , (']',              adjFolderCol 1)
     , ('\^C',            controlC)
+    , ('\^Z',            UI.suspend)
     ]
 
 -- Compiled dispatch table for normal-mode single-key commands.

@@ -9,7 +9,7 @@
 
 module UI (
     runDraw,
-    start, end, screenSize, refresh, refreshClock, resetui,
+    start, end, screenSize, refresh, refreshClock, resetui, suspend,
     getKey,
   ) where
 
@@ -28,7 +28,10 @@ import Data.Array.Base          (unsafeAt)
 import Data.ByteString.Char8 qualified as P
 import Data.ByteString.Unsafe qualified as P
 import System.IO (stderr, hFlush)
-import System.Posix.Signals     (installHandler, Handler(..))
+import System.Posix.IO          (stdInput)
+import System.Posix.Process     (getProcessGroupID)
+import System.Posix.Signals     (installHandler, Handler(..), signalProcessGroup, sigSTOP)
+import System.Posix.Terminal    (getTerminalProcessGroupID)
 
 import Foreign.C.Error (Errno(..), getErrno)
 import Foreign.C.String
@@ -44,8 +47,6 @@ drawLock = unsafePerformIO $ newMVar ()
 
 runDraw :: Draw -> IO ()
 runDraw (Draw io) = withMVar drawLock $ const io
-
-------------------------------------------------------------------------
 
 -- | Initialize the UI
 start :: IO UIStyle
@@ -79,6 +80,20 @@ end = do
     takeMVar drawLock        -- we keep so no one tries to draw
     setXtermTitle ["xterm"]  -- XXX I don't see this title after exit?
     Curses.endWin
+
+-- | Hand the terminal back to the shell and stop jobs.
+suspend :: IO ()
+suspend = do
+    withMVar drawLock \_ -> do
+        Curses.endWin
+        pg <- getProcessGroupID
+        fix \loop -> do
+            -- The RTS catches/re-raises SIGTSTP, which would leave races.
+            signalProcessGroup sigSTOP pg
+            fg <- (== pg) <$> getTerminalProcessGroupID stdInput
+            unless fg loop -- keep suspended if backgrounded
+        Curses.refresh
+    resetui
 
 -- | Find the current screen height and width.
 screenSize :: IO (Int, Int)
