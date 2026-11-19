@@ -2,17 +2,11 @@ on: [push]
 name: build
 jobs:
   cabal:
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        system: ['ubuntu-latest']
-        ghc: ['9.2.1', '9.12', 'latest']
-        include:
-          - system: ubuntu-22.04
-            ghc: latest
-          - system: ubuntu-26.04
-            ghc: latest
-    name: GHC ${{ matrix.ghc }} on ${{ matrix.system }}
-    runs-on: ${{ matrix.system }}
+        ghc: ['9.2.1', '9.10', '9.12', 'latest']
+    name: GHC ${{ matrix.ghc }}
     steps:
       - uses: actions/checkout@v6
       - uses: haskell-actions/setup@v2
