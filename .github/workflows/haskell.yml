@@ -14,6 +14,14 @@ jobs:
           ghc-version: ${{ matrix.ghc }}
       - run: cabal build all
       - run: cabal test all --test-show-details=streaming
+  oldest:
+    runs-on: ubuntu-latest
+    name: Cabal Oldest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: haskell-actions/setup@v2
+      - run: cabal build all --prefer-oldest
+      - run: cabal test all --prefer-oldest --test-show-details=streaming
   stack:
     runs-on: 'ubuntu-latest'
     name: Stack
