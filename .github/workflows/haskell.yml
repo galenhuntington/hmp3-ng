@@ -8,7 +8,7 @@ jobs:
         ghc: ['9.2.1', '9.10', '9.12', 'latest']
     name: GHC ${{ matrix.ghc }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: haskell-actions/setup@v2
         with:
           ghc-version: ${{ matrix.ghc }}
@@ -18,7 +18,7 @@ jobs:
     runs-on: 'ubuntu-latest'
     name: Stack
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: haskell-actions/setup@v2
         with:
           enable-stack: true
