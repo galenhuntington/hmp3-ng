@@ -16,12 +16,14 @@ jobs:
       - run: cabal test all --test-show-details=streaming
   oldest:
     runs-on: ubuntu-latest
-    name: Cabal Oldest
+    name: Cabal oldest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: haskell-actions/setup@v2
-      - run: cabal build all --prefer-oldest
-      - run: cabal test all --prefer-oldest --test-show-details=streaming
+        with:
+          ghc-version: '9.2.1'
+      - run: cabal build all --enable-tests --prefer-oldest
+      - run: cabal test all --enable-tests --prefer-oldest --test-show-details=streaming
   stack:
     runs-on: 'ubuntu-latest'
     name: Stack
